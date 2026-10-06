@@ -10,7 +10,7 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var TEMA_SURUM = 'v4';
+  var TEMA_SURUM = 'v5';
   window.RONYA_TEMA = TEMA_SURUM;
 
   /* ---------- 1. ARAÇ LİSTESİ (ana sayfadaki gruplar) ----------
@@ -217,7 +217,8 @@
     /* Portal (duyurular, haftanın sorusu, galeri) */
     '.rp-slide-emoji{display:none!important;}',
     '.rp-carousel{box-shadow:none!important;border-radius:16px!important;}',
-    '.rp-slide{padding:26px 60px!important;}',
+    '.rp-slide{padding:26px 60px!important;color:#fff!important;}',
+    '.rp-slide *{color:#fff!important;-webkit-text-fill-color:#fff!important;}',
     '.rp-gallery-empty,.rp-section-title:has(+ .rp-gallery-empty){display:none!important;}',
     '.rp-slide-title{font-family:var(--rk-display)!important;font-size:21px!important;font-weight:700!important;}',
     '.rp-slide-desc{font-size:14.5px!important;}',
@@ -315,7 +316,15 @@
     'html #s-home [style*="color:#fff"]:not(.rp-slide *){color:#14110F!important;}',
     'html ::selection{background:#FFF1E9;}',
 
-    '@media (max-width:820px){.rk-hero .rk-wrap{grid-template-columns:1fr}.rk-el{justify-self:stretch;max-width:440px;width:100%}}',
+    '@media (max-width:820px){.rk-hero .rk-wrap{grid-template-columns:1fr}.rk-el{justify-self:stretch;max-width:440px;width:100%}',
+    /* Telefonda günün elementi: kısa, yatay kart */
+    '.rk-tile{aspect-ratio:auto;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:20px;row-gap:6px;padding:20px 20px 18px;border-radius:16px;}',
+    '.rk-sym{grid-column:1;grid-row:1/3;align-self:center;font-size:72px;min-width:1.3em;}',
+    '.rk-tile-top{grid-column:2;grid-row:1;font-size:15px;}',
+    '.rk-tile > span:last-child{grid-column:2;grid-row:2;align-self:end;}',
+    '.rk-name{font-size:22px;}',
+    '.rk-facts{margin-top:10px;}',
+    '.rk-hero{padding-bottom:20px;}}',
     '@media (max-width:560px){.rk-tools{grid-template-columns:1fr}.rk-jump{display:none}}',
     /* Akıllı tahta ve büyük ekran */
     '@media (min-width:1600px){#s-home{--rk-w:1400px;zoom:1.12}}',

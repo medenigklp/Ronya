@@ -169,6 +169,14 @@
     '.hero h1{text-shadow:none!important;}',
     '.toast{font-family:var(--rk-body)!important;}',
 
+    /* Ayrı sayfalar (test.html vb.) */
+    '.test-baslik{font-family:var(--rk-display)!important;color:var(--tx)!important;font-size:21px!important;font-weight:700!important;}',
+    '.form-label,.kesif-baslik{text-transform:none!important;letter-spacing:0!important;font-size:13.5px!important;}',
+    '.panel-baslik .icon,.yukle-icon{display:none!important;}',
+    '#dosya-input{display:none!important;}',
+    'header .rk-homebtn{height:44px;padding:0 16px!important;border-radius:12px!important;border:1px solid var(--br2)!important;background:transparent!important;color:var(--tx)!important;font:500 15px var(--rk-body)!important;}',
+    'header .rk-homebtn:hover{background:var(--sf2)!important;}',
+
     /* Portal (duyurular, haftanın sorusu, galeri) */
     '.rp-slide-emoji{display:none!important;}',
     '.rp-carousel{box-shadow:none!important;border-radius:16px!important;}',
@@ -435,7 +443,7 @@
   var EMO;
   try { EMO = new RegExp('^(?:[\\p{Extended_Pictographic}\\u{1F1E6}-\\u{1F1FF}\\uFE0F\\u200D\\u20E3]|[0-9#*]\\uFE0F?\\u20E3)+\\s*', 'u'); }
   catch (e) { EMO = null; }
-  var TARGETS = 'h1,h2,h3,h4,h5,.ptitle,button,.tab,.ltab,.slbl,.rp-section-title,label';
+  var TARGETS = 'h1,h2,h3,h4,h5,.ptitle,button,.tab,.ltab,.slbl,.rp-section-title,label,.test-baslik,.panel-baslik,.org-tablo-baslik,.kesif-baslik';
 
   function stripOne(el) {
     if (!EMO || el.closest('.rk-tile,svg,canvas,#pt-real-grid')) return;
@@ -512,6 +520,11 @@
     if (b && !b.querySelector('svg')) {
       b.innerHTML = icon('menu');
       b.setAttribute('aria-label', 'Menüyü aç');
+    }
+    /* Ayrı sayfalarda sağ üstteki ☰ aslında ana sayfaya dönüyor: adını doğru koy */
+    if (!b) {
+      var h = document.querySelector('header > button[onclick*="index.html"]');
+      if (h) { h.className = 'rk-homebtn'; h.removeAttribute('style'); h.textContent = 'Ana sayfa'; }
     }
   }
 

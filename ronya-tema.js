@@ -10,6 +10,8 @@
    ========================================================================== */
 (function () {
   'use strict';
+  var TEMA_SURUM = 'v4';
+  window.RONYA_TEMA = TEMA_SURUM;
 
   /* ---------- 1. ARAÇ LİSTESİ (ana sayfadaki gruplar) ----------
      Yeni bir ekran eklersen buraya bir satır eklemen yeterli:
@@ -451,7 +453,7 @@
       h += '</ul></div></section>';
     });
 
-    h += '<footer class="rk-foot"><div class="rk-wrap">Ronya Kimya, Medeni Gökalp tarafından hazırlanıyor.</div></footer>';
+    h += '<footer class="rk-foot"><div class="rk-wrap">Ronya Kimya, Medeni Gökalp tarafından hazırlanıyor. <span style="opacity:.6">Tema ' + TEMA_SURUM + '</span></div></footer>';
     return h;
   }
 
@@ -766,8 +768,10 @@
   function convRules(rules) {
     for (var i = 0; i < rules.length; i++) {
       var r = rules[i];
-      if (r.style) convDecl(r.style, null, null);
-      if (r.cssRules) convRules(r.cssRules);
+      try {
+        if (r.style) convDecl(r.style, null, null);
+        if (r.cssRules) convRules(r.cssRules);
+      } catch (e) {}
     }
   }
   function convSheets() {
@@ -783,7 +787,8 @@
     }
   }
   var doneEl = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
-  function convEl(el) {
+  function convEl(el) { try { convEl2(el); } catch (e) {} }
+  function convEl2(el) {
     if (el.closest && el.closest('.rk-tile,.rk-ico,#rk-tema-css')) return;
     var done = doneEl ? (doneEl.get(el) || {}) : {};
     if (el.hasAttribute('style')) convDecl(el.style, el, done);
@@ -835,14 +840,15 @@
   /* ---------- BAŞLAT ---------- */
   injectHead();
   buildHome();          // eklenti ve portal çalışmadan ÖNCE ana sayfayı kur
+  function safe(fn) { try { fn(); } catch (e) { if (window.console) console.warn('ronya-tema:', e); } }
   function start() {
-    startLight();
-    fixHeader();
-    fixUppercase();
-    fixMenu();
-    stripIn(document.body);
-    fixTitles();
-    watch();
+    safe(startLight);
+    safe(fixHeader);
+    safe(fixUppercase);
+    safe(fixMenu);
+    safe(function () { stripIn(document.body); });
+    safe(fixTitles);
+    safe(watch);
     /* eklenti element verisini zenginleştirdikten sonra kartı yeniden çiz */
     showElement(curEl || (((Math.floor(Date.now() / 86400000)) * 37) % 118) + 1, false);
     setTimeout(function () { showElement(curEl, false); }, 1200);

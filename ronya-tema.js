@@ -286,6 +286,27 @@
     '.potasyum{--c:var(--potasyum)}.kobalt{--c:var(--kobalt)}.bakir{--c:var(--bakir)}.sodyum{--c:var(--sodyum)}.lityum{--c:var(--lityum)}',
     '.rk-foot{border-top:1px solid var(--br);padding:28px 0 calc(env(safe-area-inset-bottom,0px) + 36px);color:var(--tx3);font-size:14.5px;}',
 
+    /* ---------- Ana sayfa: kimyamed renkleri (açık zemin) ----------
+       Yalnızca ana sayfa açıkken geçerli; diğer ekranlar koyu kalır. */
+    'html.rk-on-home{--bg:#FBF8F5;--sf:#FFFFFF;--sf2:#F4EFEA;--br:#E7E0D9;--br2:#D9D0C7;',
+    '--tx:#14110F;--tx2:#5C554F;--tx3:#7A726B;--ac:#F85300;--ac2:#C54200;--ac3:#A33700;',
+    '--kobalt:#F85300;--bakir:#0B5C8A;--sodyum:#1B6B4A;--potasyum:#5B3A8C;--lityum:#B42318;}',
+    'html.rk-on-home,html.rk-on-home body{background:#FBF8F5!important;color:#14110F;}',
+    'html.rk-on-home header{background:rgba(251,248,245,.94)!important;border-bottom-color:#E7E0D9!important;}',
+    'html.rk-on-home header .logo{-webkit-text-fill-color:#14110F!important;color:#14110F!important;}',
+    'html.rk-on-home header .logo-sub{-webkit-text-fill-color:#5C554F!important;}',
+    'html.rk-on-home .hmb:hover,html.rk-on-home #mn button:hover{background:#F4EFEA!important;}',
+    'html.rk-on-home .rk-btn-primary{background:#14110F;color:#fff;}',
+    'html.rk-on-home .rk-btn-primary:hover{background:#F85300;}',
+    'html.rk-on-home .rk-btn-ghost{background:#fff;}',
+    'html.rk-on-home .rk-ico{background:color-mix(in srgb,var(--c) 10%,#fff);}',
+    'html.rk-on-home .rk-tool:hover{background:#fff;}',
+    'html.rk-on-home .rk-search{background:#fff;}',
+    'html.rk-on-home .rk-tile{border-color:#E7E0D9;}',
+    'html.rk-on-home #s-home .card{background:#fff!important;border-color:#E7E0D9!important;}',
+    'html.rk-on-home #s-home [style*="color:#fff"]:not(.rp-slide *){color:#14110F!important;}',
+    'html.rk-on-home ::selection{background:#FFF1E9;}',
+
     '@media (max-width:820px){.rk-hero .rk-wrap{grid-template-columns:1fr}.rk-el{justify-self:stretch;max-width:440px;width:100%}}',
     '@media (max-width:560px){.rk-tools{grid-template-columns:1fr}.rk-jump{display:none}}',
     /* Akıllı tahta ve büyük ekran */
@@ -595,6 +616,17 @@
     stripIn(document.body);
     fixTitles();
     watch();
+    /* Hangi ekranın açık olduğunu izle: ana sayfada açık renkler */
+    var setMode = function (id) { document.documentElement.classList.toggle('rk-on-home', id === 'home'); };
+    var home = document.getElementById('s-home');
+    if (home) {
+      setMode(home.style.display === 'none' ? '' : 'home');
+      if (typeof window.nav === 'function' && !window.__rkTemaNav) {
+        window.__rkTemaNav = true;
+        var _nav = window.nav;
+        window.nav = function (id) { var r = _nav.apply(this, arguments); setMode(id); return r; };
+      }
+    }
     /* eklenti element verisini zenginleştirdikten sonra kartı yeniden çiz */
     showElement(curEl || (((Math.floor(Date.now() / 86400000)) * 37) % 118) + 1, false);
     setTimeout(function () { showElement(curEl, false); }, 1200);

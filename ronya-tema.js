@@ -14,8 +14,8 @@
   /* ---------- 1. ARAÇ LİSTESİ (ana sayfadaki gruplar) ----------
      Yeni bir ekran eklersen buraya bir satır eklemen yeterli:
      [ekran-adı, başlık, kısa açıklama, ikon]
-     Ekran adı nav('...') içinde kullandığın addır. Dış bağlantı için
-     'EXT:https://...' yaz.                                              */
+     Ekran adı nav('...') içinde kullandığın addır. Ayrı sayfa için
+     'URL:sayfa.html', dış site için 'EXT:https://...' yaz.                                              */
   var GROUPS = [
     { id: 'rk-ders', title: 'Ders çalış', color: 'kobalt',
       sub: 'Tema 2 konuları: MEB konu anlatımı ve çözümlü sorular.',
@@ -37,27 +37,41 @@
         ['gaz', 'Gaz yasaları', 'Boyle, Charles, Gay-Lussac ve ideal gaz denklemi.', 'piston'],
         ['cozelti', 'Çözelti simülatörü', 'Mol, hacim ve molarite arasındaki ilişki.', 'flask'],
         ['izotop', 'İzotop ve çap', 'İzotop, izobar ve izoton ilişkisini bul.', 'iso'],
-        ['cmp', 'Element karşılaştır', 'İki elementin özelliklerini yan yana gör.', 'compare']
+        ['cmp', 'Element karşılaştır', 'İki elementin özelliklerini yan yana gör.', 'compare'],
+        ['URL:kcc.html', 'Kçç hesaplayıcı', 'İyon derişimlerinden çözünürlük çarpımını hesapla.', 'beaker']
       ] },
-    { id: 'rk-kesfet', title: 'Keşfet ve dene', color: 'sodyum',
-      sub: 'Periyodik tablo, 3D modeller ve sanal deneyler.',
+    { id: 'rk-gorsel', title: 'Görselleştir', color: 'sodyum',
+      sub: 'Periyodik tablo, orbitaller ve 3D moleküller.',
       items: [
         ['pt', 'Periyodik tablo', '118 elementin bilgileri ve periyodik özelliklerin değişimi.', 'table'],
-        ['lab3d', '3D laboratuvar', 'Laboratuvar malzemelerini döndür, yakınlaştır, incele.', 'cube'],
+        ['URL:orbital.html', 'Orbitaller ve VSEPR', '3D atom orbitalleri ve molekül geometrileri.', 'atom'],
         ['bagSim', 'Lewis yapıları', 'Moleküllerde bağ ve ortaklanmamış elektron çiftleri.', 'bond'],
+        ['wi', 'Etkileşimler', 'Moleküller arası etkileşimleri incele.', 'dipole'],
         ['hc', 'Hidrokarbonlar 3D', 'Hidrokarbon moleküllerini üç boyutta incele.', 'hex'],
         ['fg', 'Fonksiyonel gruplar 3D', 'Alkol, aldehit, keton, karboksilik asit, ester ve eter.', 'mol'],
-        ['wi', 'Etkileşimler', 'Moleküller arası etkileşimleri incele.', 'dipole'],
-        ['gv', 'Galvanik hücre 3D', 'Anot, katot ve tuz köprüsünde elektron ve iyon akışı.', 'cell'],
-        ['elz', 'Elektroliz laboratuvarı', 'Elektroliz düzeneğinde iyonların hareketini izle.', 'elz'],
-        ['rxntype', 'Tepkime türleri', 'Tepkimeleri türüne göre sınıflandır.', 'sort'],
-        ['alev', 'Alev testi', 'Metal iyonlarının alev renkleri.', 'flame'],
+        ['URL:organik.html', 'Organik kimya', 'Fonksiyonel gruplar, adlandırma kuralları ve izomeri.', 'hex'],
+        ['URL:molekul-cizici.html', 'Molekül çizici', "2D yapı çiz, PubChem'de ara, 3D modelini incele.", 'draw'],
+        ['lab3d', '3D laboratuvar', 'Laboratuvar malzemelerini döndür, yakınlaştır, incele.', 'cube'],
         ['lab', 'Laboratuvar malzemeleri', 'Ne işe yarar, nasıl kullanılır, nelere dikkat edilir.', 'tube'],
         ['risk', 'Risk piktogramları', 'GHS/CLP güvenlik işaretleri ve anlamları.', 'warn']
+      ] },
+    { id: 'rk-deney', title: 'Sanal deney', color: 'potasyum',
+      sub: 'Değişkenleri değiştir, sonucu anında gör.',
+      items: [
+        ['URL:simulasyonlar.html', 'Kimya simülasyonları', 'Asit-baz, atom modelleri, katılar ve daha fazlası.', 'sim'],
+        ['URL:gaz-lab.html', 'Gaz laboratuvarı', 'Piston düzenekleri, kinetik teori, Graham difüzyonu.', 'gaslab'],
+        ['URL:denge.html', 'Denge kinetiği', 'Le Chatelier etkilerini derişim-zaman grafiğinde izle.', 'eq'],
+        ['URL:elektro.html', 'Elektrokimyasal hücre', 'Galvanik hücre, Nernst denklemi ve pil potansiyeli.', 'cell'],
+        ['gv', 'Galvanik hücre 3D', 'Anot, katot ve tuz köprüsünde elektron ve iyon akışı.', 'cell'],
+        ['elz', 'Elektroliz laboratuvarı', 'Elektroliz düzeneğinde iyonların hareketini izle.', 'elz'],
+        ['URL:seri-kaplar.html', 'Seri kaplar', 'Seri bağlı elektroliz kaplarında ürünleri karşılaştır.', 'elz'],
+        ['rxntype', 'Tepkime türleri', 'Tepkimeleri türüne göre sınıflandır.', 'sort'],
+        ['alev', 'Alev testi', 'Metal iyonlarının alev renkleri.', 'flame']
       ] },
     { id: 'rk-sinav', title: 'Sınava hazırlan', color: 'lityum',
       sub: 'Kendini dene, eksiğini bul, düzenli çalış.',
       items: [
+        ['URL:test.html', 'Konu testleri', 'Konu ve soru sayısını seç, testi çöz.', 'list'],
         ['quiz', 'Element testi', 'Sembol ve isim eşleştirme. Yanlış yaptıkların takip edilir.', 'symbol'],
         ['flashcard', 'Bilgi kartları', 'Kimyasal bileşik kartlarıyla tekrar yap.', 'cards'],
         ['yks', 'YKS geri sayım', "TYT ve AYT'ye kalan süre.", 'clock'],
@@ -105,6 +119,11 @@
     trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3.4 4M16 6h3a3 3 0 0 1-3.4 4M12 13v4M8 20.5h8M9.5 17h5v3.5"/>',
     video: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10 9.2v5.6l4.6-2.8z" fill="currentColor"/>',
     cap: '<path d="M2 9.5 12 5l10 4.5-10 4.5zM6 11.3V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.7M22 9.5v5"/>',
+    atom: '<circle cx="12" cy="12" r="1.6" fill="currentColor"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(-60 12 12)"/>',
+    draw: '<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/>',
+    sim: '<path d="M3 17c3-8 6-8 9 0s6 8 9 0M3 21h18"/>',
+    gaslab: '<circle cx="12" cy="12" r="8.5"/>' + '<circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="13" cy="15" r="1.2" fill="currentColor" stroke="none"/><path d="M10.4 10.6l1.8.9M15.6 10.3l-1.2 1.4"/>',
+    list: '<path d="M10 6h10M10 12h10M10 18h10M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
     close: '<path d="M6 6l12 12M18 6 6 18"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>'
@@ -119,11 +138,13 @@
     ':root{--bg:#0E1524;--sf:#141C2E;--sf2:#1A2438;--sf3:#212C43;--br:#26324A;--br2:#33415E;',
     '--ac:#4F6FE8;--ac2:#8EA4F7;--ac3:#B7C5FA;--gr:#34C38F;--rd:#EF5A6F;--yw:#F0B83C;--cy:#3CC8D8;',
     '--tx:#E9EDF4;--tx2:#AAB4C5;--tx3:#7C879D;--r:12px;--rsm:8px;--rlg:16px;--rxl:20px;',
-    '--kobalt:#7D95F2;--bakir:#3CC8A0;--sodyum:#F0B83C;--lityum:#F2708A;',
+    '--kobalt:#7D95F2;--bakir:#3CC8A0;--sodyum:#F0B83C;--lityum:#F2708A;--potasyum:#B98CF0;',
     '--rk-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;',
     '--rk-body:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;}',
 
-    'html,body{background:var(--bg)!important;font-family:var(--rk-body)!important;-webkit-font-smoothing:antialiased;}',
+    'html:not(.rk-lite),html:not(.rk-lite) body{background:var(--bg)!important;}',
+    'html,body{font-family:var(--rk-body)!important;-webkit-font-smoothing:antialiased;}',
+    '[style*="uppercase"]{text-transform:none!important;letter-spacing:0!important;}',
     'button,input,select,textarea,.btn,.inp,.sel,.ob,.ob2,.tab,.ltab,.nxt,.cat-btn,.trend-btn{font-family:var(--rk-body)!important;}',
     '.ptitle,.logo,.sbig,.rpct,.cdv,.pomtm,.rb .rv,.phval,.si .sv,.rstat .v,.tc .tt,h1,h2,h3,#pt-real-grid,[style*="Space Grotesk"]{font-family:var(--rk-display)!important;}',
     '[style*="Inter"]{font-family:var(--rk-body)!important;}',
@@ -133,8 +154,8 @@
     'header{position:sticky;top:0;z-index:100;background:rgba(14,21,36,.88)!important;border-bottom:1px solid var(--br)!important;',
     'padding:max(10px,env(safe-area-inset-top)) clamp(14px,4vw,32px) 10px!important;}',
     'header img{width:38px!important;height:38px!important;border-radius:10px!important;}',
-    '.logo{background:none!important;-webkit-text-fill-color:var(--tx)!important;color:var(--tx)!important;font-size:21px!important;font-weight:700!important;letter-spacing:-.01em!important;}',
-    '.logo-sub{-webkit-text-fill-color:var(--tx2)!important;font-family:var(--rk-display)!important;font-size:21px!important;font-weight:500!important;margin-left:5px!important;}',
+    'header .logo{background:none!important;-webkit-text-fill-color:var(--tx)!important;color:var(--tx)!important;font-size:21px!important;font-weight:700!important;letter-spacing:-.01em!important;}',
+    'header .logo-sub{-webkit-text-fill-color:var(--tx2)!important;font-family:var(--rk-display)!important;font-size:21px!important;font-weight:500!important;margin-left:5px!important;}',
     '.hmb{width:44px;height:44px;padding:0!important;font-size:0!important;border:1px solid var(--br2)!important;border-radius:12px!important;color:var(--tx)!important;}',
     '.hmb svg{width:22px;height:22px;}',
     '.hmb:hover{background:var(--sf2)!important;}',
@@ -174,6 +195,14 @@
     '.form-label,.kesif-baslik{text-transform:none!important;letter-spacing:0!important;font-size:13.5px!important;}',
     '.panel-baslik .icon,.yukle-icon{display:none!important;}',
     '#dosya-input{display:none!important;}',
+    '.rlogo,[onclick*="index.html"] [style*="background-clip"]{background:none!important;-webkit-text-fill-color:#E9EDF4!important;color:#E9EDF4!important;font-family:var(--rk-display)!important;font-weight:700!important;}',
+    '.rlogo-sub{-webkit-text-fill-color:#AAB4C5!important;font-family:var(--rk-display)!important;font-size:inherit!important;font-weight:500!important;}',
+    '.rk-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:max(10px,env(safe-area-inset-top)) clamp(14px,4vw,32px) 10px;background:#0E1524;border-bottom:1px solid #26324A;}',
+    '.rk-topbar a:first-child{display:flex;align-items:center;gap:10px;text-decoration:none;color:#E9EDF4;font:700 21px/1 var(--rk-display);}',
+    '.rk-topbar img{width:38px;height:38px;border-radius:10px;object-fit:cover;}',
+    '.rk-topbar .rk-homebtn{display:inline-flex;align-items:center;text-decoration:none;}',
+    '.rk-homebtn{height:44px;padding:0 16px!important;border-radius:12px!important;border:1px solid #33415E!important;background:transparent!important;color:#E9EDF4!important;font:500 15px var(--rk-body)!important;cursor:pointer;}',
+    '.rk-homebtn:hover{background:#1A2438!important;}',
     'header .rk-homebtn{height:44px;padding:0 16px!important;border-radius:12px!important;border:1px solid var(--br2)!important;background:transparent!important;color:var(--tx)!important;font:500 15px var(--rk-body)!important;}',
     'header .rk-homebtn:hover{background:var(--sf2)!important;}',
 
@@ -254,7 +283,7 @@
     '.rk-ico svg{width:24px;height:24px;}',
     '.rk-tool b{display:block;font-size:17px;font-weight:600;line-height:1.3;margin-bottom:3px;}',
     '.rk-tool span span{display:block;font-size:15px;line-height:1.45;color:var(--tx2);}',
-    '.kobalt{--c:var(--kobalt)}.bakir{--c:var(--bakir)}.sodyum{--c:var(--sodyum)}.lityum{--c:var(--lityum)}',
+    '.potasyum{--c:var(--potasyum)}.kobalt{--c:var(--kobalt)}.bakir{--c:var(--bakir)}.sodyum{--c:var(--sodyum)}.lityum{--c:var(--lityum)}',
     '.rk-foot{border-top:1px solid var(--br);padding:28px 0 calc(env(safe-area-inset-bottom,0px) + 36px);color:var(--tx3);font-size:14.5px;}',
 
     '@media (max-width:820px){.rk-hero .rk-wrap{grid-template-columns:1fr}.rk-el{justify-self:stretch;max-width:440px;width:100%}}',
@@ -266,6 +295,11 @@
 
   function injectHead() {
     if (document.getElementById('rk-tema-css')) return;
+    /* Ortak renk değişkenlerini (--sf2 vb.) kullanmayan sayfalar kendi zeminini korur */
+    try {
+      if (!getComputedStyle(document.documentElement).getPropertyValue('--sf2').trim())
+        document.documentElement.classList.add('rk-lite');
+    } catch (e) {}
     var f = document.createElement('link');
     f.rel = 'stylesheet';
     f.href = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap';
@@ -407,6 +441,7 @@
       }
       var id = t.getAttribute('data-nav');
       if (id.indexOf('EXT:') === 0) { window.open(id.slice(4), '_blank'); return; }
+      if (id.indexOf('URL:') === 0) { location.href = id.slice(4); return; }
       if (typeof window.nav === 'function') window.nav(id);
     });
 
@@ -443,7 +478,7 @@
   var EMO;
   try { EMO = new RegExp('^(?:[\\p{Extended_Pictographic}\\u{1F1E6}-\\u{1F1FF}\\uFE0F\\u200D\\u20E3]|[0-9#*]\\uFE0F?\\u20E3)+\\s*', 'u'); }
   catch (e) { EMO = null; }
-  var TARGETS = 'h1,h2,h3,h4,h5,.ptitle,button,.tab,.ltab,.slbl,.rp-section-title,label,.test-baslik,.panel-baslik,.org-tablo-baslik,.kesif-baslik';
+  var TARGETS = 'h1,h2,h3,h4,h5,.ptitle,button,.tab,.ltab,.slbl,.rp-section-title,label,.logo,.test-baslik,.panel-baslik,.org-tablo-baslik,.kesif-baslik';
 
   function stripOne(el) {
     if (!EMO || el.closest('.rk-tile,svg,canvas,#pt-real-grid')) return;
@@ -515,6 +550,19 @@
       if (sub) par.insertBefore(sub, t.nextSibling);
     }
   }
+  /* Sayfaların kendi CSS'indeki BÜYÜK HARF etiketleri normal yazıya çevir */
+  function fixUppercase() {
+    var sheets = document.styleSheets;
+    for (var i = 0; i < sheets.length; i++) {
+      var rules;
+      try { rules = sheets[i].cssRules; } catch (e) { continue; }
+      if (!rules) continue;
+      for (var j = 0; j < rules.length; j++) {
+        var st = rules[j].style;
+        if (st && st.textTransform === 'uppercase') { st.textTransform = 'none'; st.letterSpacing = '0'; }
+      }
+    }
+  }
   function fixHeader() {
     var b = document.querySelector('header .hmb');
     if (b && !b.querySelector('svg')) {
@@ -523,8 +571,17 @@
     }
     /* Ayrı sayfalarda sağ üstteki ☰ aslında ana sayfaya dönüyor: adını doğru koy */
     if (!b) {
-      var h = document.querySelector('header > button[onclick*="index.html"]');
-      if (h) { h.className = 'rk-homebtn'; h.removeAttribute('style'); h.textContent = 'Ana sayfa'; }
+      var btns = document.querySelectorAll('button[onclick*="index.html"]');
+      for (var i = 0; i < btns.length; i++) {
+        var h = btns[i], t = h.textContent.trim();
+        var top = h.getBoundingClientRect().top + (window.pageYOffset || 0);
+        if (top < 140 && (t === '☰' || /ana sayfa/i.test(t))) { h.className = 'rk-homebtn'; h.removeAttribute('style'); h.textContent = 'Ana sayfa'; }
+      }
+      /* Ana sayfaya hiç dönüş yolu olmayan sayfalara üst bar ekle */
+      if (!document.getElementById('s-home') && !document.querySelector('[onclick*="index.html"],a[href*="index.html"]')) {
+        document.body.insertAdjacentHTML('afterbegin',
+          '<div class="rk-topbar"><a href="index.html"><img src="icon.10.png" alt="">Ronya Kimya</a><a class="rk-homebtn" href="index.html">Ana sayfa</a></div>');
+      }
     }
   }
 
@@ -533,6 +590,7 @@
   buildHome();          // eklenti ve portal çalışmadan ÖNCE ana sayfayı kur
   function start() {
     fixHeader();
+    fixUppercase();
     fixMenu();
     stripIn(document.body);
     fixTitles();

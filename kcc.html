@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KÇÇ Hesaplayıcı - Ronya Kimya</title>
+<title>Kçç Hesaplayıcı - Ronya Kimya</title>
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
@@ -49,48 +49,32 @@ label{display:block;color:var(--tx2);font-size:12px;margin:12px 0 4px;font-weigh
 </header>
 
 <div class="wrap">
-<h1>🧮 KÇÇ Hesaplayıcı</h1>
-<p class="sub">Çözünürlük Çarpımı Sabiti (Ksp) Karşılaştırması</p>
-
+<h1>Kçç Hesaplayıcı</h1>
+<p class="sub">Çözünürlük çarpımı (Kçç) ile molar çözünürlük (s) arasında dönüşüm. MEB 11. sınıf 2.3.1 konusuna göre hazırlanmıştır.</p>
 <div class="card">
-  <h2>İyon Derişimleri</h2>
-  
-  <label>Kation Derişimi [Mⁿ⁺] (mol/L)</label>
-  <input type="text" class="inp" id="cCation" placeholder="Örn: 0.01 veya 1.5e-3">
-  
-  <label>Kation Yükü (n)</label>
-  <input type="number" class="inp" id="zCation" placeholder="Örn: 2 (Ca²⁺ için)" step="1" min="1">
-  
-  <label>Anion Derişimi [Xᵐ⁻] (mol/L)</label>
-  <input type="text" class="inp" id="cAnion" placeholder="Örn: 0.02 veya 2e-3">
-  
-  <label>Anion Yükü (m)</label>
-  <input type="number" class="inp" id="zAnion" placeholder="Örn: 1 (Cl⁻ için)" step="1" min="1">
+  <h2>Tuzun formülü: M<sub>x</sub>X<sub>y</sub></h2>
+  <label>Katyon sayısı (x)</label>
+  <input type="number" class="inp" id="nx" value="1" step="1" min="1" max="3">
+  <label>Anyon sayısı (y)</label>
+  <input type="number" class="inp" id="ny" value="1" step="1" min="1" max="3">
+  <div class="formula-box" id="formulBox"></div>
 </div>
-
 <div class="card">
-  <h2>KÇÇ Değeri</h2>
-  <label>Bileşiğin KÇÇ Değeri</label>
-  <input type="text" class="inp" id="kccValue" placeholder="Örn: 1.8e-10 (AgCl için)">
-  
-  <div class="formula-box">
-    <b>Formül:</b> Q = [Mⁿ⁺]ᵐ × [Xᵐ⁻]ⁿ<br>
-    <b>Q < KÇÇ</b> → Çözünür (çözelti)<br>
-    <b>Q = KÇÇ</b> → Doymuş (denge)<br>
-    <b>Q > KÇÇ</b> → Çökelir!
-  </div>
+  <h2>Bilinen değer</h2>
+  <label>Ne biliniyor?</label>
+  <select class="inp" id="bilinen"><option value="k">Kçç biliniyor → s bulunsun</option><option value="s">Molar çözünürlük (s) biliniyor → Kçç bulunsun</option></select>
+  <label id="degerLbl">Kçç değeri</label>
+  <input type="text" class="inp" id="deger" placeholder="Örn: 1.6e-10 ya da 1,6×10^-10">
 </div>
-
 <button class="btn" onclick="hesaplaKCC()">Hesapla</button>
 <div class="error" id="errorMsg"></div>
-<div class="result" id="sonuc"></div>
-
+<div class="result ok" id="sonuc"></div>
 <div class="card" style="margin-top:16px;">
-  <h2>Yaygın Bileşiklerin KÇÇ Değerleri</h2>
+  <h2>Yaygın bileşiklerin Kçç değerleri</h2><p style="font-size:12px;color:var(--tx3);margin:0 0 8px">Kaynaklara göre değerler biraz farklı olabilir; ders kitabındaki değeri esas alın.</p>
   <table style="width:100%;font-size:12px;color:var(--tx2);border-collapse:collapse;">
     <tr style="border-bottom:1px solid var(--br);">
       <th style="text-align:left;padding:8px;">Bileşik</th>
-      <th style="text-align:left;padding:8px;">KÇÇ (25°C)</th>
+      <th style="text-align:left;padding:8px;">Kçç (25 °C)</th>
     </tr>
     <tr><td style="padding:8px;">AgCl</td><td style="padding:8px;">1.8 × 10⁻¹⁰</td></tr>
     <tr><td style="padding:8px;">AgBr</td><td style="padding:8px;">5.0 × 10⁻¹³</td></tr>
@@ -113,54 +97,40 @@ function parseInput(val) {
   return parseFloat(val);
 }
 
+function ust(n){return String(n).split('').map(c=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[+c]).join('');}
+function katsayi(x,y){return Math.pow(x,x)*Math.pow(y,y);}
+function formulGuncelle(){
+  const x=Math.max(1,parseInt(document.getElementById('nx').value)||1);
+  const y=Math.max(1,parseInt(document.getElementById('ny').value)||1);
+  const k=katsayi(x,y), us=x+y;
+  document.getElementById('formulBox').innerHTML='<b>M<sub>'+(x>1?x:'')+'</sub>X<sub>'+(y>1?y:'')+'</sub>(k) ⇌ '+(x>1?x:'')+'M(suda) + '+(y>1?y:'')+'X(suda)</b><br>Kçç = ('+(x>1?x:'')+'s)'+(x>1?ust(x):'')+' · ('+(y>1?y:'')+'s)'+(y>1?ust(y):'')+' = <b>'+(k>1?k:'')+'s'+ust(us)+'</b>';
+  document.getElementById('degerLbl').textContent=document.getElementById('bilinen').value==='k'?'Kçç değeri':'Molar çözünürlük s (mol/L)';
+}
+['nx','ny','bilinen'].forEach(id=>document.getElementById(id).addEventListener('input',formulGuncelle));
+formulGuncelle();
+function bilimsel(v){const e=Math.floor(Math.log10(v));const m=v/Math.pow(10,e);return m.toFixed(2).replace('.',',')+'×10'+(e<0?'⁻':'')+ust(Math.abs(e));}
 function hesaplaKCC() {
-  const errorEl = document.getElementById('errorMsg');
-  const sonucEl = document.getElementById('sonuc');
-  errorEl.style.display = 'none';
-  sonucEl.style.display = 'none';
-  
-  const cCat = parseInput(document.getElementById('cCation').value);
-  const zCat = parseFloat(document.getElementById('zCation').value);
-  const cAn = parseInput(document.getElementById('cAnion').value);
-  const zAn = parseFloat(document.getElementById('zAnion').value);
-  const kcc = parseInput(document.getElementById('kccValue').value);
-  
-  const errors = [];
-  if (isNaN(cCat) || cCat < 0) errors.push('Kation derişimi geçersiz');
-  if (isNaN(zCat) || zCat < 1) errors.push('Kation yükü pozitif tam sayı olmalı');
-  if (isNaN(cAn) || cAn < 0) errors.push('Anion derişimi geçersiz');
-  if (isNaN(zAn) || zAn < 1) errors.push('Anion yükü pozitif tam sayı olmalı');
-  if (isNaN(kcc) || kcc <= 0) errors.push('KÇÇ değeri pozitif olmalı');
-  
-  if (errors.length > 0) {
-    errorEl.textContent = '⚠️ ' + errors.join(', ');
-    errorEl.style.display = 'block';
-    return;
-  }
-  
-  const Q = Math.pow(cCat, zAn) * Math.pow(cAn, zCat);
-  
-  let msg, cls;
-  const Qstr = Q.toExponential(3);
-  const ratio = Q / kcc;
-  
-  if (Q < kcc * 0.99) {
-    msg = `<b>✅ ÇÖZÜNÜR</b><br>Q (${Qstr}) < KÇÇ (${kcc.toExponential(2)})<br><br>Çözelti doymamış durumda. Daha fazla tuz çözünebilir.<br><small>Q/KÇÇ = ${ratio.toFixed(3)}</small>`;
-    cls = 'ok';
-  } else if (Math.abs(Q - kcc) <= kcc * 0.05) {
-    msg = `<b>⚖️ DOYMUŞ</b><br>Q (${Qstr}) ≈ KÇÇ (${kcc.toExponential(2)})<br><br>Çözelti denge durumunda. Çökme ve çözünme hızları eşit.`;
-    cls = 'warn';
+  const errorEl=document.getElementById('errorMsg'), sonucEl=document.getElementById('sonuc');
+  errorEl.style.display='none'; sonucEl.style.display='none';
+  const x=parseInt(document.getElementById('nx').value), y=parseInt(document.getElementById('ny').value);
+  const v=parseInput(document.getElementById('deger').value);
+  const mod=document.getElementById('bilinen').value;
+  if(!(x>=1&&x<=3&&y>=1&&y<=3)){errorEl.textContent='⚠️ x ve y 1 ile 3 arasında tam sayı olmalı';errorEl.style.display='block';return;}
+  if(isNaN(v)||v<=0){errorEl.textContent='⚠️ Pozitif bir değer girin';errorEl.style.display='block';return;}
+  const k=katsayi(x,y), us=x+y;
+  let html;
+  if(mod==='k'){
+    const sv=Math.pow(v/k,1/us);
+    html='s = (Kçç / '+k+')<sup>1/'+us+'</sup> = <b>'+bilimsel(sv)+' mol/L</b><br>[M] = '+bilimsel(x*sv)+' M · [X] = '+bilimsel(y*sv)+' M';
   } else {
-    msg = `<b>❌ ÇÖKELİR!</b><br>Q (${Qstr}) > KÇÇ (${kcc.toExponential(2)})<br><br>Çözelti aşırı doymuş! Çökme oluşur.<br><small>Q/KÇÇ = ${ratio.toFixed(1)}</small>`;
-    cls = 'no';
+    const kv=k*Math.pow(v,us);
+    html='Kçç = '+(k>1?k+'·':'')+'s'+ust(us)+' = <b>'+bilimsel(kv)+'</b><br>[M] = '+bilimsel(x*v)+' M · [X] = '+bilimsel(y*v)+' M';
   }
-  
-  sonucEl.innerHTML = msg;
-  sonucEl.className = 'result ' + cls;
-  sonucEl.style.display = 'block';
+  sonucEl.innerHTML=html+'<br><small>Sonuçlar 25 °C ve saf su için geçerlidir; Kçç yalnızca sıcaklıkla değişir.</small>';
+  sonucEl.style.display='block';
 }
 </script>
 
-<script src="ronya-tema.js?v=5"></script>
+<script src="ronya-tema.js?v=8"></script>
 </body>
 </html>

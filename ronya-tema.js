@@ -10,7 +10,7 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var TEMA_SURUM = 'v8';
+  var TEMA_SURUM = 'v9';
   window.RONYA_TEMA = TEMA_SURUM;
 
   /* ---------- 1. ARAÇ LİSTESİ (ana sayfadaki gruplar) ----------
@@ -20,8 +20,9 @@
      'URL:sayfa.html', dış site için 'EXT:https://...' yaz.                                              */
   var GROUPS = [
     { id: 'rk-ders', title: 'Ders çalış', color: 'kobalt',
-      sub: 'Tema 2 konuları: MEB konu anlatımı ve çözümlü sorular.',
+      sub: 'Soru bankası ve 11. sınıf Tema 2 konu anlatımları.',
       items: [
+        ['URL:banka.html', 'Konu anlatımlı soru bankası', '9, 10, 11, 12 (Maarif) ve AYT: konu anlatımı, çözümlü örnek, anında kontrollü test.', 'book'],
         ['kinetik', 'Tepkime hızı', 'Çarpışma teorisi, potansiyel enerji grafiği ve hız hesapları.', 'speed'],
         ['enerji', 'Kimyasal enerji', 'Tepkimelerde enerji değişimi, çözümlü sorularla.', 'flame'],
         ['denge2', 'Kimyasal denge', 'Denge sabiti ve Le Chatelier ilkesi, çözümlü sorularla.', 'eq'],
@@ -73,6 +74,7 @@
     { id: 'rk-sinav', title: 'Sınava hazırlan', color: 'lityum',
       sub: 'Kendini dene, eksiğini bul, düzenli çalış.',
       items: [
+        ['URL:banka.html#/yanlislar', 'Deneme ve yanlışlarım', 'Karma deneme sınavı, net hesabı ve yanlış yaptığın soruların tekrarı.', 'target'],
         ['URL:test.html', 'Konu testleri', 'Konu ve soru sayısını seç, testi çöz.', 'list'],
         ['quiz', 'Element testi', 'Sembol ve isim eşleştirme. Yanlış yaptıkların takip edilir.', 'symbol'],
         ['flashcard', 'Bilgi kartları', 'Kimyasal bileşik kartlarıyla tekrar yap.', 'cards'],
@@ -125,6 +127,7 @@
     draw: '<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/>',
     sim: '<path d="M3 17c3-8 6-8 9 0s6 8 9 0M3 21h18"/>',
     gaslab: '<circle cx="12" cy="12" r="8.5"/>' + '<circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none"/><circle cx="13" cy="15" r="1.2" fill="currentColor" stroke="none"/><path d="M10.4 10.6l1.8.9M15.6 10.3l-1.2 1.4"/>',
+    book: '<path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5C4.7 20 4 19.3 4 18.5zM20 5.5c0-.8-.7-1.5-1.5-1.5H13v16h5.5c.8 0 1.5-.7 1.5-1.5z"/><path d="M6.5 8h2.5M6.5 11h2.5M15 8h2.5M15 11h2.5"/>',
     list: '<path d="M10 6h10M10 12h10M10 18h10M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
     close: '<path d="M6 6l12 12M18 6 6 18"/>',
@@ -420,9 +423,10 @@
     h += '<section class="rk-hero"><div class="rk-wrap">';
     h += '<div>';
     h += '<h1 class="rk-h1">Lise kimyasının çalışma masası.</h1>';
-    h += '<p class="rk-lead">MEB konu anlatımları ve çözümlü sorular, hesaplayıcılar, 3D laboratuvar ve YKS araçları. Toplam ' + total + ' ekran, telefonda da akıllı tahtada da.</p>';
+    h += '<p class="rk-lead">9’dan 12’ye ve AYT’ye konu anlatımlı soru bankası, hesaplayıcılar, 3D laboratuvar ve YKS araçları. Toplam ' + total + ' ekran, telefonda da akıllı tahtada da.</p>';
     h += '<div class="rk-actions">';
-    h += '<button class="rk-btn rk-btn-primary" type="button" data-jump="rk-ders">Konu anlatımlarına git</button>';
+    h += '<button class="rk-btn rk-btn-primary" type="button" data-nav="URL:banka.html">Soru bankasını aç</button>';
+    h += '<button class="rk-btn rk-btn-ghost" type="button" data-jump="rk-ders">Konu anlatımları</button>';
     h += '<button class="rk-btn rk-btn-ghost" type="button" data-nav="pt">Periyodik tabloyu aç</button>';
     h += '</div></div>';
 

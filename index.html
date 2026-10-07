@@ -520,7 +520,7 @@ header {
       <div class="tp on"><div class="card">
         <div class="g2" style="margin-bottom:12px">
           <div><div class="slbl">Tür</div><select class="sel" id="ph0"><option value="acid">Asit</option><option value="base">Baz</option></select></div>
-          <div><div class="slbl">Derişim (mol/L)</div><input type="number" id="ph1" class="inp" placeholder="örn. 0.01"></div>
+          <div><div class="slbl">[H⁺] ya da [OH⁻] derişimi (mol/L)</div><input type="number" id="ph1" class="inp" placeholder="örn. 0.01"></div>
         </div>
         <button class="btn bp bfull" onclick="calcPH()">Hesapla</button>
         <div class="rb" id="phr" style="display:none">
@@ -616,7 +616,7 @@ header {
   <div class="pw narrow">
     <h1 class="ptitle">⏱️ YKS Geri Sayım</h1>
     <div class="card" style="text-align:center;padding:30px">
-      <div style="font-size:16px;font-weight:700;color:var(--ac2);margin-bottom:16px">YKS 2027</div>
+      <div style="font-size:16px;font-weight:700;color:var(--ac2);margin-bottom:4px">YKS 2027</div><div style="font-size:13px;color:var(--tx3);margin-bottom:16px">Tahmini tarih: 19 Haziran 2027. ÖSYM takvimi açıklanınca güncellenecek.</div>
       <div class="cdgrid">
         <div class="cdb"><div class="cdv" id="d-day">00</div><div class="cdl">Gün</div></div>
         <div class="cdb"><div class="cdv" id="d-hr">00</div><div class="cdl">Saat</div></div>
@@ -651,7 +651,8 @@ header {
 <!-- YKS PUAN -->
 <div id="s-puan" style="display:none">
   <div class="pw narrow">
-    <h1 class="ptitle">📊 YKS Puan Hesaplama</h1>
+    <h1 class="ptitle">📊 YKS Net Hesaplama</h1>
+    <p class="psub">Doğru ve yanlış sayılarını gir; 4 yanlış 1 doğruyu götürür. Puan, ÖSYM'nin tüm adayların sonuçlarına göre yaptığı hesapla belirlendiği için burada yalnızca netler hesaplanır.</p>
     <div class="card" style="margin-bottom:12px">
       <div class="slbl" style="margin-bottom:12px">TYT</div>
       <div class="g2">
@@ -668,7 +669,7 @@ header {
     </div>
     <button class="btn bp bfull" onclick="calcYKS()">Hesapla</button>
     <div id="yks-res" style="display:none;margin-top:14px">
-      <div class="rb"><div class="rl">Tahmini SAY Ham Puanı</div><div class="rv" id="yks-score"></div></div>
+      <div class="rb"><div class="rl">Netler</div><div class="rv" id="yks-score"></div><div id="yks-det" style="font-size:13px;color:var(--tx2);line-height:1.8;margin-top:6px"></div></div>
     </div>
   </div>
 </div>
@@ -1484,18 +1485,30 @@ function calcPH(){
   var pH=type==='acid'?-Math.log10(C):14+Math.log10(C);
   document.getElementById('phv1').textContent=pH.toFixed(2);
   document.getElementById('phm1').style.left=(pH/14*100)+'%';
-  document.getElementById('phdet').innerHTML='pH = '+pH.toFixed(2)+'<br>pOH = '+(14-pH).toFixed(2)+'<br>[H⁺] = '+C.toExponential(3)+' M';
+  var H=Math.pow(10,-pH), OH=Math.pow(10,pH-14);
+  document.getElementById('phdet').innerHTML='pH = '+pH.toFixed(2)+'<br>pOH = '+(14-pH).toFixed(2)+'<br>[H⁺] = '+H.toExponential(2)+' M · [OH⁻] = '+OH.toExponential(2)+' M<br><span style="font-size:12px">25 °C kabul edilmiştir. H₂SO₄ veya Ca(OH)₂ gibi birden fazla H⁺/OH⁻ veren maddelerde derişimi bu sayıyla çarparak girin.</span>';
 }
 
 function calcWk(){
   var type=document.getElementById('ph2t').value;
   var C=parseFloat(document.getElementById('ph2c').value);
   var K=parseFloat(document.getElementById('ph2k').value);
-  if(isNaN(C)||isNaN(K)){toast('Eksik giriş!');return;}
+  if(isNaN(C)||isNaN(K)||C<=0||K<=0){toast('Eksik ya da geçersiz giriş!');return;}
   document.getElementById('ph2r').style.display='block';
-  var H=Math.sqrt(K*C);
-  var pH=type==='acid'?-Math.log10(H):14+Math.log10(H);
+  // x^2/(C-x)=K  →  x = (-K + sqrt(K^2 + 4KC)) / 2  (yaklaşım yapılmadan)
+  var x=(-K+Math.sqrt(K*K+4*K*C))/2;
+  var xa=Math.sqrt(K*C);
+  var pH=type==='acid'?-Math.log10(x):14+Math.log10(x);
+  var pHa=type==='acid'?-Math.log10(xa):14+Math.log10(xa);
+  var ion=type==='acid'?'[H⁺]':'[OH⁻]';
   document.getElementById('phv2').textContent=pH.toFixed(2);
+  var det=document.getElementById('ph2det');
+  if(!det){det=document.createElement('div');det.id='ph2det';det.style.cssText='font-size:13px;color:var(--tx2);line-height:1.8;margin-top:8px';document.getElementById('ph2r').appendChild(det);}
+  var oran=x/C*100;
+  var h=ion+' = '+x.toExponential(2)+' M · iyonlaşma yüzdesi %'+oran.toFixed(2)+'<br>25 °C kabul edilmiştir.';
+  if(Math.abs(xa-x)/x>0.05) h+='<br><b>Not:</b> Bu çözeltide iyonlaşma yüzdesi %5\'ten büyük olduğu için “C − x ≈ C” yaklaşımı geçerli değildir. Yaklaşımla bulunacak pH '+pHa.toFixed(2)+' olurdu; burada tam çözüm kullanıldı.';
+  else h+='<br>“C − x ≈ C” yaklaşımı bu çözeltide geçerlidir (sonuç aynı çıkar).';
+  det.innerHTML=h;
 }
 
 function calcHH(){
@@ -1566,19 +1579,14 @@ function calcBi(){
 }
 
 function calcYKS(){
-  var td=parseFloat(document.getElementById('tyt-td').value)||0;
-  var ty=parseFloat(document.getElementById('tyt-ty').value)||0;
-  var md=parseFloat(document.getElementById('tyt-md').value)||0;
-  var my=parseFloat(document.getElementById('tyt-my').value)||0;
-  var amd=parseFloat(document.getElementById('ayt-md').value)||0;
-  var amy=parseFloat(document.getElementById('ayt-my').value)||0;
-  var akd=parseFloat(document.getElementById('ayt-kd').value)||0;
-  var aky=parseFloat(document.getElementById('ayt-ky').value)||0;
-  var tytNet=(td-ty*0.25)+(md-my*0.25);
-  var aytNet=(amd-amy*0.25)+(akd-aky*0.25);
-  var score=100+tytNet*1.5+aytNet*3.0;
+  function v(id){var x=parseFloat(document.getElementById(id).value);return isNaN(x)||x<0?0:x;}
+  function net(d,y){return d-y/4;}
+  var tT=net(v('tyt-td'),v('tyt-ty')), tM=net(v('tyt-md'),v('tyt-my'));
+  var aM=net(v('ayt-md'),v('ayt-my')), aK=net(v('ayt-kd'),v('ayt-ky'));
+  var f=function(n){return n.toFixed(2).replace('.',',');};
   document.getElementById('yks-res').style.display='block';
-  document.getElementById('yks-score').textContent=score.toFixed(2);
+  document.getElementById('yks-score').textContent='TYT '+f(tT+tM)+' · AYT '+f(aM+aK);
+  document.getElementById('yks-det').innerHTML='TYT Türkçe '+f(tT)+' · TYT Matematik '+f(tM)+'<br>AYT Matematik '+f(aM)+' · AYT Kimya '+f(aK);
 }
 
 function balEq(){
@@ -3662,6 +3670,6 @@ function izotopHesapla() {
 <script src="element_hikayeler.js"></script>
 <script src="ronya-eklenti.js"></script>
 <script src="ronya-portal.js"></script>
-<script src="ronya-tema.js?v=5"></script>
+<script src="ronya-tema.js?v=8"></script>
 </body>
 </html>

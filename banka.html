@@ -1,1 +1,731 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FBF8F5">
+<title>Konu Anlatımı ve Soru Bankası · Ronya Kimya</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FBF8F5; --card:#FFFFFF; --soft:#F4EFEA; --line:#E7E0D9; --line2:#D9D0C7;
+  --ink:#14110F; --ink2:#5C554F; --ink3:#857C74;
+  --or:#F85300; --or2:#C54200; --orbg:#FFF1E9;
+  --bl:#0B5C8A; --blbg:#EAF3F8; --gr:#1B6B4A; --grbg:#E8F3EE; --pu:#5B3A8C; --pubg:#F1ECF7; --rd:#B42318; --rdbg:#FCEDEB;
+  --disp:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --fs:17px;
+}
+html.buyuk{--fs:20px}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:80px}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 var(--fs)/1.65 var(--body);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--bl)}
+:focus-visible{outline:3px solid var(--or);outline-offset:2px;border-radius:6px}
+.wrap{max-width:880px;margin:0 auto;padding:0 clamp(16px,4vw,32px)}
+.wrap.genis{max-width:1120px}
+
+/* Üst bar */
+.rb-top{position:sticky;top:0;z-index:50;background:rgba(251,248,245,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.rb-top .wrap{display:flex;align-items:center;gap:12px;height:62px}
+.rb-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font:700 19px/1 var(--disp);white-space:nowrap}
+.rb-brand img{height:32px;width:auto}
+.rb-brand span{font-weight:500;color:var(--ink2)}
+.rb-nav{display:flex;gap:4px;margin-left:auto;align-items:center}
+.rb-nav a,.rb-nav button{display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border-radius:10px;border:0;background:none;color:var(--ink2);font-weight:500;font-size:15px;text-decoration:none;cursor:pointer;white-space:nowrap}
+.rb-nav a:hover,.rb-nav button:hover{background:var(--soft);color:var(--ink)}
+.rb-nav a.on{color:var(--ink);background:var(--soft)}
+.rb-nav .rb-home{border:1px solid var(--line2)}
+@media(max-width:640px){.rb-nav .gizle-k{display:none}.rb-brand span{display:none}.rb-nav a,.rb-nav button{padding:0 9px}}
+
+/* Genel */
+main{padding:28px 0 80px}
+h1.rb-h1{font:800 clamp(30px,5vw,46px)/1.05 var(--disp);letter-spacing:-.03em;margin:0 0 12px}
+h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;margin:0 0 6px}
+.lead{color:var(--ink2);font-size:1.06em;margin:0 0 24px;max-width:60ch}
+.crumb{font-size:15px;color:var(--ink3);margin-bottom:10px}
+.crumb a{color:var(--ink2);text-decoration:none}
+.crumb a:hover{color:var(--or2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border-radius:12px;border:1.5px solid transparent;font-weight:600;cursor:pointer;text-decoration:none;font-size:16px}
+.btn-1{background:var(--ink);color:#fff}
+.btn-1:hover{background:var(--or)}
+.btn-2{background:var(--card);border-color:var(--line2);color:var(--ink)}
+.btn-2:hover{border-color:var(--ink2)}
+.btn-or{background:var(--or);color:#fff}
+.btn-or:hover{background:var(--or2)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.sat{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bos{padding:28px;border:1px dashed var(--line2);border-radius:16px;color:var(--ink2);text-align:center;background:var(--card)}
+
+/* Sınıf kartları */
+.siniflar{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:8px 0 34px}
+.sinif{position:relative;display:block;padding:22px 22px 18px;border-radius:18px;background:var(--card);border:1px solid var(--line);text-decoration:none;color:var(--ink);overflow:hidden;transition:border-color .2s}
+.sinif:hover{border-color:var(--line2)}
+.sinif::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--c)}
+.sinif .no{font:800 44px/1 var(--disp);letter-spacing:-.04em;color:var(--c)}
+.sinif .ad{font:700 19px/1.2 var(--disp);margin:8px 0 2px}
+.sinif .alt{font-size:14.5px;color:var(--ink2)}
+.sinif .bar{margin-top:14px}
+.c9{--c:var(--or)} .c10{--c:var(--bl)} .c11{--c:var(--gr)} .c12m{--c:var(--pu)} .c12e{--c:var(--rd)}
+
+.ozet{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin:0 0 30px}
+.ozet div{background:var(--card);padding:14px 18px}
+.ozet b{display:block;font:700 26px/1.1 var(--disp);font-variant-numeric:tabular-nums}
+.ozet span{font-size:14px;color:var(--ink2)}
+
+.araclar{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.arac{display:flex;gap:14px;align-items:flex-start;padding:18px;border-radius:16px;background:var(--card);border:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.arac:hover{border-color:var(--line2)}
+.arac i{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--soft);font-style:normal;color:var(--or2)}
+.arac i svg{width:24px;height:24px}
+.arac b{display:block;font-size:17px}
+.arac span{display:block;font-size:15px;color:var(--ink2);line-height:1.45}
+
+/* İlerleme çubuğu */
+.bar{height:6px;border-radius:99px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--c,var(--or));border-radius:99px}
+.barlbl{display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink3);margin-top:6px;font-variant-numeric:tabular-nums}
+
+/* Konu listesi */
+.tema{margin:0 0 28px}
+.tema h3{font:700 15px/1.3 var(--body);color:var(--ink2);margin:0 0 10px}
+.konular{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:16px;background:var(--card);overflow:hidden}
+.konular li+li{border-top:1px solid var(--line)}
+.konu{display:grid;grid-template-columns:44px 1fr auto;gap:14px;align-items:center;padding:16px 18px;text-decoration:none;color:var(--ink)}
+.konu:hover{background:var(--soft)}
+.konu .sira{font:700 22px/1 var(--disp);color:var(--c);text-align:center;font-variant-numeric:tabular-nums}
+.konu b{display:block;font-size:17.5px;line-height:1.3}
+.konu small{display:block;font-size:14.5px;color:var(--ink2);margin-top:2px}
+.konu .sag{text-align:right;font-size:13.5px;color:var(--ink3);min-width:92px}
+.konu .sag .bar{margin-top:6px;width:92px}
+
+/* Konu sayfası */
+.kaz{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 20px}
+.kaz span{font-size:13px;padding:4px 10px;border-radius:99px;background:var(--soft);color:var(--ink2)}
+.sekmeler{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 26px;overflow-x:auto;scrollbar-width:none;position:sticky;top:62px;background:var(--paper);z-index:20}
+.sekmeler::-webkit-scrollbar{display:none}
+.sekme{border:0;background:none;padding:12px 16px;font-weight:600;color:var(--ink2);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;font-size:16px}
+.sekme.on{color:var(--ink);border-bottom-color:var(--or)}
+.sekme small{font-weight:500;color:var(--ink3);margin-left:4px}
+
+/* Anlatım tipografisi */
+.anlatim{max-width:68ch}
+.anlatim h3{font:700 23px/1.25 var(--disp);letter-spacing:-.01em;margin:34px 0 10px}
+.anlatim h3:first-child{margin-top:0}
+.anlatim h4{font:700 18px/1.3 var(--body);margin:22px 0 6px}
+.anlatim p{margin:0 0 14px}
+.anlatim ul,.anlatim ol{margin:0 0 16px;padding-left:1.3em}
+.anlatim li{margin:4px 0}
+.anlatim table{border-collapse:collapse;width:100%;margin:6px 0 20px;font-size:.93em;background:var(--card)}
+.anlatim th,.anlatim td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.anlatim th{background:var(--soft);font-weight:600}
+.tablo-kap{overflow-x:auto;margin:0 0 6px}
+.not{border-left:4px solid var(--bl);background:var(--blbg);padding:12px 16px;border-radius:0 12px 12px 0;margin:0 0 18px}
+.dikkat{border-left:4px solid var(--or);background:var(--orbg);padding:12px 16px;border-radius:0 12px 12px 0;margin:0 0 18px}
+.ek{border-left:4px solid var(--pu);background:var(--pubg);padding:12px 16px;border-radius:0 12px 12px 0;margin:0 0 18px}
+.not b:first-child,.dikkat b:first-child,.ek b:first-child{display:block;margin-bottom:2px}
+.formul{display:block;text-align:center;font:600 1.08em/1.5 var(--body);padding:12px 16px;margin:4px 0 18px;border:1.5px solid var(--line2);border-radius:12px;background:var(--card)}
+.sekil{margin:6px 0 22px;text-align:center}
+.sekil svg{max-width:100%;height:auto}
+.sekil figcaption{font-size:14px;color:var(--ink3);margin-top:6px}
+.ozet-kutu{margin-top:30px;padding:18px 20px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.ozet-kutu h4{margin:0 0 8px;font:700 17px/1.3 var(--disp)}
+.ozet-kutu ul{margin:0;padding-left:1.2em}
+.sonraki{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:34px;padding-top:22px;border-top:1px solid var(--line)}
+
+/* Örnekler */
+.ornek{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin:0 0 16px}
+.ornek .etiket{font:700 14px/1 var(--body);color:var(--or2);margin-bottom:10px}
+.ornek .metin{margin-bottom:12px}
+.cozum-btn{border:0;background:var(--blbg);color:var(--bl);font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer;font-size:15px}
+.cozum{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line2)}
+.cozum[hidden]{display:none}
+.oncul{margin:8px 0 4px;padding-left:0;list-style:none}
+.oncul li{margin:3px 0}
+
+/* Test */
+.test-ayar{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin:0 0 18px}
+.test-ayar .grp{margin:0 0 16px}
+.test-ayar .grp>b{display:block;font-size:15px;margin-bottom:8px;color:var(--ink2)}
+.secim{display:flex;flex-wrap:wrap;gap:8px}
+.secim button{min-height:42px;padding:0 16px;border-radius:10px;border:1.5px solid var(--line2);background:var(--card);cursor:pointer;font-weight:500}
+.secim button.on{border-color:var(--or);background:var(--orbg);color:var(--or2)}
+.soru-ust{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 12px;font-size:15px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.soru-ust .skor{display:flex;gap:14px}
+.soru-ust .d{color:var(--gr)} .soru-ust .y{color:var(--rd)}
+.ilerle{height:5px;background:var(--soft);border-radius:99px;overflow:hidden;margin:0 0 20px}
+.ilerle i{display:block;height:100%;background:var(--or)}
+.soru-kart{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px clamp(18px,4vw,30px)}
+.soru-kart .zor{display:inline-block;font-size:12.5px;font-weight:600;padding:3px 9px;border-radius:99px;margin-bottom:12px}
+.z1{background:var(--grbg);color:var(--gr)} .z2{background:var(--blbg);color:var(--bl)} .z3{background:var(--rdbg);color:var(--rd)}
+.soru-metin{font-size:1.06em;margin:0 0 20px}
+.sik-liste{display:grid;gap:10px}
+.sik{display:flex;gap:14px;align-items:flex-start;width:100%;text-align:left;padding:13px 16px;border-radius:12px;border:1.5px solid var(--line2);background:var(--card);cursor:pointer;line-height:1.45}
+.sik:hover:not([disabled]){border-color:var(--ink2)}
+.sik .h{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--soft);font-weight:700;font-size:15px}
+.sik .t{padding-top:3px}
+.sik.sec{border-color:var(--bl);background:var(--blbg)}
+.sik.sec .h{background:var(--bl);color:#fff}
+.sik.dogru{border-color:var(--gr);background:var(--grbg)}
+.sik.dogru .h{background:var(--gr);color:#fff}
+.sik.yanlis{border-color:var(--rd);background:var(--rdbg)}
+.sik.yanlis .h{background:var(--rd);color:#fff}
+.sik[disabled]{cursor:default}
+.geri-bildirim{margin-top:18px;padding:16px 18px;border-radius:14px}
+.geri-bildirim.iyi{background:var(--grbg)}
+.geri-bildirim.kotu{background:var(--rdbg)}
+.geri-bildirim>b{display:block;font:700 17px/1.3 var(--disp);margin-bottom:6px}
+.geri-bildirim .gc b,.not .gc b{display:inline}
+.geri-bildirim.iyi>b{color:var(--gr)} .geri-bildirim.kotu>b{color:var(--rd)}
+.alt-sat{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:18px}
+.kisayol{font-size:13.5px;color:var(--ink3);margin-top:14px;text-align:center}
+@media(max-width:640px){.kisayol{display:none}}
+
+/* Sonuç */
+.sonuc-ust{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin:0 0 20px}
+.halka{position:relative;width:120px;height:120px}
+.halka svg{transform:rotate(-90deg)}
+.halka b{position:absolute;inset:0;display:grid;place-items:center;font:800 30px/1 var(--disp)}
+.sonuc-sayilar{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px}
+.sonuc-sayilar div{font-size:14px;color:var(--ink2)}
+.sonuc-sayilar b{display:block;font:700 24px/1.2 var(--disp);color:var(--ink)}
+@media(max-width:520px){.sonuc-ust{grid-template-columns:1fr;justify-items:center;text-align:center}.sonuc-ust>div:last-child{width:100%}.sonuc-sayilar{grid-template-columns:repeat(4,1fr)}}
+.gozden{margin-top:10px}
+.gozden details{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:0 0 10px}
+.gozden summary{cursor:pointer;padding:14px 18px;list-style:none;display:flex;gap:12px;align-items:flex-start}
+.gozden summary::-webkit-details-marker{display:none}
+.gozden details[open] summary .kisa{display:none}
+.gozden summary .kisa{color:var(--ink2);font-weight:400}
+.gozden summary .dur{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:700;color:#fff}
+.dur.d{background:var(--gr)} .dur.y{background:var(--rd)} .dur.b{background:var(--ink3)}
+.gozden .ic{padding:0 18px 16px 56px}
+.gozden .ic .sik-ozet{font-size:15px;color:var(--ink2);margin:6px 0 10px}
+.karne{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:0 0 20px;font-size:15px}
+.karne th,.karne td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
+.karne th{background:var(--soft);font-weight:600}
+.karne td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.karne .bar{width:90px;display:inline-block;vertical-align:middle;margin-left:8px}
+
+/* Deneme */
+.deneme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;margin:16px 0 0}
+.deneme-grid button{height:42px;border-radius:10px;border:1.5px solid var(--line2);background:var(--card);cursor:pointer;font-weight:600;font-variant-numeric:tabular-nums}
+.deneme-grid button.cev{background:var(--blbg);border-color:var(--bl);color:var(--bl)}
+.deneme-grid button.su{border-color:var(--or);box-shadow:0 0 0 2px var(--orbg)}
+.sure{font:700 18px/1 var(--disp);font-variant-numeric:tabular-nums}
+.sure.az{color:var(--rd)}
+.secim-liste{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px 10px;background:var(--card)}
+.secim-liste label{display:flex;gap:10px;align-items:flex-start;padding:7px 4px;cursor:pointer;font-size:15.5px}
+.secim-liste label input{margin-top:4px;width:18px;height:18px;accent-color:var(--or)}
+.secim-liste .tbaslik{font-size:13.5px;font-weight:600;color:var(--ink3);padding:10px 4px 2px}
+
+.yanlis-oge{display:flex;gap:12px;align-items:flex-start;padding:14px 18px;border-bottom:1px solid var(--line)}
+.yanlis-oge:last-child{border-bottom:0}
+.yanlis-oge .m{flex:1;font-size:15.5px}
+.yanlis-oge .m small{display:block;color:var(--ink3);font-size:13.5px;margin-bottom:2px}
+.kutu-liste{border:1px solid var(--line);border-radius:16px;background:var(--card);overflow:hidden;margin:0 0 20px}
+
+.yukleniyor{padding:40px;text-align:center;color:var(--ink3)}
+.sub,.sup{font-size:.75em}
+@media print{.rb-top,.sekmeler,.sonraki,.cozum-btn{display:none}.cozum[hidden]{display:block!important}}
+</style>
+</head>
+<body>
+<div class="rb-top">
+  <div class="wrap genis">
+    <a class="rb-brand" href="index.html"><img src="icon.10.png" alt="Ronya Kimya"><b>Ronya</b> <span>Kimya</span></a>
+    <nav class="rb-nav" aria-label="Soru bankası">
+      <a href="#/" data-r="">Dersler</a>
+      <a href="#/yanlislar" data-r="yanlislar">Yanlışlarım</a>
+      <a href="#/deneme" data-r="deneme" class="gizle-k">Deneme</a>
+      <button type="button" id="yaziBtn" title="Yazıyı büyüt / küçült" aria-label="Yazı boyutu">Aa</button>
+      <a href="index.html" class="rb-home gizle-k">Ana sayfa</a>
+    </nav>
+  </div>
+</div>
+<main id="app"><div class="yukleniyor">Yükleniyor…</div></main>
+
+<script>
+/* ===================================================================
+   RONYA KİMYA — KONU ANLATIMI VE SORU BANKASI
+   İçerik dosyaları: banka/s9.js, banka/s10.js, banka/s11.js,
+   banka/s12m.js, banka/s12e.js  →  her biri RB.ekle({...}) çağırır.
+   Soru biçimi: {s:'soru', o:['DOĞRU şık', 'yanlış', ...], c:'çözüm', z:1|2|3}
+     · o dizisinde ilk şık doğrudur, şıklar ekranda karıştırılır.
+     · Şık sırası sabit kalsın isterseniz (Yalnız I, I ve II...) d:<doğru şık no> ekleyin.
+   =================================================================== */
+(function(){
+'use strict';
+var SURUM = 'b1';
+var SINIFLAR = [
+  {id:'9',   no:'9',  ad:'9. Sınıf',  alt:'Maarif modeli', dosya:'banka/s9.js',  c:'c9'},
+  {id:'10',  no:'10', ad:'10. Sınıf', alt:'Maarif modeli', dosya:'banka/s10.js', c:'c10'},
+  {id:'11',  no:'11', ad:'11. Sınıf', alt:'Maarif modeli', dosya:'banka/s11.js', c:'c11'},
+  {id:'12m', no:'12', ad:'12. Sınıf', alt:'Maarif modeli', dosya:'banka/s12m.js', c:'c12m'},
+  {id:'12e', no:'12', ad:'12. Sınıf · AYT', alt:'2018 öğretim programı', dosya:'banka/s12e.js', c:'c12e'}
+];
+var VERI = {};          // sınıf id → veri
+var KONU = {};          // konu id → {sinif, tema, konu}
+var SORU = {};          // soru id → {konuId, i}
+var yukleniyor = {};
+
+/* ---------- Kayıt (yalnızca bu cihazda) ---------- */
+var KEY = 'ronya_banka_v1';
+var K = (function(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } })();
+K.q = K.q || {}; K.d = K.d || [];
+function kaydet(){ try { localStorage.setItem(KEY, JSON.stringify(K)); } catch(e){} }
+function isle(id, dogru){
+  var r = K.q[id] || (K.q[id] = {n:0, c:0, l:0});
+  r.n++; if (dogru) r.c++; r.l = dogru ? 1 : 0; r.t = Date.now();
+  kaydet();
+}
+
+/* ---------- Yardımcılar ---------- */
+var $ = function(s, k){ return (k||document).querySelector(s); };
+var $$ = function(s, k){ return Array.prototype.slice.call((k||document).querySelectorAll(s)); };
+function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function karistir(a){ a = a.slice(); for (var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+var HARF = ['A','B','C','D','E'];
+function yuzde(a,b){ return b ? Math.round(a/b*100) : 0; }
+function duzMetin(html){ var d=document.createElement('div'); d.innerHTML=html; return d.textContent.replace(/\s+/g,' ').trim(); }
+function kisalt(t, n){ t = duzMetin(t); return t.length > n ? t.slice(0, n-1) + '…' : t; }
+function sinifBul(id){ for (var i=0;i<SINIFLAR.length;i++) if (SINIFLAR[i].id===id) return SINIFLAR[i]; }
+
+window.RB = {
+  ekle: function(v){
+    VERI[v.sinif] = v;
+    v.temalar.forEach(function(t, ti){
+      t.konular.forEach(function(k, ki){
+        k.sinif = v.sinif; k.tema = t; k.sira = ki;
+        KONU[k.id] = k;
+        (k.soru||[]).forEach(function(s, i){ s.id = k.id + '#' + i; s.konu = k.id; SORU[s.id] = s; });
+      });
+    });
+  }
+};
+
+function yukle(sid){
+  if (VERI[sid]) return Promise.resolve(VERI[sid]);
+  if (yukleniyor[sid]) return yukleniyor[sid];
+  var s = sinifBul(sid);
+  yukleniyor[sid] = new Promise(function(ok, hata){
+    var el = document.createElement('script');
+    el.src = s.dosya + '?v=' + SURUM;
+    el.onload = function(){ VERI[sid] ? ok(VERI[sid]) : hata(new Error('veri yok')); };
+    el.onerror = function(){ delete yukleniyor[sid]; hata(new Error('dosya yok')); };
+    document.head.appendChild(el);
+  });
+  return yukleniyor[sid];
+}
+function hepsiniYukle(){ return Promise.all(SINIFLAR.map(function(s){ return yukle(s.id).catch(function(){ return null; }); })); }
+
+function konuIstat(k){
+  var n = (k.soru||[]).length, coz = 0, d = 0;
+  (k.soru||[]).forEach(function(s){ var r = K.q[s.id]; if (r){ coz++; if (r.l) d++; } });
+  return {n:n, coz:coz, d:d};
+}
+function sinifIstat(v){
+  var n=0, coz=0, d=0;
+  v.temalar.forEach(function(t){ t.konular.forEach(function(k){ var i=konuIstat(k); n+=i.n; coz+=i.coz; d+=i.d; }); });
+  return {n:n, coz:coz, d:d};
+}
+function bar(p, c){ return '<div class="bar"' + (c ? ' style="--c:'+c+'"' : '') + '><i style="width:'+Math.max(0,Math.min(100,p))+'%"></i></div>'; }
+
+/* ---------- Yönlendirme ---------- */
+var app = $('#app');
+var aktifTest = null, sayac = null;
+function git(h){ location.hash = h; }
+window.addEventListener('hashchange', yonlendir);
+function yonlendir(){
+  if (sayac) { clearInterval(sayac); sayac = null; }
+  document.onkeydown = null;
+  var h = location.hash.replace(/^#\/?/, '');
+  var p = h.split('/');
+  $$('.rb-nav a[data-r]').forEach(function(a){ a.classList.toggle('on', a.getAttribute('data-r') === (p[0]||'')); });
+  window.scrollTo(0,0);
+  if (!p[0]) return anaSayfa();
+  if (p[0]==='s') return sinifSayfa(p[1]);
+  if (p[0]==='k') return konuSayfa(decodeURIComponent(p[1]), p[2]||'anlatim');
+  if (p[0]==='yanlislar') return yanlisSayfa();
+  if (p[0]==='deneme') return denemeKur(p[1]);
+  anaSayfa();
+}
+
+/* ---------- Ana sayfa ---------- */
+function anaSayfa(){
+  document.title = 'Konu Anlatımı ve Soru Bankası · Ronya Kimya';
+  var top = Object.keys(K.q).length, dogru = 0, yanlis = 0;
+  Object.keys(K.q).forEach(function(id){ if (K.q[id].l) dogru++; else yanlis++; });
+  var h = '<div class="wrap genis">';
+  h += '<h1 class="rb-h1">Konu anlatımı ve soru bankası</h1>';
+  h += '<p class="lead">Her konuda önce anlatımı oku, çözümlü örnekleri incele, sonra testi çöz. Her sorudan sonra doğru cevabı ve çözümünü görürsün; yanlış yaptığın sorular ayrı bir listede biriktirilir.</p>';
+  h += '<div class="ozet"><div><b>'+top+'</b><span>çözülen soru</span></div><div><b>'+(top?yuzde(dogru,top):0)+'%</b><span>başarı</span></div><div><b>'+yanlis+'</b><span>tekrar edilecek soru</span></div><div><b>'+K.d.length+'</b><span>deneme</span></div></div>';
+  h += '<h2 class="rb-h2">Sınıfını seç</h2><div class="siniflar" id="sinifKart">';
+  SINIFLAR.forEach(function(s){
+    h += '<a class="sinif '+s.c+'" href="#/s/'+s.id+'"><div class="no">'+s.no+'</div><div class="ad">'+s.ad+'</div><div class="alt">'+s.alt+'</div><div class="bar-yer" data-s="'+s.id+'"></div></a>';
+  });
+  h += '</div>';
+  h += '<h2 class="rb-h2" style="margin-bottom:14px">Çalışma araçları</h2><div class="araclar">';
+  h += '<a class="arac" href="#/deneme"><i>'+IKON.saat+'</i><span><b>Karma deneme</b><span>Seçtiğin konulardan süreli deneme; sonunda konu bazlı karne.</span></span></a>';
+  h += '<a class="arac" href="#/yanlislar"><i>'+IKON.tekrar+'</i><span><b>Yanlışlarım</b><span>Yanlış yaptığın soruları tekrar çöz; doğru yaptıkça listeden düşer.</span></span></a>';
+  h += '</div></div>';
+  app.innerHTML = h;
+  hepsiniYukle().then(function(){
+    $$('.bar-yer').forEach(function(el){
+      var v = VERI[el.getAttribute('data-s')];
+      if (!v){ el.innerHTML = '<div class="barlbl"><span>Hazırlanıyor</span></div>'; return; }
+      var i = sinifIstat(v);
+      el.innerHTML = '<div class="bar">'+'<i style="width:'+yuzde(i.coz,i.n)+'%"></i></div><div class="barlbl"><span>'+i.coz+' / '+i.n+' soru</span><span>'+(i.coz?yuzde(i.d,i.coz)+'% doğru':'')+'</span></div>';
+    });
+  });
+}
+
+/* ---------- Sınıf sayfası ---------- */
+function sinifSayfa(sid){
+  var s = sinifBul(sid); if (!s) return anaSayfa();
+  app.innerHTML = '<div class="yukleniyor">Yükleniyor…</div>';
+  yukle(sid).then(function(v){
+    document.title = s.ad + ' · Soru Bankası';
+    var i = sinifIstat(v);
+    var h = '<div class="wrap"><div class="crumb"><a href="#/">Dersler</a> › '+s.ad+'</div>';
+    h += '<h1 class="rb-h1">'+s.ad+' kimya</h1><p class="lead">'+(v.aciklama||'')+'</p>';
+    h += '<div class="ozet"><div><b>'+v.temalar.reduce(function(a,t){return a+t.konular.length;},0)+'</b><span>konu</span></div><div><b>'+i.n+'</b><span>test sorusu</span></div><div><b>'+i.coz+'</b><span>çözdüğün</span></div><div><b>'+(i.coz?yuzde(i.d,i.coz):0)+'%</b><span>başarı</span></div></div>';
+    var no = 0;
+    v.temalar.forEach(function(t){
+      h += '<section class="tema '+s.c+'"><h3>'+t.ad+'</h3><ul class="konular">';
+      t.konular.forEach(function(k){
+        no++; var ki = konuIstat(k);
+        h += '<li><a class="konu" href="#/k/'+encodeURIComponent(k.id)+'"><span class="sira">'+no+'</span><span><b>'+k.ad+'</b><small>'+(k.ozet||'')+'</small></span>';
+        h += '<span class="sag">'+ki.coz+'/'+ki.n+bar(yuzde(ki.coz,ki.n))+'</span></a></li>';
+      });
+      h += '</ul></section>';
+    });
+    h += '<div class="sat" style="margin-top:8px"><a class="btn btn-2" href="#/deneme/'+sid+'">Bu sınıftan deneme çöz</a></div></div>';
+    app.innerHTML = h;
+  }, function(){
+    app.innerHTML = '<div class="wrap"><div class="crumb"><a href="#/">Dersler</a> › '+s.ad+'</div><h1 class="rb-h1">'+s.ad+'</h1><div class="bos">Bu sınıfın içeriği hazırlanıyor.</div></div>';
+  });
+}
+
+/* ---------- Konu sayfası ---------- */
+function konuSayfa(kid, sekme){
+  var sid = kid.split('-')[0];
+  app.innerHTML = '<div class="yukleniyor">Yükleniyor…</div>';
+  yukle(sid).then(function(v){
+    var k = KONU[kid]; if (!k) return sinifSayfa(sid);
+    var s = sinifBul(sid);
+    document.title = k.ad + ' · ' + s.ad;
+    var tum = []; v.temalar.forEach(function(t){ tum = tum.concat(t.konular); });
+    var idx = tum.indexOf(k), onceki = tum[idx-1], sonraki = tum[idx+1];
+    var h = '<div class="wrap '+s.c+'"><div class="crumb"><a href="#/">Dersler</a> › <a href="#/s/'+sid+'">'+s.ad+'</a> › '+k.tema.ad+'</div>';
+    h += '<h1 class="rb-h1">'+k.ad+'</h1>';
+    if (k.kazanim && k.kazanim.length) h += '<div class="kaz">'+k.kazanim.map(function(x){return '<span>'+x+'</span>';}).join('')+'</div>';
+    h += '<div class="sekmeler" role="tablist">';
+    [['anlatim','Konu anlatımı',''],['ornek','Çözümlü örnekler',(k.ornek||[]).length],['test','Test',(k.soru||[]).length]].forEach(function(x){
+      h += '<button class="sekme'+(sekme===x[0]?' on':'')+'" data-s="'+x[0]+'" role="tab">'+x[1]+(x[2]!==''?'<small>'+x[2]+'</small>':'')+'</button>';
+    });
+    h += '</div><div id="icerik"></div>';
+    h += '<div class="sonraki">'+(onceki?'<a class="btn btn-2" href="#/k/'+encodeURIComponent(onceki.id)+'">‹ '+esc(onceki.ad)+'</a>':'<span></span>')+(sonraki?'<a class="btn btn-2" href="#/k/'+encodeURIComponent(sonraki.id)+'">'+esc(sonraki.ad)+' ›</a>':'')+'</div></div>';
+    app.innerHTML = h;
+    $$('.sekme').forEach(function(b){ b.onclick = function(){ history.replaceState(null,'','#/k/'+encodeURIComponent(kid)+'/'+b.getAttribute('data-s')); $$('.sekme').forEach(function(x){x.classList.toggle('on',x===b);}); goster(b.getAttribute('data-s')); }; });
+    function goster(sk){
+      document.onkeydown = null;
+      var ic = $('#icerik');
+      if (sk==='anlatim'){
+        ic.innerHTML = '<article class="anlatim">'+(k.anlatim||'<div class="bos">Anlatım hazırlanıyor.</div>')+'</article><div class="sat" style="margin-top:22px"><button class="btn btn-1" data-git="ornek">Çözümlü örneklere geç</button><button class="btn btn-2" data-git="test">Teste başla</button></div>';
+      } else if (sk==='ornek'){
+        var o = '';
+        (k.ornek||[]).forEach(function(x, i){
+          o += '<div class="ornek"><div class="etiket">Örnek '+(i+1)+'</div><div class="metin">'+x.s+'</div><button class="cozum-btn" type="button">Çözümü göster</button><div class="cozum" hidden>'+x.c+'</div></div>';
+        });
+        ic.innerHTML = (o || '<div class="bos">Örnekler hazırlanıyor.</div>') + '<div class="sat" style="margin-top:8px"><button class="btn btn-1" data-git="test">Teste başla</button></div>';
+        $$('.cozum-btn', ic).forEach(function(b){ b.onclick = function(){ var c=b.nextElementSibling; c.hidden=!c.hidden; b.textContent=c.hidden?'Çözümü göster':'Çözümü gizle'; }; });
+      } else {
+        testAyar(ic, k);
+      }
+      $$('[data-git]', ic).forEach(function(b){ b.onclick = function(){ var t=$('.sekme[data-s="'+b.getAttribute('data-git')+'"]'); if (t){ t.click(); window.scrollTo(0, $('.sekmeler').offsetTop - 70); } }; });
+    }
+    goster(sekme);
+  }, function(){ sinifSayfa(sid); });
+}
+
+/* ---------- Konu testi ---------- */
+function testAyar(ic, k){
+  var sorular = k.soru || [];
+  if (!sorular.length){ ic.innerHTML = '<div class="bos">Test soruları hazırlanıyor.</div>'; return; }
+  var ist = konuIstat(k);
+  var yanlis = sorular.filter(function(s){ var r=K.q[s.id]; return r && !r.l; });
+  var cozulmemis = sorular.filter(function(s){ return !K.q[s.id]; });
+  var ayar = {say: Math.min(10, sorular.length), zor: 0, kap: 'hepsi'};
+  function ciz(){
+    var h = '<div class="test-ayar">';
+    h += '<div class="grp"><b>Soru sayısı</b><div class="secim" data-a="say">';
+    [10, 20, sorular.length].filter(function(v,i,a){ return v<=sorular.length && a.indexOf(v)===i; }).forEach(function(n){ h += '<button class="'+(ayar.say===n?'on':'')+'" data-v="'+n+'">'+(n===sorular.length?'Tümü ('+n+')':n)+'</button>'; });
+    h += '</div></div>';
+    h += '<div class="grp"><b>Zorluk</b><div class="secim" data-a="zor">';
+    [[0,'Karışık'],[1,'Kolay'],[2,'Orta'],[3,'Zor']].forEach(function(z){ var n=z[0]?sorular.filter(function(s){return s.z===z[0];}).length:sorular.length; h += '<button class="'+(ayar.zor===z[0]?'on':'')+'" data-v="'+z[0]+'"'+(n?'':' disabled')+'>'+z[1]+' <small style="color:var(--ink3)">'+n+'</small></button>'; });
+    h += '</div></div>';
+    h += '<div class="grp" style="margin:0"><b>Hangi sorular?</b><div class="secim" data-a="kap">';
+    [['hepsi','Hepsi'],['yeni','Çözmediklerim ('+cozulmemis.length+')'],['yanlis','Yanlışlarım ('+yanlis.length+')']].forEach(function(x){ h += '<button class="'+(ayar.kap===x[0]?'on':'')+'" data-v="'+x[0]+'">'+x[1]+'</button>'; });
+    h += '</div></div></div>';
+    h += '<div class="sat"><button class="btn btn-or" id="basla">Testi başlat</button><span style="color:var(--ink3);font-size:15px">'+ist.coz+'/'+ist.n+' soru çözüldü'+(ist.coz?' · %'+yuzde(ist.d,ist.coz)+' doğru':'')+'</span></div>';
+    ic.innerHTML = h;
+    $$('.secim', ic).forEach(function(g){ $$('button', g).forEach(function(b){ b.onclick = function(){ var a=g.getAttribute('data-a'), v=b.getAttribute('data-v'); ayar[a] = (a==='kap') ? v : +v; ciz(); }; }); });
+    $('#basla', ic).onclick = function(){
+      var havuz = ayar.kap==='yeni' ? cozulmemis : ayar.kap==='yanlis' ? yanlis : sorular;
+      if (ayar.zor) havuz = havuz.filter(function(s){ return s.z===ayar.zor; });
+      if (!havuz.length){ alert('Bu seçimle eşleşen soru yok.'); return; }
+      var secilen = karistir(havuz).slice(0, ayar.say);
+      secilen.sort(function(a,b){ return (a.z||2)-(b.z||2); });
+      calis(ic, secilen, {baslik: k.ad, geri: function(){ testAyar(ic, k); }});
+    };
+  }
+  ciz();
+}
+
+/* Şıkları hazırla: d verilmişse sıra sabit, yoksa ilk şık doğru ve karıştırılır */
+function sikHazirla(s){
+  if (typeof s.d === 'number') return {o: s.o.slice(), d: s.d};
+  var sira = karistir(s.o.map(function(_, i){ return i; }));
+  return {o: sira.map(function(i){ return s.o[i]; }), d: sira.indexOf(0)};
+}
+var ZOR = {1:['Kolay','z1'],2:['Orta','z2'],3:['Zor','z3']};
+
+/* Anında geri bildirimli çalışma (konu testi ve yanlışlarım) */
+function calis(ic, sorular, ops){
+  var i = 0, dogru = 0, yanlisSay = 0, kayit = [];
+  var hazir = sorular.map(sikHazirla);
+  function ciz(){
+    var s = sorular[i], hz = hazir[i], cevaplandi = false;
+    var h = '<div class="soru-ust"><span>Soru '+(i+1)+' / '+sorular.length+'</span><span class="skor"><span class="d">✓ '+dogru+'</span><span class="y">✗ '+yanlisSay+'</span></span></div>';
+    h += '<div class="ilerle"><i style="width:'+yuzde(i,sorular.length)+'%"></i></div>';
+    h += '<div class="soru-kart">';
+    if (ops.konuAdi) h += '<div style="font-size:14px;color:var(--ink3);margin-bottom:6px">'+esc(KONU[s.konu].ad)+'</div>';
+    if (s.z) h += '<span class="zor '+ZOR[s.z][1]+'">'+ZOR[s.z][0]+'</span>';
+    h += '<div class="soru-metin">'+s.s+'</div><div class="sik-liste">';
+    hz.o.forEach(function(o, j){ h += '<button class="sik" data-j="'+j+'"><span class="h">'+HARF[j]+'</span><span class="t">'+o+'</span></button>'; });
+    h += '</div><div id="gb"></div></div>';
+    h += '<div class="alt-sat"><button class="btn btn-2" id="cik">Testi bitir</button><button class="btn btn-1" id="ileri" hidden>'+(i+1<sorular.length?'Sonraki soru':'Sonucu gör')+'</button></div>';
+    h += '<div class="kisayol">Klavye: A–E ile işaretle, Enter ile ilerle</div>';
+    ic.innerHTML = h;
+    function sec(j){
+      if (cevaplandi) return; cevaplandi = true;
+      var ok = j === hz.d;
+      if (ok) dogru++; else yanlisSay++;
+      isle(s.id, ok); kayit.push({s:s, hz:hz, sec:j});
+      $$('.sik', ic).forEach(function(b, x){ b.disabled = true; if (x===hz.d) b.classList.add('dogru'); else if (x===j) b.classList.add('yanlis'); });
+      $('#gb', ic).innerHTML = '<div class="geri-bildirim '+(ok?'iyi':'kotu')+'"><b>'+(ok?'Doğru':'Yanlış. Doğru cevap '+HARF[hz.d])+'</b><div class="gc">'+(s.c||'')+'</div></div>';
+      $('.soru-ust .d', ic).textContent = '✓ '+dogru; $('.soru-ust .y', ic).textContent = '✗ '+yanlisSay;
+      var b = $('#ileri', ic); b.hidden = false; b.focus({preventScroll:true});
+    }
+    $$('.sik', ic).forEach(function(b){ b.onclick = function(){ sec(+b.getAttribute('data-j')); }; });
+    $('#ileri', ic).onclick = function(){ i++; if (i<sorular.length){ ciz(); ic.scrollIntoView({block:'start'}); window.scrollBy(0,-130); } else bitir(); };
+    $('#cik', ic).onclick = function(){ if (!kayit.length) { ops.geri(); return; } bitir(); };
+    document.onkeydown = function(e){
+      if (e.target.tagName==='INPUT') return;
+      var k = e.key.toUpperCase(), j = HARF.indexOf(k);
+      if (j>-1 && j<hz.o.length && !cevaplandi){ e.preventDefault(); sec(j); }
+      else if (e.key==='Enter' && cevaplandi){ e.preventDefault(); $('#ileri', ic).click(); }
+    };
+  }
+  function bitir(){
+    document.onkeydown = null;
+    var n = kayit.length, d = kayit.filter(function(x){ return x.sec===x.hz.d; }).length;
+    var h = '<div class="sonuc-ust">'+halka(yuzde(d,n))+'<div><h2 class="rb-h2">'+(n?(d===n?'Hepsi doğru!':d/n>=.7?'Güzel iş':d/n>=.4?'Fena değil, biraz daha tekrar':'Konuyu bir kez daha gözden geçir'):'Test bitti')+'</h2>';
+    h += '<div class="sonuc-sayilar" style="margin-top:10px"><div><b>'+n+'</b>soru</div><div><b style="color:var(--gr)">'+d+'</b>doğru</div><div><b style="color:var(--rd)">'+(n-d)+'</b>yanlış</div></div></div></div>';
+    h += '<div class="sat" style="margin-bottom:22px"><button class="btn btn-or" id="tekrar">Yeni test</button>'+(n-d?'<button class="btn btn-2" id="yanlisCoz">Yanlışları tekrar çöz</button>':'')+'</div>';
+    h += '<h3 style="font:700 18px/1.3 var(--disp);margin:0 0 10px">Soruların gözden geçirmesi</h3>';
+    h += gozdenGecir(kayit.map(function(x){ return {s:x.s, hz:x.hz, sec:x.sec}; }));
+    ic.innerHTML = h;
+    $('#tekrar', ic).onclick = ops.geri;
+    var yc = $('#yanlisCoz', ic);
+    if (yc) yc.onclick = function(){ calis(ic, kayit.filter(function(x){ return x.sec!==x.hz.d; }).map(function(x){ return x.s; }), ops); };
+  }
+  ciz();
+}
+
+function halka(p){
+  var r = 52, c = 2*Math.PI*r, renk = p>=70?'var(--gr)':p>=40?'var(--or)':'var(--rd)';
+  return '<div class="halka"><svg width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="'+r+'" fill="none" stroke="var(--soft)" stroke-width="12"/><circle cx="60" cy="60" r="'+r+'" fill="none" stroke="'+renk+'" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+(c*p/100)+' '+c+'"/></svg><b>%'+p+'</b></div>';
+}
+function gozdenGecir(liste){
+  var h = '<div class="gozden">';
+  liste.forEach(function(x, i){
+    var dur = x.sec==null ? 'b' : (x.sec===x.hz.d ? 'd' : 'y');
+    h += '<details'+(dur!=='d'?' open':'')+'><summary><span class="dur '+dur+'">'+(dur==='d'?'✓':dur==='y'?'✗':'–')+'</span><span><b>'+(i+1)+'. soru</b> <span class="kisa">'+esc(kisalt(x.s.s, 120))+'</span></span></summary><div class="ic">';
+    h += '<div>'+x.s.s+'</div><div class="sik-ozet">';
+    h += (x.sec==null?'Boş bıraktın. ':'Senin cevabın: <b>'+HARF[x.sec]+') '+x.hz.o[x.sec]+'</b>. ')+'Doğru cevap: <b>'+HARF[x.hz.d]+') '+x.hz.o[x.hz.d]+'</b></div>';
+    h += '<div class="not" style="margin:0"><b>Çözüm</b><div class="gc">'+(x.s.c||'')+'</div></div></div></details>';
+  });
+  return h + '</div>';
+}
+
+/* ---------- Yanlışlarım ---------- */
+function yanlisSayfa(){
+  document.title = 'Yanlışlarım · Soru Bankası';
+  app.innerHTML = '<div class="yukleniyor">Yükleniyor…</div>';
+  hepsiniYukle().then(function(){
+    var ids = Object.keys(K.q).filter(function(id){ return !K.q[id].l && SORU[id]; });
+    ids.sort(function(a,b){ return (K.q[b].t||0)-(K.q[a].t||0); });
+    var h = '<div class="wrap"><div class="crumb"><a href="#/">Dersler</a> › Yanlışlarım</div><h1 class="rb-h1">Yanlışlarım</h1>';
+    h += '<p class="lead">Son denemende yanlış yaptığın ya da boş bıraktığın sorular burada. Bir soruyu doğru çözdüğünde listeden düşer.</p><div id="yic">';
+    if (!ids.length){ h += '<div class="bos">Tekrar edilecek soru yok. Bir test çözdükten sonra yanlışların burada görünür.</div>'; }
+    else {
+      h += '<div class="sat" style="margin-bottom:18px"><button class="btn btn-or" id="hepsi">Hepsini çöz ('+ids.length+')</button></div>';
+      var gruplar = {};
+      ids.forEach(function(id){ var k=SORU[id].konu; (gruplar[k]=gruplar[k]||[]).push(id); });
+      Object.keys(gruplar).forEach(function(kid){
+        var k = KONU[kid], s = sinifBul(k.sinif);
+        h += '<h3 style="font:600 15px/1.3 var(--body);color:var(--ink2);margin:18px 0 8px">'+s.ad+' · '+esc(k.ad)+' <span style="color:var(--ink3)">('+gruplar[kid].length+')</span> <button class="cozum-btn" data-k="'+kid+'" style="margin-left:6px;padding:5px 10px;font-size:14px">Bu konuyu çöz</button></h3><div class="kutu-liste">';
+        gruplar[kid].forEach(function(id){ var r=K.q[id]; h += '<div class="yanlis-oge"><div class="m"><small>'+r.n+' deneme, '+r.c+' doğru</small>'+esc(kisalt(SORU[id].s, 180))+'</div></div>'; });
+        h += '</div>';
+      });
+    }
+    h += '</div></div>';
+    app.innerHTML = h;
+    var ic = $('#yic');
+    function basla(liste){ calis(ic, karistir(liste.map(function(id){ return SORU[id]; })), {konuAdi:true, geri: yanlisSayfa}); }
+    var hb = $('#hepsi'); if (hb) hb.onclick = function(){ basla(ids); };
+    $$('[data-k]', ic).forEach(function(b){ b.onclick = function(){ basla(ids.filter(function(id){ return SORU[id].konu===b.getAttribute('data-k'); })); }; });
+  });
+}
+
+/* ---------- Karma deneme ---------- */
+function denemeKur(sidOn){
+  document.title = 'Karma Deneme · Soru Bankası';
+  app.innerHTML = '<div class="yukleniyor">Yükleniyor…</div>';
+  hepsiniYukle().then(function(){
+    var mevcut = SINIFLAR.filter(function(s){ return VERI[s.id]; });
+    if (!mevcut.length){ app.innerHTML = '<div class="wrap"><div class="bos">İçerik hazırlanıyor.</div></div>'; return; }
+    var aktif = sidOn && VERI[sidOn] ? sidOn : mevcut[0].id;
+    var secili = {}, ayar = {say:20, sure:1};
+    function konular(){ var l=[]; VERI[aktif].temalar.forEach(function(t){ l=l.concat(t.konular); }); return l; }
+    konular().forEach(function(k){ secili[k.id] = true; });
+    function ciz(){
+      var h = '<div class="wrap"><div class="crumb"><a href="#/">Dersler</a> › Karma deneme</div><h1 class="rb-h1">Karma deneme</h1>';
+      h += '<p class="lead">Seçtiğin konulardan karışık sorular gelir. Deneme sırasında doğru-yanlış gösterilmez; bitirince netini, konu bazlı karneni ve tüm çözümleri görürsün.</p>';
+      h += '<div class="test-ayar"><div class="grp"><b>Sınıf</b><div class="secim" data-a="sinif">';
+      mevcut.forEach(function(s){ h += '<button class="'+(aktif===s.id?'on':'')+'" data-v="'+s.id+'">'+s.ad+(s.id==='12m'?' Maarif':'')+'</button>'; });
+      h += '</div></div><div class="grp"><b>Konular</b><div class="secim-liste">';
+      VERI[aktif].temalar.forEach(function(t){
+        h += '<div class="tbaslik">'+t.ad+'</div>';
+        t.konular.forEach(function(k){ h += '<label><input type="checkbox" data-k="'+k.id+'"'+(secili[k.id]?' checked':'')+'><span>'+esc(k.ad)+' <small style="color:var(--ink3)">('+(k.soru||[]).length+')</small></span></label>'; });
+      });
+      h += '</div><div class="sat" style="margin-top:8px"><button class="cozum-btn" id="tumu">Tümünü seç</button><button class="cozum-btn" id="hicbiri" style="background:var(--soft);color:var(--ink2)">Hiçbirini seçme</button></div></div>';
+      h += '<div class="grp"><b>Soru sayısı</b><div class="secim" data-a="say">';
+      [10,20,40].forEach(function(n){ h += '<button class="'+(ayar.say===n?'on':'')+'" data-v="'+n+'">'+n+'</button>'; });
+      h += '</div></div><div class="grp" style="margin:0"><b>Süre</b><div class="secim" data-a="sure">';
+      [[1,'Süreli (soru başına 1,5 dk)'],[0,'Süresiz']].forEach(function(x){ h += '<button class="'+(ayar.sure===x[0]?'on':'')+'" data-v="'+x[0]+'">'+x[1]+'</button>'; });
+      h += '</div></div></div><div class="sat"><button class="btn btn-or" id="dbasla">Denemeyi başlat</button></div>';
+      if (K.d.length){
+        h += '<h3 style="font:700 18px/1.3 var(--disp);margin:30px 0 10px">Önceki denemelerin</h3><table class="karne"><tr><th>Tarih</th><th>Sınıf</th><th class="n">Soru</th><th class="n">Net</th></tr>';
+        K.d.slice(-8).reverse().forEach(function(d){ var s=sinifBul(d.s)||{ad:''}; h += '<tr><td>'+new Date(d.t).toLocaleDateString('tr-TR')+'</td><td>'+s.ad+'</td><td class="n">'+d.n+'</td><td class="n">'+String(d.net).replace('.',',')+'</td></tr>'; });
+        h += '</table>';
+      }
+      h += '</div>';
+      app.innerHTML = h;
+      $$('.secim').forEach(function(g){ $$('button', g).forEach(function(b){ b.onclick = function(){ var a=g.getAttribute('data-a'), v=b.getAttribute('data-v'); if (a==='sinif'){ aktif=v; secili={}; konular().forEach(function(k){ secili[k.id]=true; }); } else ayar[a]=+v; ciz(); }; }); });
+      $$('[data-k]').forEach(function(c){ c.onchange = function(){ secili[c.getAttribute('data-k')] = c.checked; }; });
+      $('#tumu').onclick = function(){ konular().forEach(function(k){ secili[k.id]=true; }); ciz(); };
+      $('#hicbiri').onclick = function(){ secili={}; ciz(); };
+      $('#dbasla').onclick = function(){
+        var havuz = []; konular().forEach(function(k){ if (secili[k.id]) havuz = havuz.concat(k.soru||[]); });
+        if (!havuz.length){ alert('En az bir konu seç.'); return; }
+        // Konulara dengeli dağıt
+        var gr = {}; havuz.forEach(function(s){ (gr[s.konu]=gr[s.konu]||[]).push(s); });
+        Object.keys(gr).forEach(function(k){ gr[k] = karistir(gr[k]); });
+        var secilen = [], anahtarlar = karistir(Object.keys(gr));
+        while (secilen.length < ayar.say){ var eklendi=false; anahtarlar.forEach(function(k){ if (secilen.length<ayar.say && gr[k].length){ secilen.push(gr[k].pop()); eklendi=true; } }); if (!eklendi) break; }
+        denemeCoz(karistir(secilen), aktif, ayar.sure ? Math.round(secilen.length*90) : 0);
+      };
+    }
+    ciz();
+  });
+}
+
+function denemeCoz(sorular, sid, sureSn){
+  var hazir = sorular.map(sikHazirla), cev = sorular.map(function(){ return null; }), i = 0, kalan = sureSn;
+  var h = '<div class="wrap"><div class="soru-ust"><span id="dsay"></span>'+(sureSn?'<span class="sure" id="dsure"></span>':'')+'</div><div class="ilerle"><i id="dil"></i></div><div id="dkart"></div>';
+  h += '<div class="alt-sat"><button class="btn btn-2" id="dgeri">‹ Önceki</button><button class="btn btn-1" id="dileri">Sonraki ›</button></div>';
+  h += '<div class="deneme-grid" id="dgrid"></div><div class="sat" style="margin-top:20px"><button class="btn btn-or" id="dbitir">Denemeyi bitir</button></div></div>';
+  app.innerHTML = h;
+  function grid(){ $('#dgrid').innerHTML = sorular.map(function(_, j){ return '<button class="'+(cev[j]!=null?'cev ':'')+(j===i?'su':'')+'" data-j="'+j+'">'+(j+1)+'</button>'; }).join(''); $$('#dgrid button').forEach(function(b){ b.onclick=function(){ i=+b.getAttribute('data-j'); ciz(); }; }); }
+  function ciz(){
+    var s = sorular[i], hz = hazir[i];
+    $('#dsay').textContent = 'Soru '+(i+1)+' / '+sorular.length+' · '+cev.filter(function(x){return x!=null;}).length+' cevaplandı';
+    $('#dil').style.width = yuzde(cev.filter(function(x){return x!=null;}).length, sorular.length)+'%';
+    var k = '<div class="soru-kart"><div style="font-size:14px;color:var(--ink3);margin-bottom:6px">'+esc(KONU[s.konu].ad)+'</div><div class="soru-metin">'+s.s+'</div><div class="sik-liste">';
+    hz.o.forEach(function(o, j){ k += '<button class="sik'+(cev[i]===j?' sec':'')+'" data-j="'+j+'"><span class="h">'+HARF[j]+'</span><span class="t">'+o+'</span></button>'; });
+    k += '</div><div style="margin-top:12px;font-size:14px;color:var(--ink3)">Aynı şıkka tekrar dokunursan cevabın silinir.</div></div>';
+    $('#dkart').innerHTML = k;
+    $$('#dkart .sik').forEach(function(b){ b.onclick = function(){ var j=+b.getAttribute('data-j'); cev[i] = cev[i]===j ? null : j; ciz(); }; });
+    $('#dgeri').disabled = i===0; $('#dileri').disabled = i===sorular.length-1;
+    grid();
+  }
+  $('#dgeri').onclick = function(){ if (i>0){ i--; ciz(); } };
+  $('#dileri').onclick = function(){ if (i<sorular.length-1){ i++; ciz(); } };
+  $('#dbitir').onclick = function(){ var bos = cev.filter(function(x){return x==null;}).length; if (!bos || confirm(bos+' soru boş. Denemeyi bitirmek istiyor musun?')) bitir(); };
+  document.onkeydown = function(e){
+    var j = HARF.indexOf(e.key.toUpperCase());
+    if (j>-1 && j<hazir[i].o.length){ e.preventDefault(); cev[i] = cev[i]===j?null:j; ciz(); }
+    else if (e.key==='ArrowRight') $('#dileri').click(); else if (e.key==='ArrowLeft') $('#dgeri').click();
+  };
+  if (sureSn){
+    var tik = function(){ var m=Math.floor(kalan/60), s=kalan%60; var el=$('#dsure'); if (!el) return; el.textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s; el.classList.toggle('az', kalan<60); if (kalan<=0){ bitir(); return; } kalan--; };
+    tik(); sayac = setInterval(tik, 1000);
+  }
+  function bitir(){
+    if (sayac){ clearInterval(sayac); sayac=null; }
+    document.onkeydown = null;
+    var d=0, y=0, b=0, konu = {};
+    sorular.forEach(function(s, j){
+      var r = konu[s.konu] || (konu[s.konu] = {n:0,d:0});
+      r.n++;
+      if (cev[j]==null){ b++; return; }
+      var ok = cev[j]===hazir[j].d; if (ok){ d++; r.d++; } else y++;
+      isle(s.id, ok);
+    });
+    var net = Math.round((d - y/4)*100)/100;
+    K.d.push({t:Date.now(), s:sid, n:sorular.length, d:d, y:y, net:net}); kaydet();
+    var h = '<div class="wrap"><div class="crumb"><a href="#/">Dersler</a> › <a href="#/deneme">Karma deneme</a> › Sonuç</div>';
+    h += '<div class="sonuc-ust">'+halka(yuzde(d, sorular.length))+'<div><h2 class="rb-h2">Deneme sonucu</h2><div class="sonuc-sayilar" style="margin-top:10px"><div><b style="color:var(--gr)">'+d+'</b>doğru</div><div><b style="color:var(--rd)">'+y+'</b>yanlış</div><div><b>'+b+'</b>boş</div><div><b>'+String(net).replace('.',',')+'</b>net</div></div><div style="font-size:13.5px;color:var(--ink3);margin-top:8px">Net = doğru − yanlış ÷ 4</div></div></div>';
+    h += '<h3 style="font:700 18px/1.3 var(--disp);margin:0 0 10px">Konu bazlı karne</h3><table class="karne"><tr><th>Konu</th><th class="n">Doğru</th><th class="n">Başarı</th></tr>';
+    Object.keys(konu).sort(function(a,b){ return konu[a].d/konu[a].n - konu[b].d/konu[b].n; }).forEach(function(kid){
+      var r = konu[kid], p = yuzde(r.d, r.n);
+      h += '<tr><td><a href="#/k/'+encodeURIComponent(kid)+'">'+esc(KONU[kid].ad)+'</a></td><td class="n">'+r.d+'/'+r.n+'</td><td class="n">%'+p+'<span class="bar" style="--c:'+(p>=70?'var(--gr)':p>=40?'var(--or)':'var(--rd)')+'"><i style="width:'+p+'%"></i></span></td></tr>';
+    });
+    h += '</table><div class="sat" style="margin-bottom:22px"><a class="btn btn-or" href="#/deneme/'+sid+'">Yeni deneme</a>'+(y+b?'<a class="btn btn-2" href="#/yanlislar">Yanlışlarıma git</a>':'')+'</div>';
+    h += '<h3 style="font:700 18px/1.3 var(--disp);margin:0 0 10px">Tüm sorular ve çözümleri</h3>';
+    h += gozdenGecir(sorular.map(function(s, j){ return {s:s, hz:hazir[j], sec:cev[j]}; }));
+    h += '</div>';
+    app.innerHTML = h; window.scrollTo(0,0);
+  }
+  ciz();
+}
+
+/* ---------- İkonlar ---------- */
+var S = 'fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"';
+var IKON = {
+  saat: '<svg viewBox="0 0 24 24" '+S+'><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg>',
+  tekrar: '<svg viewBox="0 0 24 24" '+S+'><path d="M20 12a8 8 0 0 1-14.3 4.9M4 12a8 8 0 0 1 14.3-4.9"/><path d="M18.5 3v4.2h-4.2M5.5 21v-4.2h4.2"/></svg>'
+};
+
+/* ---------- Yazı boyutu (akıllı tahta için) ---------- */
+try { if (localStorage.getItem('ronya_banka_buyuk')==='1') document.documentElement.classList.add('buyuk'); } catch(e){}
+$('#yaziBtn').onclick = function(){
+  var on = document.documentElement.classList.toggle('buyuk');
+  try { localStorage.setItem('ronya_banka_buyuk', on?'1':'0'); } catch(e){}
+};
+
+yonlendir();
+})();
+</script>
+<script src="ronya-tema.js?v=9"></script>
+</body>
+</html>
 

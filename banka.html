@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#FBF8F5">
-<title>Konu Anlatımı ve Soru Bankası · Ronya Kimya</title>
+<title>Konu Anlatımlı Soru Bankası · Ronya Kimya</title>
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
@@ -239,7 +239,7 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
 <div class="rb-top">
   <div class="wrap genis">
     <a class="rb-brand" href="index.html"><img src="icon.10.png" alt="Ronya Kimya"><b>Ronya</b> <span>Kimya</span></a>
-    <nav class="rb-nav" aria-label="Soru bankası">
+    <nav class="rb-nav" aria-label="Konu Anlatımlı Soru Bankası">
       <a href="#/" data-r="">Dersler</a>
       <a href="#/yanlislar" data-r="yanlislar">Yanlışlarım</a>
       <a href="#/deneme" data-r="deneme" class="gizle-k">Deneme</a>
@@ -261,7 +261,7 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
    =================================================================== */
 (function(){
 'use strict';
-var SURUM = 'b1';
+var SURUM = 'b2';
 var SINIFLAR = [
   {id:'9',   no:'9',  ad:'9. Sınıf',  alt:'Maarif modeli', dosya:'banka/s9.js',  c:'c9'},
   {id:'10',  no:'10', ad:'10. Sınıf', alt:'Maarif modeli', dosya:'banka/s10.js', c:'c10'},
@@ -362,7 +362,7 @@ function anaSayfa(){
   var top = Object.keys(K.q).length, dogru = 0, yanlis = 0;
   Object.keys(K.q).forEach(function(id){ if (K.q[id].l) dogru++; else yanlis++; });
   var h = '<div class="wrap genis">';
-  h += '<h1 class="rb-h1">Konu anlatımı ve soru bankası</h1>';
+  h += '<h1 class="rb-h1">Konu Anlatımlı Soru Bankası</h1>';
   h += '<p class="lead">Her konuda önce anlatımı oku, çözümlü örnekleri incele, sonra testi çöz. Her sorudan sonra doğru cevabı ve çözümünü görürsün; yanlış yaptığın sorular ayrı bir listede biriktirilir.</p>';
   h += '<div class="ozet"><div><b>'+top+'</b><span>çözülen soru</span></div><div><b>'+(top?yuzde(dogru,top):0)+'%</b><span>başarı</span></div><div><b>'+yanlis+'</b><span>tekrar edilecek soru</span></div><div><b>'+K.d.length+'</b><span>deneme</span></div></div>';
   h += '<h2 class="rb-h2">Sınıfını seç</h2><div class="siniflar" id="sinifKart">';
@@ -465,7 +465,7 @@ function testAyar(ic, k){
   function ciz(){
     var h = '<div class="test-ayar">';
     h += '<div class="grp"><b>Soru sayısı</b><div class="secim" data-a="say">';
-    [10, 20, sorular.length].filter(function(v,i,a){ return v<=sorular.length && a.indexOf(v)===i; }).forEach(function(n){ h += '<button class="'+(ayar.say===n?'on':'')+'" data-v="'+n+'">'+(n===sorular.length?'Tümü ('+n+')':n)+'</button>'; });
+    [10, 20, 40, sorular.length].filter(function(v,i,a){ return v<=sorular.length && a.indexOf(v)===i; }).forEach(function(n){ h += '<button class="'+(ayar.say===n?'on':'')+'" data-v="'+n+'">'+(n===sorular.length?'Tümü ('+n+')':n)+'</button>'; });
     h += '</div></div>';
     h += '<div class="grp"><b>Zorluk</b><div class="secim" data-a="zor">';
     [[0,'Karışık'],[1,'Kolay'],[2,'Orta'],[3,'Zor']].forEach(function(z){ var n=z[0]?sorular.filter(function(s){return s.z===z[0];}).length:sorular.length; h += '<button class="'+(ayar.zor===z[0]?'on':'')+'" data-v="'+z[0]+'"'+(n?'':' disabled')+'>'+z[1]+' <small style="color:var(--ink3)">'+n+'</small></button>'; });
@@ -725,7 +725,6 @@ $('#yaziBtn').onclick = function(){
 yonlendir();
 })();
 </script>
-<script src="ronya-tema.js?v=9"></script>
+<script src="ronya-tema.js?v=11"></script>
 </body>
 </html>
-

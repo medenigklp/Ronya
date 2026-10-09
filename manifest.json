@@ -1,13 +1,13 @@
 {
   "name": "Ronya Kimya",
   "short_name": "Ronya",
-  "description": "Kimya Laboratuvarı Uygulaması",
+  "description": "Konu anlatımlı soru bankası, hesaplayıcılar ve kimya laboratuvarı",
   "start_url": "/Ronya/",
   "id": "/Ronya/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#08090f",
-  "theme_color": "#16213e",
+  "background_color": "#FBF8F5",
+  "theme_color": "#FBF8F5",
   "icons": [
     {
       "src": "icon-192x192.png",

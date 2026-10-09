@@ -10,7 +10,7 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var TEMA_SURUM = 'v11';
+  var TEMA_SURUM = 'v12';
   window.RONYA_TEMA = TEMA_SURUM;
 
   /* ---------- 1. ARAÇ LİSTESİ (ana sayfadaki gruplar) ----------
@@ -864,6 +864,74 @@
     }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'fill', 'stroke', 'stop-color'] });
   }
 
+
+  /* ---------- GERİ DÖNÜŞ: her sayfada geri düğmesi + telefonun geri hareketi ---------- */
+  function geriKur() {
+    if (document.getElementById('rk-geri')) return;
+    var anaSayfa = !!document.getElementById('s-home');          /* index.html */
+    var banka = /banka\.html/i.test(location.pathname);
+    var css = document.createElement('style');
+    css.textContent =
+      '#rk-geri{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:9000;display:none;align-items:center;gap:6px;height:46px;padding:0 16px 0 12px;border-radius:999px;border:1px solid #D9D0C7;background:rgba(255,255,255,.94);color:#14110F;font:600 15px/1 var(--rk-body,system-ui,sans-serif);box-shadow:0 4px 16px rgba(20,17,15,.12);cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);-webkit-tap-highlight-color:transparent}' +
+      '#rk-geri svg{width:20px;height:20px}' +
+      '#rk-geri.on{display:inline-flex}' +
+      '#rk-geri:active{transform:scale(.96)}' +
+      '@media print{#rk-geri{display:none!important}}';
+    document.head.appendChild(css);
+    var b = document.createElement('button');
+    b.id = 'rk-geri'; b.type = 'button'; b.setAttribute('aria-label', 'Geri');
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Geri';
+    document.body.appendChild(b);
+
+    if (anaSayfa && typeof window.nav === 'function') {
+      /* index.html: ekran geçişlerini tarayıcı geçmişine işle */
+      var simdiki = 'home', popta = false;
+      try { history.replaceState({ rk: 'home' }, ''); } catch (e) {}
+      var sar = function () {
+        if (!window.nav || window.nav.__rkGeri) return;
+        var asil = window.nav;
+        var yeni = function (id) {
+          var r = asil.apply(this, arguments);
+          if (!popta && id && id !== simdiki) {
+            try { history.pushState({ rk: id }, ''); } catch (e) {}
+          }
+          simdiki = id || 'home';
+          b.classList.toggle('on', simdiki !== 'home');
+          return r;
+        };
+        yeni.__rkGeri = true;
+        window.nav = yeni;
+      };
+      sar(); setTimeout(sar, 800); setTimeout(sar, 2000);
+      window.addEventListener('popstate', function (e) {
+        var id = (e.state && e.state.rk) || 'home';
+        popta = true;
+        try { window.nav(id); } finally { popta = false; }
+        simdiki = id; b.classList.toggle('on', id !== 'home');
+      });
+      b.addEventListener('click', function () {
+        if (history.state && history.state.rk && history.state.rk !== 'home') history.back();
+        else window.nav('home');
+      });
+    } else if (banka) {
+      /* soru bankası: kendi adres yönlendirmesi var, geçmiş zaten çalışıyor */
+      var guncelle = function () { b.classList.add('on'); };
+      guncelle();
+      b.addEventListener('click', function () {
+        var h = location.hash.replace(/^#\/?/, '');
+        if (!h) { location.href = 'index.html'; return; }
+        if (history.length > 1) history.back(); else location.hash = '#/';
+      });
+    } else {
+      /* diğer sayfalar */
+      b.classList.add('on');
+      b.addEventListener('click', function () {
+        var ayni = document.referrer && document.referrer.indexOf(location.origin) === 0;
+        if (ayni && history.length > 1) history.back(); else location.href = 'index.html';
+      });
+    }
+  }
+
   /* ---------- BAŞLAT ---------- */
   injectHead();
   buildHome();          // eklenti ve portal çalışmadan ÖNCE ana sayfayı kur
@@ -877,6 +945,7 @@
     safe(function () { stripIn(document.body); });
     safe(fixTitles);
     safe(watch);
+    safe(geriKur);
     /* eklenti element verisini zenginleştirdikten sonra kartı yeniden çiz */
     showElement(curEl || (((Math.floor(Date.now() / 86400000)) * 37) % 118) + 1, false);
     setTimeout(function () { showElement(curEl, false); }, 1200);

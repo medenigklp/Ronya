@@ -10,7 +10,7 @@
    ========================================================================== */
 (function () {
   'use strict';
-  var TEMA_SURUM = 'v9';
+  var TEMA_SURUM = 'v11';
   window.RONYA_TEMA = TEMA_SURUM;
 
   /* ---------- 1. ARAÇ LİSTESİ (ana sayfadaki gruplar) ----------
@@ -22,7 +22,7 @@
     { id: 'rk-ders', title: 'Ders çalış', color: 'kobalt',
       sub: 'Soru bankası ve 11. sınıf Tema 2 konu anlatımları.',
       items: [
-        ['URL:banka.html', 'Konu anlatımlı soru bankası', '9, 10, 11, 12 (Maarif) ve AYT: konu anlatımı, çözümlü örnek, anında kontrollü test.', 'book'],
+        ['URL:banka.html', 'Konu Anlatımlı Soru Bankası', '9, 10, 11, 12 (Maarif) ve AYT: konu anlatımı, çözümlü örnek, anında kontrollü test.', 'book'],
         ['kinetik', 'Tepkime hızı', 'Çarpışma teorisi, potansiyel enerji grafiği ve hız hesapları.', 'speed'],
         ['enerji', 'Kimyasal enerji', 'Tepkimelerde enerji değişimi, çözümlü sorularla.', 'flame'],
         ['denge2', 'Kimyasal denge', 'Denge sabiti ve Le Chatelier ilkesi, çözümlü sorularla.', 'eq'],
@@ -425,7 +425,7 @@
     h += '<h1 class="rk-h1">Lise kimyasının çalışma masası.</h1>';
     h += '<p class="rk-lead">9’dan 12’ye ve AYT’ye konu anlatımlı soru bankası, hesaplayıcılar, 3D laboratuvar ve YKS araçları. Toplam ' + total + ' ekran, telefonda da akıllı tahtada da.</p>';
     h += '<div class="rk-actions">';
-    h += '<button class="rk-btn rk-btn-primary" type="button" data-nav="URL:banka.html">Soru bankasını aç</button>';
+    h += '<button class="rk-btn rk-btn-primary" type="button" data-nav="URL:banka.html">Derslere başla</button>';
     h += '<button class="rk-btn rk-btn-ghost" type="button" data-jump="rk-ders">Konu anlatımları</button>';
     h += '<button class="rk-btn rk-btn-ghost" type="button" data-nav="pt">Periyodik tabloyu aç</button>';
     h += '</div></div>';
@@ -880,7 +880,10 @@
     /* eklenti element verisini zenginleştirdikten sonra kartı yeniden çiz */
     showElement(curEl || (((Math.floor(Date.now() / 86400000)) * 37) % 118) + 1, false);
     setTimeout(function () { showElement(curEl, false); }, 1200);
+    hazir();
   }
+  function hazir() { document.documentElement.classList.add('rk-hazir'); }
+  setTimeout(hazir, 2500); /* ne olursa olsun sayfa en geç 2,5 sn'de görünür */
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 })();

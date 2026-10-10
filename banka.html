@@ -140,7 +140,7 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
 .ks-no{font-weight:700;font-size:15px;color:var(--ink2)}
 .ks-kart .soru-metin{margin-bottom:12px}
 .ks-goster{margin-top:10px;background:none;border:0;color:var(--bl);font-weight:600;font-size:15px;cursor:pointer;padding:6px 0;text-decoration:underline;text-underline-offset:3px}
-.ks-cozum:empty{display:none}
+.ks-cozum:empty,.ks-cozum[hidden]{display:none}
 .ks-cozum{margin-top:12px}
 .ks-cozum .geri-bildirim{margin-top:0}
 .ks-cozum .geri-bildirim:not(.iyi):not(.kotu)>b{color:var(--bl)}
@@ -157,6 +157,12 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
 .sekil{margin:6px 0 22px;text-align:center}
 .sekil svg{max-width:100%;height:auto}
 .sekil figcaption{font-size:14px;color:var(--ink3);margin-top:6px}
+.soru-metin .sekil{margin:14px 0 16px}
+.sekil-ikili{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px}
+.sekil-ikili .sekil{margin:6px 0 12px}
+.sik-liste:has(.t svg){grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.sik .t svg{display:block;width:100%;max-width:224px;height:auto;margin-top:2px}
+.sik:has(.t svg){align-items:center}
 .ozet-kutu{margin-top:30px;padding:18px 20px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
 .ozet-kutu h4{margin:0 0 8px;font:700 17px/1.3 var(--disp)}
 .ozet-kutu ul{margin:0;padding-left:1.2em}
@@ -287,7 +293,7 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
    =================================================================== */
 (function(){
 'use strict';
-var SURUM = 'b3';
+var SURUM = 'b4';
 var SINIFLAR = [
   {id:'9',   no:'9',  ad:'9. Sınıf',  alt:'Maarif modeli', dosya:'banka/s9.js',  c:'c9'},
   {id:'10',  no:'10', ad:'10. Sınıf', alt:'Maarif modeli', dosya:'banka/s10.js', c:'c10'},
@@ -512,10 +518,14 @@ function konuSorulari(kap, k){
       $$('.sik', d).forEach(function(b, x){ b.disabled = true; if (x===hz.d) b.classList.add('dogru'); else if (x===j) b.classList.add('yanlis'); });
       var bas = j === null ? 'Doğru cevap '+HARF[hz.d] : (ok ? 'Doğru' : 'Yanlış. Doğru cevap '+HARF[hz.d]);
       $('.ks-cozum', d).innerHTML = '<div class="geri-bildirim '+(j===null?'':(ok?'iyi':'kotu'))+'"><b>'+bas+'</b><div class="gc">'+(s.c||'')+'</div></div>';
-      $('.ks-goster', d).hidden = true;
+      $('.ks-goster', d).textContent = 'Çözümü gizle';
     }
     $$('.sik', d).forEach(function(b){ b.onclick = function(){ ac(+b.getAttribute('data-j')); }; });
-    $('.ks-goster', d).onclick = function(){ ac(null); };
+    $('.ks-goster', d).onclick = function(){
+      if (!bitti) { ac(null); return; }
+      var c = $('.ks-cozum', d), g = c.hidden = !c.hidden;
+      this.textContent = g ? 'Çözümü göster' : 'Çözümü gizle';
+    };
     return d;
   }
   function devam(){

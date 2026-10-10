@@ -131,6 +131,29 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
 .ek{border-left:4px solid var(--pu);background:var(--pubg);padding:12px 16px;border-radius:0 12px 12px 0;margin:0 0 18px}
 .not b:first-child,.dikkat b:first-child,.ek b:first-child{display:block;margin-bottom:2px}
 .formul{display:block;text-align:center;font:600 1.08em/1.5 var(--body);padding:12px 16px;margin:4px 0 18px;border:1.5px solid var(--line2);border-radius:12px;background:var(--card)}
+.ks{margin-top:34px;padding-top:26px;border-top:2px solid var(--line)}
+.ks-baslik{font:700 clamp(22px,3vw,28px)/1.2 var(--disp);letter-spacing:-.02em;margin:0 0 6px}
+.ks-baslik small{font:500 15px var(--body);color:var(--ink3);margin-left:6px;letter-spacing:0}
+.ks-not{color:var(--ink2);font-size:15.5px;margin:0 0 16px}
+.ks-kart{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.ks-ust{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.ks-no{font-weight:700;font-size:15px;color:var(--ink2)}
+.ks-kart .soru-metin{margin-bottom:12px}
+.ks-goster{margin-top:10px;background:none;border:0;color:var(--bl);font-weight:600;font-size:15px;cursor:pointer;padding:6px 0;text-decoration:underline;text-underline-offset:3px}
+.ks-cozum:empty{display:none}
+.ks-cozum{margin-top:12px}
+.ks-cozum .geri-bildirim{margin-top:0}
+.ks-cozum .geri-bildirim:not(.iyi):not(.kotu)>b{color:var(--bl)}
+.ks-alt{display:flex;justify-content:center;margin-top:6px}
+.yapi-izgara{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 14px}
+.yapi{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 10px 8px;min-width:120px}
+.yapi svg{max-width:100%;height:auto}
+.yapi span{font-size:13.5px;color:var(--ink2);line-height:1.3;text-align:center;max-width:190px}
+.tepkime{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px}
+.tepkime .op{font:600 24px var(--disp);color:var(--ink2);padding:0 2px}
+.tepkime .tok{display:inline-flex;flex-direction:column;align-items:center;font-size:26px;line-height:1;color:var(--ink);padding:0 4px}
+.tepkime .tok small{font-size:13px;color:var(--ink3);min-height:14px}
+.tepkime .yapi{border:0;background:none;padding:4px;min-width:0}
 .sekil{margin:6px 0 22px;text-align:center}
 .sekil svg{max-width:100%;height:auto}
 .sekil figcaption{font-size:14px;color:var(--ink3);margin-top:6px}
@@ -146,6 +169,8 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
 .cozum-btn{border:0;background:var(--blbg);color:var(--bl);font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer;font-size:15px}
 .cozum{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line2)}
 .cozum[hidden]{display:none}
+.ornek-grup{margin:18px 0 26px}
+.ornek-grup .ornek{border-left:4px solid var(--or)}
 .oncul{margin:8px 0 4px;padding-left:0;list-style:none}
 .oncul li{margin:3px 0}
 
@@ -178,6 +203,7 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
 .sik.yanlis .h{background:var(--rd);color:#fff}
 .sik[disabled]{cursor:default}
 .geri-bildirim{margin-top:18px;padding:16px 18px;border-radius:14px}
+.geri-bildirim{background:var(--blbg)}
 .geri-bildirim.iyi{background:var(--grbg)}
 .geri-bildirim.kotu{background:var(--rdbg)}
 .geri-bildirim>b{display:block;font:700 17px/1.3 var(--disp);margin-bottom:6px}
@@ -261,7 +287,7 @@ h2.rb-h2{font:700 clamp(22px,3vw,28px)/1.15 var(--disp);letter-spacing:-.02em;ma
    =================================================================== */
 (function(){
 'use strict';
-var SURUM = 'b2';
+var SURUM = 'b3';
 var SINIFLAR = [
   {id:'9',   no:'9',  ad:'9. Sınıf',  alt:'Maarif modeli', dosya:'banka/s9.js',  c:'c9'},
   {id:'10',  no:'10', ad:'10. Sınıf', alt:'Maarif modeli', dosya:'banka/s10.js', c:'c10'},
@@ -437,14 +463,16 @@ function konuSayfa(kid, sekme){
       document.onkeydown = null;
       var ic = $('#icerik');
       if (sk==='anlatim'){
-        ic.innerHTML = '<article class="anlatim">'+(k.anlatim||'<div class="bos">Anlatım hazırlanıyor.</div>')+'</article><div class="sat" style="margin-top:22px"><button class="btn btn-1" data-git="ornek">Çözümlü örneklere geç</button><button class="btn btn-2" data-git="test">Teste başla</button></div>';
+        ic.innerHTML = '<article class="anlatim">'+anlatimOrnekli(k)+'</article><section class="ks" id="ks"></section><div class="sat" style="margin-top:22px"><button class="btn btn-1" data-git="test">Konu testine başla</button><button class="btn btn-2" data-git="ornek">Bütün örnekler</button></div>';
+        cozumBagla(ic);
+        konuSorulari($('#ks', ic), k);
       } else if (sk==='ornek'){
         var o = '';
         (k.ornek||[]).forEach(function(x, i){
           o += '<div class="ornek"><div class="etiket">Örnek '+(i+1)+'</div><div class="metin">'+x.s+'</div><button class="cozum-btn" type="button">Çözümü göster</button><div class="cozum" hidden>'+x.c+'</div></div>';
         });
         ic.innerHTML = (o || '<div class="bos">Örnekler hazırlanıyor.</div>') + '<div class="sat" style="margin-top:8px"><button class="btn btn-1" data-git="test">Teste başla</button></div>';
-        $$('.cozum-btn', ic).forEach(function(b){ b.onclick = function(){ var c=b.nextElementSibling; c.hidden=!c.hidden; b.textContent=c.hidden?'Çözümü göster':'Çözümü gizle'; }; });
+        cozumBagla(ic);
       } else {
         testAyar(ic, k);
       }
@@ -452,6 +480,83 @@ function konuSayfa(kid, sekme){
     }
     goster(sekme);
   }, function(){ sinifSayfa(sid); });
+}
+
+
+/* ---------- Anlatımın hemen altında çözümlü konu soruları ---------- */
+function tohumluKaristir(a, tohum){
+  var h = 2166136261; for (var i=0;i<tohum.length;i++){ h ^= tohum.charCodeAt(i); h = Math.imul(h, 16777619); }
+  function r(){ h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; }
+  a = a.slice(); for (var j=a.length-1;j>0;j--){ var x=Math.floor(r()*(j+1)); var t=a[j]; a[j]=a[x]; a[x]=t; } return a;
+}
+function konuSorulari(kap, k){
+  var tum = k.soru || []; if (!kap || !tum.length) return;
+  /* kolaydan zora, her zorlukta karışık ama her açılışta aynı sırada */
+  var sira = [];
+  [1,2,3].forEach(function(z){ sira = sira.concat(tohumluKaristir(tum.filter(function(s){ return s.z===z; }), k.id+'#'+z)); });
+  sira = sira.concat(tum.filter(function(s){ return [1,2,3].indexOf(s.z) < 0; }));
+  var gosterilen = 0, ADIM = 15;
+  kap.innerHTML = '<h2 class="ks-baslik">Konu soruları <small>çözümlü · '+sira.length+' soru</small></h2><p class="ks-not">Bir şık seç; doğru cevap ve çözüm hemen altında açılır. Sorular kolaydan zora sıralıdır. Cevapların ilerleme kaydına da işlenir.</p><div class="ks-liste"></div><div class="ks-alt"></div>';
+  var liste = $('.ks-liste', kap), alt = $('.ks-alt', kap);
+  function kart(s, no){
+    var hz = sikHazirla(s), d = document.createElement('div'); d.className = 'ks-kart';
+    var h = '<div class="ks-ust"><span class="ks-no">Soru '+no+'</span>'+(s.z?'<span class="zor '+ZOR[s.z][1]+'">'+ZOR[s.z][0]+'</span>':'')+'</div><div class="soru-metin">'+s.s+'</div><div class="sik-liste">';
+    hz.o.forEach(function(o, j){ h += '<button class="sik" data-j="'+j+'"><span class="h">'+HARF[j]+'</span><span class="t">'+o+'</span></button>'; });
+    h += '</div><button type="button" class="ks-goster">Çözümü göster</button><div class="ks-cozum"></div>';
+    d.innerHTML = h;
+    var bitti = false;
+    function ac(j){
+      if (bitti) return; bitti = true;
+      var ok = j === hz.d;
+      if (j !== null) isle(s.id, ok);
+      $$('.sik', d).forEach(function(b, x){ b.disabled = true; if (x===hz.d) b.classList.add('dogru'); else if (x===j) b.classList.add('yanlis'); });
+      var bas = j === null ? 'Doğru cevap '+HARF[hz.d] : (ok ? 'Doğru' : 'Yanlış. Doğru cevap '+HARF[hz.d]);
+      $('.ks-cozum', d).innerHTML = '<div class="geri-bildirim '+(j===null?'':(ok?'iyi':'kotu'))+'"><b>'+bas+'</b><div class="gc">'+(s.c||'')+'</div></div>';
+      $('.ks-goster', d).hidden = true;
+    }
+    $$('.sik', d).forEach(function(b){ b.onclick = function(){ ac(+b.getAttribute('data-j')); }; });
+    $('.ks-goster', d).onclick = function(){ ac(null); };
+    return d;
+  }
+  function devam(){
+    var son = Math.min(sira.length, gosterilen + ADIM);
+    for (var i=gosterilen;i<son;i++) liste.appendChild(kart(sira[i], i+1));
+    gosterilen = son;
+    var kalan = sira.length - gosterilen;
+    alt.innerHTML = kalan ? '<button type="button" class="btn btn-2 ks-daha">'+Math.min(ADIM, kalan)+' soru daha göster <small style="color:var(--ink3);font-weight:500">(kalan '+kalan+')</small></button>' : '<p class="ks-not">Bu konunun bütün sorularını gördün. Karışık sırayla kendini denemek için konu testini çöz.</p>';
+    var b = $('.ks-daha', alt); if (b) b.onclick = devam;
+  }
+  devam();
+}
+
+/* ---------- Anlatımın içine bölüm bölüm çözümlü örnekler ---------- */
+function ornekKutu(x, no){
+  return '<div class="ornek"><div class="etiket">Çözümlü örnek '+no+'</div><div class="metin">'+x.s+'</div><button class="cozum-btn" type="button">Çözümü göster</button><div class="cozum" hidden>'+x.c+'</div></div>';
+}
+function cozumBagla(ic){
+  $$('.cozum-btn', ic).forEach(function(b){ b.onclick = function(){ var c=b.nextElementSibling; c.hidden=!c.hidden; b.textContent=c.hidden?'Çözümü göster':'Çözümü gizle'; }; });
+}
+function anlatimOrnekli(k){
+  var html = k.anlatim || '<div class="bos">Anlatım hazırlanıyor.</div>';
+  var ornek = k.ornek || [];
+  var parca = html.split(/(?=<h3[\s>])/);
+  var bolumlu = ornek.some(function(x){ return typeof x.b === 'number'; });
+  if (!bolumlu) {
+    /* bölüm etiketi olmayan eski konular: örnekleri sona koy */
+    return html + (ornek.length ? '<h3>Çözümlü örnekler</h3>' + ornek.map(function(x,i){ return ornekKutu(x,i+1); }).join('') : '');
+  }
+  var no = 0, ilkVar = !/^\s*<h3/.test(parca[0]);
+  var sonuc = parca.map(function(p, i){
+    var bi = ilkVar ? i - 1 : i;
+    var bunlar = ornek.filter(function(x){ return x.b === bi; });
+    if (!bunlar.length) return p;
+    var kutu = '<div class="ornek-grup">' + bunlar.map(function(x){ no++; return ornekKutu(x, no); }).join('') + '</div>';
+    var oz = p.indexOf('<div class="ozet-kutu"');
+    return oz >= 0 ? p.slice(0, oz) + kutu + p.slice(oz) : p + kutu;
+  }).join('');
+  var kalan = ornek.filter(function(x){ return typeof x.b !== 'number'; });
+  if (kalan.length) sonuc += '<h3>Konu sonu çözümlü örnekler</h3>' + kalan.map(function(x){ no++; return ornekKutu(x, no); }).join('');
+  return sonuc;
 }
 
 /* ---------- Konu testi ---------- */
@@ -725,6 +830,6 @@ $('#yaziBtn').onclick = function(){
 yonlendir();
 })();
 </script>
-<script src="ronya-tema.js?v=12"></script>
+<script src="ronya-tema.js?v=9"></script>
 </body>
 </html>

@@ -17,7 +17,7 @@
 
   // Tablo yüklenemezse (internet yok, henüz yayınlanmadı vb.) gösterilecek YEDEK içerik
   var CAROUSEL_SLIDES = [
-    { emoji:'\u2696\ufe0f', title:'Kimyasal Denge Ünitesi Tamamlandı!', desc:'Denge, Asit-Baz ve Çözünürlük Dengesi — MEB konu anlatımı + 100+ çözümlü soru', nav:'denge2', color:'linear-gradient(135deg,#6366f1,#818cf8)' }
+    { emoji:'\u2696\ufe0f', title:'Kimyasal Denge Ünitesi Tamamlandı!', desc:'Denge, Asit-Baz ve Çözünürlük Dengesi — konu anlatımı + 100+ çözümlü soru', nav:'denge2', color:'linear-gradient(135deg,#6366f1,#818cf8)' }
   ];
   var HAFTANIN_SORUSU = {
     tarih: '',

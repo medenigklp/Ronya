@@ -277,7 +277,7 @@ header {
       <div class="tc" onclick="nav('yks')"><div class="ti">⏱️</div><div class="tt">YKS Geri Sayım</div><div class="td">TYT ve AYT geri sayım.</div></div>
       <div class="tc" onclick="nav('pom')"><div class="ti">🎯</div><div class="tt">Odaklan</div><div class="td">Pomodoro zamanlayıcı.</div></div>
       <div class="tc" onclick="nav('puan')"><div class="ti">📊</div><div class="tt">YKS Puan</div><div class="td">SAY · EA · SÖZ puan hesaplama.</div></div>
-      <div class="tc" onclick="nav('risk')"><div class="ti">⚠️</div><div class="tt">Risk Piktogramları</div><div class="td">MEB müfredatı GHS/CLP güvenlik sembolleri ve anlamları.</div></div>
+      <div class="tc" onclick="nav('risk')"><div class="ti">⚠️</div><div class="tt">Risk Piktogramları</div><div class="td">GHS/CLP güvenlik sembolleri ve anlamları.</div></div>
       <div class="tc" onclick="nav('lab')"><div class="ti">🧪</div><div class="tt">Lab Malzemeleri</div><div class="td">25 laboratuvar aracı — kullanım, materyal ve dikkat noktaları.</div></div>
       <div class="tc" onclick="nav('video')"><div class="ti">🎬</div><div class="tt">Video Dersler</div><div class="td">Deney ve konu anlatım videolarını izle.</div></div>
       <div class="tc" onclick="nav('lab3d')"><div class="ti">🔬</div><div class="tt">3D Lab Malzemeleri</div><div class="td">27 laboratuvar aracının gerçek 3D simülasyonu — döndür, incele.</div></div>
@@ -618,7 +618,7 @@ header {
   <div class="pw narrow">
     <h1 class="ptitle">⏱️ YKS Geri Sayım</h1>
     <div class="card" style="text-align:center;padding:30px">
-      <div style="font-size:16px;font-weight:700;color:var(--ac2);margin-bottom:4px">YKS 2027</div><div style="font-size:13px;color:var(--tx3);margin-bottom:16px">Tahmini tarih: 19 Haziran 2027. ÖSYM takvimi açıklanınca güncellenecek.</div>
+      <div style="font-size:16px;font-weight:700;color:var(--ac2);margin-bottom:4px">YKS 2027</div><div style="font-size:13px;color:var(--tx3);margin-bottom:16px">TYT 19 Haziran 2027 Cumartesi, AYT ve YDT 20 Haziran 2027 Pazar (ÖSYM 2027 takvimi).</div>
       <div class="cdgrid">
         <div class="cdb"><div class="cdv" id="d-day">00</div><div class="cdl">Gün</div></div>
         <div class="cdb"><div class="cdv" id="d-hr">00</div><div class="cdl">Saat</div></div>
@@ -795,7 +795,7 @@ header {
 <div id="s-lab" style="display:none">
   <div class="pw narrow">
     <h1 class="ptitle">🧪 Laboratuvar Malzemeleri</h1>
-    <p class="psub">MEB müfredatı laboratuvar araç ve gereçleri. Kullanım alanları ve dikkat edilmesi gerekenler.</p>
+    <p class="psub">Laboratuvar araç ve gereçleri. Kullanım alanları ve dikkat edilmesi gerekenler.</p>
     <div id="lab-list"></div>
     <!-- Detay Modal -->
     <div id="lab-detail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;padding:16px;overflow-y:auto">
@@ -810,7 +810,7 @@ header {
 <div id="s-risk" style="display:none">
   <div class="pw narrow">
     <h1 class="ptitle">⚠️ Risk Piktogramları</h1>
-    <p class="psub">GHS/CLP sistemine göre kimyasal madde güvenlik uyarı işaretleri. MEB Kimya 9 müfredatı.</p>
+    <p class="psub">GHS/CLP sistemine göre kimyasal madde güvenlik uyarı işaretleri. 9. sınıf müfredatı.</p>
     
     <div id="risk-list">
       <!-- Kartlar JS ile oluşturulacak -->
@@ -1658,7 +1658,7 @@ function pomReset(){
 // ============================================================
 function initCountdown(){
   setInterval(function(){
-    var diff=new Date('June 19, 2027 10:00:00').getTime()-new Date().getTime();
+    var diff=new Date('June 19, 2027 10:15:00').getTime()-new Date().getTime();
     if(diff<0) return;
     document.getElementById('d-day').textContent=Math.floor(diff/(1000*60*60*24));
     document.getElementById('d-hr').textContent=Math.floor((diff%(1000*60*60*24))/(1000*60*60));

@@ -469,12 +469,13 @@
       var src = EK[z]; if (!src) continue;
       var pos = PT_POS[z] || [0,0];
       var period = pos[0] >= 9 ? pos[0] - 3 : pos[0]; // Lantanit(9)→6, Aktinit(10)→7
+      var fBlok = (z >= 57 && z <= 71) || (z >= 89 && z <= 103);   // f bloğu: A/B grup numarası yok
       var el = buildElectron(z);
       var phase = 'Kat\u0131';
       if (z === 35 || z === 80) phase = 'S\u0131v\u0131';
       if (z === 36 || z === 54 || z === 86 || z === 118) phase = 'Gaz';
       EL_DATA[z] = {
-        en: src[0], period: period, group: pos[1], phase: phase,
+        en: src[0], period: period, group: fBlok ? null : pos[1], fblok: fBlok, phase: phase,
         neg: src[1], melt: src[2], boil: src[3],
         conf: el.conf, shells: el.shells, desc: src[4]
       };
@@ -2171,7 +2172,18 @@
       '<div style="padding:12px 10px;font-family:Space Grotesk,sans-serif;font-weight:800;color:#fff;cursor:pointer" onclick="openElDetail(' + nb + ')">' + B.sym + ' \u00b7 ' + B.name + '</div></div>';
     html += row('Kategori', A.cat, B.cat, 0);
     html += row('Atom K\u00fctlesi', A.mass + ' g/mol', B.mass + ' g/mol', 0);
-    html += row('Periyot / Grup', (da.period || '?') + ' / ' + (da.group || '?'), (db.period || '?') + ' / ' + (db.group || '?'), 0);
+    // Grup, okulda kullanılan A/B gösterimiyle: 1-2 → 1A-2A, 3-7 → 3B-7B, 8-10 → 8B, 11-12 → 1B-2B, 13-18 → 3A-8A
+    function grupAB(d){
+      if (!d) return '?';
+      if (d.fblok) return 'f bloğu';
+      var g = d.group; if (!g) return '?';
+      if (g <= 2) return g + 'A';
+      if (g <= 7) return g + 'B';
+      if (g <= 10) return '8B';
+      if (g <= 12) return (g - 10) + 'B';
+      return (g - 10) + 'A';
+    }
+    html += row('Periyot / Grup', (da.period || '?') + ' / ' + grupAB(da), (db.period || '?') + ' / ' + grupAB(db), 0);
     html += row('Elektronegatiflik', da.neg, db.neg, numWin(da.neg, db.neg, true));
     html += row('Atom Yar\u0131\u00e7ap\u0131 (e\u011filim)', radWin === 1 ? 'Daha b\u00fcy\u00fck' : radWin === 2 ? 'Daha k\u00fc\u00e7\u00fck' : '\u2248', radWin === 2 ? 'Daha b\u00fcy\u00fck' : radWin === 1 ? 'Daha k\u00fc\u00e7\u00fck' : '\u2248', radWin);
     html += row('Erime Noktas\u0131', da.melt !== null && da.melt !== undefined ? da.melt + ' \u00b0C' : null, db.melt !== null && db.melt !== undefined ? db.melt + ' \u00b0C' : null, numWin(da.melt, db.melt, true));
@@ -6644,8 +6656,8 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     REDOX_LIST.forEach(function(r, i){ btns += '<button type="button" class="ob' + (i===0?' sel2':'') + '" onclick="redoxSetIdx(' + i + ',this)">' + r.name + '</button>'; });
     app.insertAdjacentHTML('beforeend',
       '<div id="s-redoks" style="display:none"><div class="pw narrow">' +
-        '<h1 class="ptitle">\ud83d\udd0c Redoks Yar\u0131 Tepkime Dengeleyici</h1>' +
-        '<p class="psub">Elektron kazanma/kaybetme (yar\u0131 tepkime) y\u00f6ntemiyle ad\u0131m ad\u0131m redoks dengeleme.</p>' +
+        '<h1 class="ptitle">\ud83d\udd0c Redoks Dengeleyici</h1>' +
+        '<p class="psub">Elektron al\u0131\u015fveri\u015fi y\u00f6ntemiyle ad\u0131m ad\u0131m redoks dengeleme.</p>' +
         '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin-bottom:14px"><div style="display:flex;gap:6px;min-width:max-content">' + btns + '</div></div>' +
         '<div class="card">' +
           '<div class="slbl">Dengesiz Tepkime</div>' +
@@ -6667,7 +6679,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     var tg = document.querySelector('#s-home .tgrid');
     if (tg && !document.getElementById('tile-redoks'))
       tg.insertAdjacentHTML('afterbegin',
-        '<div class="tc" id="tile-redoks" onclick="nav(\'redoks\')"><div class="ti">\ud83d\udd0c</div><div class="tt">Redoks Dengeleyici</div><div class="td">Yar\u0131 tepkime y\u00f6ntemiyle ad\u0131m ad\u0131m redoks dengeleme.</div></div>');
+        '<div class="tc" id="tile-redoks" onclick="nav(\'redoks\')"><div class="ti">\ud83d\udd0c</div><div class="tt">Redoks Dengeleyici</div><div class="td">Elektron al\u0131\u015fveri\u015fiyle ad\u0131m ad\u0131m redoks dengeleme.</div></div>');
     redoxRender();
   }
   window.redoxSetIdx = function(i, btn){ redoxIdx = i; redoxStepIdx = 0; if (btn) selectInRow(btn); redoxRender(); };
@@ -6777,48 +6789,6 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
       '<div style="font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Aktivasyon Enerjisi (Ea)</div>' +
       '<p style="font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:0">Tepkimenin ger\u00e7ekle\u015femesi i\u00e7in \u00e7arp\u0131\u015fan taneciklerin sahip olmas\u0131 gereken MİNİMUM enerjidir. Bu enerjinin alt\u0131ndaki \u00e7arp\u0131\u015fmalar tanecikleri sadece sekmesine (esnek \u00e7arp\u0131\u015fma) neden olur, \u00fcr\u00fcn olu\u015fturmaz.</p>' +
     '</div>';
-
-  function setupKin(){
-    if (document.getElementById('s-kinetik')) return;
-    var app = document.querySelector('.app');
-    if (!app) return;
-    app.insertAdjacentHTML('beforeend',
-      '<div id="s-kinetik" style="display:none"><div class="pw narrow">' +
-        '<h1 class="ptitle">\ud83d\udca5 Tepkime H\u0131z\u0131 (Kinetik) 3D</h1>' +
-        '<p class="psub">\u00c7arp\u0131\u015fma teorisi \u2014 derişim, s\u0131cakl\u0131k ve katalizörün tepkime h\u0131z\u0131na etkisini canl\u0131 g\u00f6r.</p>' +
-        '<div style="background:#050510;border:1px solid rgba(245,158,11,.3);border-radius:16px;overflow:hidden;margin-bottom:12px">' +
-          '<canvas id="kin-cv" style="width:100%;display:block;touch-action:none" height="260"></canvas>' +
-        '</div>' +
-        '<div class="card" style="margin-bottom:12px">' +
-          '<div class="slbl">\u00d7 Derişim</div>' +
-          '<div style="display:flex;gap:6px;margin-bottom:14px">' +
-            '<button type="button" class="ob" onclick="kinSetConc(0.5,this)">Az</button>' +
-            '<button type="button" class="ob sel2" onclick="kinSetConc(1,this)">Normal</button>' +
-            '<button type="button" class="ob" onclick="kinSetConc(1.8,this)">\u00c7ok</button>' +
-          '</div>' +
-          '<div class="slbl">\ud83c\udf21\ufe0f S\u0131cakl\u0131k</div>' +
-          '<div style="display:flex;gap:6px;margin-bottom:14px">' +
-            '<button type="button" class="ob" onclick="kinSetTemp(0.6,this)">D\u00fc\u015f\u00fck</button>' +
-            '<button type="button" class="ob sel2" onclick="kinSetTemp(1,this)">Normal</button>' +
-            '<button type="button" class="ob" onclick="kinSetTemp(1.7,this)">Y\u00fcksek</button>' +
-          '</div>' +
-          '<div class="slbl">\u2697\ufe0f Katalizör</div>' +
-          '<button type="button" id="kin-cat-btn" class="ob" onclick="kinToggleCatalyst(this)" style="width:100%">Katalizör Ekle</button>' +
-        '</div>' +
-        '<div id="kin-info" style="margin-bottom:16px"></div>' +
-        KIN_THEORY_HTML +
-      '</div></div>');
-    if (typeof SCREENS !== 'undefined' && SCREENS.indexOf('s-kinetik') === -1) SCREENS.push('s-kinetik');
-    var mn = document.getElementById('mn');
-    if (mn && !document.getElementById('mn-kinetik'))
-      mn.insertAdjacentHTML('beforeend', '<button id="mn-kinetik" onclick="nav(\'kinetik\')">\ud83d\udca5 Tepkime H\u0131z\u0131 3D</button>');
-    var tg = document.querySelector('#s-home .tgrid');
-    if (tg && !document.getElementById('tile-kinetik'))
-      tg.insertAdjacentHTML('afterbegin',
-        '<div class="tc" id="tile-kinetik" onclick="nav(\'kinetik\')"><div class="ti">\ud83d\udca5</div><div class="tt">Tepkime H\u0131z\u0131 3D</div><div class="td">\u00c7arp\u0131\u015fma teorisi \u2014 derişim/s\u0131cakl\u0131k/katalizör canlı sim\u00fclasyonu.</div></div>');
-    kinBindCanvas();
-    kinRenderInfo();
-  }
 
   window.kinSetConc = kinSetConc;
   window.kinSetTemp = kinSetTemp;
@@ -7494,29 +7464,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     return { padL: padL, padR: padR, padT: padT, padB: padB, plotW: W-padL-padR, plotH: H2-padT-padB };
   }
 
-  function setupMaarif(){
-    if (document.getElementById('maarif-wrap')) return;
-    var host = document.getElementById('kin-tps');
-    if (!host) return;
-    host.insertAdjacentHTML('beforeend', '<div class="tp" id="maarif-wrap"></div>');
-    if (!document.getElementById('mn-maariftab')) {
-      // 5. sekme butonunu kin-tabs'e ekle
-      var tabsBar = document.getElementById('kin-tabs');
-      if (tabsBar) tabsBar.insertAdjacentHTML('beforeend', '<button class="ltab" id="mn-maariftab" onclick="tswitch(\'kin-tabs\',\'kin-tps\',4)">\ud83d\udcd8 Maarif Hız</button>');
-    }
-    var wrap = document.getElementById('maarif-wrap');
-    wrap.innerHTML =
-      '<p class="psub" style="margin-bottom:10px">MEB Maarif Modeli 11. Sınıf Kimya 2 ders kitabı, \u201cKimyasal Tepkimelerde Hız\u201d ünitesinin tam konu anlatımı \u2014 tüm etkinlik, örnek ve grafikleriyle.</p>' +
-      '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin-bottom:14px"><div style="display:flex;gap:6px;min-width:max-content">' +
-        '<button type="button" class="ob sel2" onclick="maarifSetSub(0,this)">1.2.1 Gerekli Şartlar</button>' +
-        '<button type="button" class="ob" onclick="maarifSetSub(1,this)">1.2.2 Ortalama Hız</button>' +
-        '<button type="button" class="ob" onclick="maarifSetSub(2,this)">1.2.3 Etkileyen Faktörler</button>' +
-        '<button type="button" class="ob" onclick="maarifSetSub(3,this)">1.2.4 Hız Denklemi</button>' +
-      '</div></div>' +
-      '<div id="maarif-content"></div>';
-    maarifRender();
-  }
-  window.maarifSetSub = function(i, btn){ maarifSt.sub = i; if (btn) selectInRow(btn); maarifRender(); };
+  // (setupMaarif ve maarifSetSub aşağıda, bölüm 25'teki güncel sürümleriyle tanımlı)
 
   function maarifRender(){
     var box = document.getElementById('maarif-content');
@@ -8548,8 +8496,8 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
         '<p class="psub">\u00c7arp\u0131\u015fma teorisi, potansiyel enerji diyagram\u0131, h\u0131z hesaplamalar\u0131 ve h\u0131z bağ\u0131nt\u0131s\u0131.</p>' +
         '<div class="ltabs" id="kin-maingroup" style="margin-bottom:14px">' +
           '<button class="ltab on" onclick="kinGroupSet(0,this)">\ud83d\udd2c Araçlar</button>' +
-          '<button class="ltab" onclick="kinGroupSet(1,this)">\ud83d\udcd8 MEB Konu Anlat\u0131m\u0131</button>' +
-          '<button class="ltab" onclick="kinGroupSet(2,this)">\ud83d\udcd3 Özel Ders Notu</button>' +
+          '<button class="ltab" onclick="kinGroupSet(1,this)">\ud83d\udcd8 Konu Anlat\u0131m\u0131</button>' +
+          '<button class="ltab" onclick="kinGroupSet(2,this)">\ud83d\udcd3 Ek Sorular</button>' +
         '</div>' +
         '<div id="kin-group-0" style="display:block">' +
         '<div class="ltabs" id="kin-tabs">' +
@@ -8675,7 +8623,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     host.insertAdjacentHTML('beforeend', '<div id="maarif-wrap"></div>');
     var wrap = document.getElementById('maarif-wrap');
     wrap.innerHTML =
-      '<p class="psub" style="margin-bottom:10px">MEB Maarif Modeli 11. Sınıf Kimya 2 ders kitabı, \u201cKimyasal Tepkimelerde Hız\u201d ünitesinin tam konu anlatımı \u2014 tüm etkinlik, örnek ve grafikleriyle.</p>' +
+      '<p class="psub" style="margin-bottom:10px">Maarif modeli 11. sınıf, \u201cKimyasal Tepkimelerde Hız\u201d ünitesinin tam konu anlatımı \u2014 tüm etkinlik, örnek ve grafikleriyle.</p>' +
       '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin-bottom:14px"><div style="display:flex;gap:6px;min-width:max-content">' +
         '<button type="button" class="ob sel2" onclick="maarifSetSub(0,this)">1.2.1 Gerekli Şartlar</button>' +
         '<button type="button" class="ob" onclick="maarifSetSub(1,this)">1.2.2 Ortalama Hız</button>' +
@@ -8697,7 +8645,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     var cats = ['Tümü'];
     NOTE_Q.forEach(function(q){ if (cats.indexOf(q.kat) === -1) cats.push(q.kat); });
     wrap.innerHTML =
-      '<p class="psub" style="margin-bottom:10px">Kendi el yazması ders notundaki ' + NOTE_Q.length + ' \u00e7\u00f6z\u00fcml\u00fc örnek soru.</p>' +
+      '<p class="psub" style="margin-bottom:10px">' + NOTE_Q.length + ' çözümlü örnek soru.</p>' +
       '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin-bottom:14px"><div style="display:flex;gap:6px;min-width:max-content" id="noteq-cats">' +
         cats.map(function(c,i){ return '<button type="button" class="ob' + (i===0?' sel2':'') + '" onclick="noteqSetCat(\'' + c + '\',this)">' + c + '</button>'; }).join('') +
       '</div></div>' +
@@ -8733,7 +8681,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     { n:1, kat:'Kavram', t:'Ekzotermik olaylar ortamın sıcaklığını nasıl etkiler? Endotermik olaylar ortamın sıcaklığını nasıl etkiler? D\u00fcş\u00fck ve y\u00fcksek sıcaklıkta hangi enerji seviyesi kararlıdır?',
       c:'<b>Ekzotermik</b> olaylar \u00e7evreye ısı VERDİĞİ i\u00e7in ortamın sıcaklığını <b>ARTIRIR</b>.<br><b>Endotermik</b> olaylar \u00e7evreden ısı ALDIĞI i\u00e7in ortamın sıcaklığını <b>AZALTIR</b>.<br>D\u00fcş\u00fck sıcaklıkta enerjisi <b>D\u00dcŞ\u00dcK (az)</b> olan kararlıdır (sistem en d\u00fcş\u00fck enerji durumuna eğilimlidir).<br>Y\u00fcksek sıcaklıkta enerjisi <b>Y\u00dcKSEK (fazla)</b> olan da kararlı olabilir (entropi/dağınıklık etkisi baskın \u00e7ıkar).' },
     { n:2, kat:'Kavram', t:'Aşağıdaki olayları ENDOTERMİK ya da EKZOTERMİK olarak sınıflandırınız: Erime/buharlaşma/s\u00fcblimleşme; Donma/yoğuşma/kırağılaşma; Bağ oluşumu; Bağ kırılması; İyonlaşma enerjisi; Elektron ilgisi; Gazların suda \u00e7\u00f6z\u00fcnmesi; Tuzun suda \u00e7\u00f6z\u00fcnmesi; Metallerin suda \u00e7\u00f6z\u00fcnmesi; Asit-baz tepkimeleri; Metal-asit tepkimeleri; Elektroliz; Pil tepkimeleri; Yanma; Radyoaktif tepkimeler.',
-      c:'<b>ENDOTERMİK:</b> Erime/buharlaşma/s\u00fcblimleşme (hâl değişimi i\u00e7in enerji alınır) \u00b7 Bağ kırılması (her zaman enerji ister) \u00b7 İyonlaşma enerjisi (elektron koparmak enerji ister) \u00b7 Tuzun suda \u00e7\u00f6z\u00fcnmesi (\u00e7oğu tuzda, \u00f6rn. NH\u2084NO\u2083) \u00b7 Elektroliz (dışarıdan elektrik enerjisi verilir).<br><br><b>EKZOTERMİK:</b> Donma/yoğuşma/kırağılaşma (hâl değişiminin tersi, ısı verir) \u00b7 Bağ oluşumu (her zaman enerji açığa \u00e7ıkarır) \u00b7 Elektron ilgisi (\u00e7oğu element i\u00e7in enerji açığa \u00e7ıkar) \u00b7 Gazların suda \u00e7\u00f6z\u00fcnmesi (genelde) \u00b7 Metallerin suda \u00e7\u00f6z\u00fcnmesi (\u00f6rn. Na+H\u2082O) \u00b7 Asit-baz (n\u00f6tralleşme) \u00b7 Metal-asit tepkimeleri \u00b7 Pil tepkimeleri \u00b7 Yanma \u00b7 Radyoaktif tepkimeler.<br><br><i>Not: Bağ oluşumu/kırılması ve iyonlaşma/elektron ilgisi \u00e7iftleri, \u201changisi zıt işlemin tersidir\u201d mantığıyla kolayca hatırlanabilir \u2014 bir işlem enerji verirse tersi enerji alır.</i>' },
+      c:'<b>ENDOTERMİK:</b> Erime/buharlaşma/s\u00fcblimleşme (hâl değişimi i\u00e7in enerji alınır) \u00b7 Bağ kırılması (her zaman enerji ister) \u00b7 İyonlaşma enerjisi (elektron koparmak enerji ister) \u00b7 Tuzun suda \u00e7\u00f6z\u00fcnmesi (\u00e7oğu tuzda, \u00f6rn. NH\u2084NO\u2083, KNO\u2083; CaCl\u2082 gibi baz\u0131 tuzlarda ise ekzotermiktir) \u00b7 Elektroliz (dışarıdan elektrik enerjisi verilir).<br><br><b>EKZOTERMİK:</b> Donma/yoğuşma/kırağılaşma (hâl değişiminin tersi, ısı verir) \u00b7 Bağ oluşumu (her zaman enerji açığa \u00e7ıkarır) \u00b7 Elektron ilgisi (\u00e7oğu element i\u00e7in enerji açığa \u00e7ıkar) \u00b7 Gazların suda \u00e7\u00f6z\u00fcnmesi (genelde) \u00b7 Metallerin suda \u00e7\u00f6z\u00fcnmesi (\u00f6rn. Na+H\u2082O) \u00b7 Asit-baz (n\u00f6tralleşme) \u00b7 Metal-asit tepkimeleri \u00b7 Pil tepkimeleri \u00b7 Yanma \u00b7 Radyoaktif tepkimeler.<br><br><i>Not: Bağ oluşumu/kırılması ve iyonlaşma/elektron ilgisi \u00e7iftleri, \u201changisi zıt işlemin tersidir\u201d mantığıyla kolayca hatırlanabilir \u2014 bir işlem enerji verirse tersi enerji alır.</i>' },
     { n:3, kat:'Hesaplama', t:'2Fe\u2082O\u2083(k)+3C(k)+360 kJ\u21924Fe(k)+3CO\u2082(g) tepkimesi ile ilgili: a) Tepkime entalpisi ka\u00e7 kJ\u2019d\u00fcr? b) 0,4 mol Fe(k) oluşması i\u00e7in ka\u00e7 kJ enerji gerekir? c) 32 gram Fe\u2082O\u2083(k)\u2019ın yeterince C(k) ile tepkimeye girmesi i\u00e7in ka\u00e7 kJ enerji gerekir? d) 14,4 gram C(k) tamamının harcanması i\u00e7in ka\u00e7 kJ enerji gerekir? (Fe\u2082O\u2083:160 g/mol, C:12 g/mol)',
       c:'a) 360 kJ tepken tarafında yazıldığı i\u00e7in tepkime ENERJİ ALIYOR \u2192 <b>\u0394H=+360 kJ (endotermik)</b>.<br>b) 4 mol Fe i\u00e7in 360 kJ gerekiyor. 0,4 mol Fe i\u00e7in: (360/4)\u00d70,4=<b>36 kJ</b>.<br>c) 32g Fe\u2082O\u2083=0,2 mol. 2 mol Fe\u2082O\u2083 i\u00e7in 360kJ gerekiyor. 0,2 mol i\u00e7in: (360/2)\u00d70,2=<b>36 kJ</b>.<br>d) 14,4g C=1,2 mol. 3 mol C i\u00e7in 360kJ gerekiyor. 1,2 mol i\u00e7in: (360/3)\u00d71,2=<b>144 kJ</b>.' },
     { n:4, kat:'Hesaplama', t:'4X(k)+2O\u2082(g)\u21924XO(k), \u0394H=\u22121250 kJ tepkimesinde 14,4 gram XO oluştuğunda 62,5 kJ enerji açığa \u00e7ıktığına g\u00f6re, X\u2019in atom k\u00fctlesi ka\u00e7tır? (O:16)',
@@ -8785,7 +8733,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     app.insertAdjacentHTML('beforeend',
       '<div id="s-enerji" style="display:none"><div class="pw narrow">' +
         '<h1 class="ptitle">\u26a1 Kimyasal Enerji</h1>' +
-        '<p class="psub">Entalpi, Hess Yasası, bağ enerjisi \u2014 el yazması ders notundan ' + ENERJI_Q.length + ' \u00e7\u00f6z\u00fcml\u00fc \u00f6rnek (ger\u00e7ek AYT sorularıyla).</p>' +
+        '<p class="psub">Entalpi, Hess Yasası, bağ enerjisi — ' + ENERJI_Q.length + ' çözümlü örnek (gerçek AYT sorularıyla).</p>' +
         '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin-bottom:14px"><div style="display:flex;gap:6px;min-width:max-content" id="enerji-cats">' +
           cats.map(function(c,i){ return '<button type="button" class="ob' + (i===0?' sel2':'') + '" onclick="enerjiSetCat(\'' + c + '\',this)">' + c + '</button>'; }).join('') +
         '</div></div>' +
@@ -9032,16 +8980,16 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
 
   var DENGE_Q = [
     { n:1, kat:'Kavram', t:'Kimyasal dengenin kurulabilmesi için gerekli şartlar nelerdir?',
-      c:'• Sıcaklık SABİT olmalı.<br>• Sistem KAPALI olmalı.<br>• (Ek bilgi, MEB kitabında yok) Minimum enerji eğilimi ile maksimum düzensizlik eğilimi ZIT yönlü olmalı.<br>• İleri yöndeki hız, geri yöndeki hıza EŞİT olmalı.<br>• Dengede BÜTÜN maddeler bulunmalı.<br>• Dengedeki tüm maddelerin derişimleri SABİT olmalı.<br>• Denge DİNAMİKTİR.<br>• Dengede MAKROSKOBİK olaylar durur, MİKROSKOBİK olaylar devam eder.' },
+      c:'• Sıcaklık SABİT olmalı.<br>• Sistem KAPALI olmalı.<br>• (Ek konu, müfredat dışı) Minimum enerji eğilimi ile maksimum düzensizlik eğilimi ZIT yönlü olmalı.<br>• İleri yöndeki hız, geri yöndeki hıza EŞİT olmalı.<br>• Dengede BÜTÜN maddeler bulunmalı.<br>• Dengedeki tüm maddelerin derişimleri SABİT olmalı.<br>• Denge DİNAMİKTİR.<br>• Dengede MAKROSKOBİK olaylar durur, MİKROSKOBİK olaylar devam eder.' },
     { n:2, kat:'Kavram', t:'Homojen denge ile heterojen denge arasındaki fark nedir? Örnekler veriniz.',
       c:'<b>Homojen denge:</b> Tepkenlerle ürünlerin AYNI FAZDA bulunduğu denge. Örn: N₂O₄(g)⇌2NO₂(g); HCN(suda)⇌H⁺(suda)+CN⁻(suda).<br><b>Heterojen denge:</b> En az birinin farklı fizikselhalde olduğu denge. Örn: CaCO₃(k)⇌CaO(k)+CO₂(g); Zn²⁺(suda)+Cu(k)⇌Zn(k)+Cu²⁺(suda).' },
     { n:3, kat:'Kavram', t:'Aşağıdaki tepkimelerden hangileri hem HETEROJEN hem de KİMYASAL dengeye örnektir? a) H₂O(s)⇌H₂O(g) b) K₂SO₄(suda)⇌2K⁺(suda)+SO₄²⁻(suda) c) C₁₂H₂₂O₁₁(k)+H₂O(s)⇌C₁₂H₂₂O₁₁(suda) ç) 2NH₃(g)⇌N₂(g)+3H₂(g) d) 2HBr(g)⇌H₂(g)+Br₂(g) e) C(k)+H₂O(g)⇌CO(g)+H₂(g) f) 2S(k)+2O₂(g)⇌2SO₂(g)',
       c:'a) FİZİKSEL olay, elenir.<br>b) FİZİKSEL (çözünme), elenir.<br>c) FİZİKSEL, elenir.<br>ç) Tüm maddeler GAZ → HOMOJEN, elenir.<br>d) Tüm maddeler gaz → HOMOJEN, elenir.<br>e) C KATI, diğerleri GAZ → <b>HETEROJEN kimyasal denge — DOĞRU!</b><br>f) S KATI, O₂/SO₂ gaz → <b>HETEROJEN kimyasal denge — DOĞRU!</b><br>→ <b>Yalnız e ve f</b> hem heterojen hem kimyasal dengeye örnektir.' },
-    { n:4, kat:'Kavram', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek bilgi \u00b7 MEB kitabında yok</span>Maksimum düzensizlik eğilimine göre: a) katı-sıvı-gaz arasında hangisi en düzensizdir? b) Gazlı tepkimelerde katsayılar farklıysa hangi taraf daha düzensizdir? c) Katsayılar EŞİTSE hangi taraf daha düzensizdir?',
+    { n:4, kat:'Kavram', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek konu \u00b7 müfredat dışı</span>Maksimum düzensizlik eğilimine göre: a) katı-sıvı-gaz arasında hangisi en düzensizdir? b) Gazlı tepkimelerde katsayılar farklıysa hangi taraf daha düzensizdir? c) Katsayılar EŞİTSE hangi taraf daha düzensizdir?',
       c:'a) Düzensizlik sıralaması: <b>gaz > sıvı > katı</b>.<br>b) Gazlı bir tepkimede <b>KATSAYISI FAZLA olan taraf</b> daha düzensizdir.<br>c) Katsayılar eşitse, <b>farklı gaz TÜRÜ fazla bulunduran taraf</b> daha düzensizdir.' },
     { n:5, kat:'Denge Sabiti', t:'Denge bağıntısı (Kc, Kp) yazarken uyulması gereken 3 kural nedir?',
       c:'1) Denge bağıntısında SAF KATI ve SAF SIVILAR YER ALMAZ.<br>2) Denge bağıntısında GAZLAR ve SULU çözeltiler YER ALIR.<br>3) Denge bağıntısı NET tepkimeye göre yazılır.' },
-    { n:6, kat:'Denge Sabiti', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek bilgi \u00b7 MEB kitabında yok</span>Kp ile Kc arasındaki ilişkiyi (formülü) yazınız. Δn neyi ifade eder?',
+    { n:6, kat:'Denge Sabiti', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek konu \u00b7 müfredat dışı</span>Kp ile Kc arasındaki ilişkiyi (formülü) yazınız. Δn neyi ifade eder?',
       c:'<b>Kp = Kc×(RT)^Δn</b><br>Δn = (ürün gazlarının katsayıları toplamı) − (giren gazlarının katsayıları toplamı) — SADECE gaz halindeki maddelerin katsayıları sayılır.' },
     { n:7, kat:'Hesaplama', t:'2NO(g)+O₂(g)⇌2NO₂(g) tepkimesine göre 2 L’lik kapta 0,4 mol NO, 0,2 mol O₂ ve 0,8 mol NO₂ gazları dengededir. Buna göre aynı sıcaklıkta tepkimenin Kc değeri kaçtır?',
       c:'[NO]=0,2 M, [O₂]=0,1 M, [NO₂]=0,4 M.<br>Kc=[NO₂]²/([NO]²[O₂])=0,4²/(0,2²×0,1)=0,16/0,004=<b>40</b>.' },
@@ -9049,13 +8997,13 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
       c:'Dengede <b>Kc = kı/kg</b>.<br>Kc = 4×10⁻³ / 2×10⁻⁴ = <b>20</b>.' },
     { n:9, kat:'Hesaplama', t:'2SO₂(g)+O₂(g)⇌2SO₃(g) tepkimesine göre 0,2’şer mol SO₂ ve O₂ gazları ile 0,8 mol SO₃ gazı dengededir. Tepkimenin denge sabiti (K) 16 olduğuna göre tepkime kabının hacmi kaç L’dir?',
       c:'Kc=(0,8/V)²/((0,2/V)²×(0,2/V))=16 denklemini V için çözersek: <b>V=0,2 L</b>.' },
-    { n:10, kat:'Hesaplama', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek bilgi \u00b7 MEB kitabında yok</span>2CO(g)+O₂(g)⇌2CO₂(g) tepkimesinin 27°C’deki derişimler türünden denge sabiti (Kc) 5,6 olduğuna göre, aynı sıcaklıktaki kısmi basınçlar türünden denge sabiti (Kp) kaçtır? (R:0,082 alınız)',
+    { n:10, kat:'Hesaplama', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek konu \u00b7 müfredat dışı</span>2CO(g)+O₂(g)⇌2CO₂(g) tepkimesinin 27°C’deki derişimler türünden denge sabiti (Kc) 5,6 olduğuna göre, aynı sıcaklıktaki kısmi basınçlar türünden denge sabiti (Kp) kaçtır? (R:0,082 alınız)',
       c:'Δn = 2−3 = −1. T=300K.<br>Kp = Kc×(RT)^Δn = 5,6×(0,082×300)⁻¹ = 5,6/24,6 ≈ <b>0,228</b>.' },
     { n:11, kat:'Hesaplama', t:'2SO₃(g)⇌2SO₂(g)+O₂(g) denklemine göre 1 litrelik bir kapta 0,6 mol SO₃ gazı ile başlatılan tepkime t°C’de dengeye ulaştığında kapta toplam 0,8 mol gaz bulunuyor. Buna göre tepkimenin t°C’deki denge sabiti (Kc) kaçtır?',
       c:'x kadar SO₃ ayrışsın: 0,6+x/2=0,8 → x=0,4.<br>Denge: SO₃=0,2M, SO₂=0,4M, O₂=0,2M.<br>Kc=0,4²×0,2/0,2²=<b>0,8</b>.' },
-    { n:12, kat:'Hesaplama', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek bilgi \u00b7 MEB kitabında yok</span>NH₄HS(k)⇌NH₃(g)+H₂S(g) tepkimesine göre belirli bir sıcaklıkta kaba konan NH₄HS(k) dengeye ulaşıyor. Kaptaki toplam basınç 1,2 atm olduğuna göre, bu sıcaklıktaki Kp sabiti kaçtır?',
+    { n:12, kat:'Hesaplama', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek konu \u00b7 müfredat dışı</span>NH₄HS(k)⇌NH₃(g)+H₂S(g) tepkimesine göre belirli bir sıcaklıkta kaba konan NH₄HS(k) dengeye ulaşıyor. Kaptaki toplam basınç 1,2 atm olduğuna göre, bu sıcaklıktaki Kp sabiti kaçtır?',
       c:'NH₃ ve H₂S EŞİT MOL oluşur. Toplam=1,2atm → her biri <b>0,6 atm</b>.<br>Kp=0,6×0,6=<b>0,36</b>.' },
-    { n:13, kat:'Hesaplama', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek bilgi \u00b7 MEB kitabında yok</span>1000 mL’lik boş bir kaba 4 mol N₂ ve 4 mol H₂ gazları konuluyor. N₂(g)+3H₂(g)⇌2NH₃(g) denklemine göre tepkime %75 verimle gerçekleşiyor (H₂ sınırlayıcıdır). Tepkime dengeye geldiğinde ortamın toplam basıncı 12 atm oluyorsa Kp değeri kaçtır?',
+    { n:13, kat:'Hesaplama', t:'<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(192,132,252,.18);color:#c084fc;margin-right:6px">Ek konu \u00b7 müfredat dışı</span>1000 mL’lik boş bir kaba 4 mol N₂ ve 4 mol H₂ gazları konuluyor. N₂(g)+3H₂(g)⇌2NH₃(g) denklemine göre tepkime %75 verimle gerçekleşiyor (H₂ sınırlayıcıdır). Tepkime dengeye geldiğinde ortamın toplam basıncı 12 atm oluyorsa Kp değeri kaçtır?',
       c:'H₂ sınırlayıcı. %75 verimle H₂’den 3mol harcanır, N₂’den 1mol, NH₃’ten 2mol oluşur.<br>Denge: N₂=3mol, H₂=1mol, NH₃=2mol, Toplam=6mol.<br>P(N₂)=6atm, P(H₂)=2atm, P(NH₃)=4atm.<br>Kp=4²/(6×2³)=16/48=<b>1/3≈0,33</b>.' },
     { n:14, kat:'Sıcaklık Etkisi', t:'Şekildeki her kapta eşit sayıda N₂O₄ molekülü bulunmaktadır: I. Kap: V litre, 50°C · II. Kap: 2V litre, 50°C · III. Kap: 2V litre, 25°C. Her kapta N₂O₄(g)⇌2NO₂(g) tepkimesi gerçekleşmektedir. Bu kaplardaki tepkimelerin hızlarını karşılaştırınız.',
       c:'<b>I. Kap</b> (V, 50°C): KÜÇÜK hacim + YÜKSEK sıcaklık → EN HIZLI.<br><b>II. Kap</b> (2V, 50°C): ORTA.<br><b>III. Kap</b> (2V, 25°C): EN YAVAŞ.<br>→ <b>Hız sıralaması: I > II > III</b>.' },
@@ -9123,7 +9071,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
       '<p style="margin-bottom:10px">Dengedeki bir tepkime i\u00e7in <b>\u00fcr\u00fcn derişimlerinin \u00fcssel \u00e7arpımının, tepken derişimlerinin \u00fcssel \u00e7arpımına oranı</b> SABİT bir değer verir. Bu sabite <b>DENGE SABİTİ (Kc)</b> denir:</p>' +
       '<div style="text-align:center;background:rgba(96,165,250,.08);border-radius:10px;padding:12px;margin:10px 0;font-size:15px">aA(g)+bB(g) \u21cc cC(g)+dD(g) &nbsp;\u2192&nbsp; K<sub>c</sub> = [C]<sup>c</sup>[D]<sup>d</sup> / [A]<sup>a</sup>[B]<sup>b</sup></div>' +
       '<p style="margin-bottom:10px"><b>\u00d6nemli:</b> Kc değeri, BAŞLANGI\u00c7 KOŞULLARINDAN BAĞIMSIZDIR \u2014 aynı sıcaklıkta hangi taraftan (tepken ya da \u00fcr\u00fcn ile) başlarsanız başlayın, dengeye ulaşıldığında AYNI Kc değeri elde edilir.</p>' +
-      '<div class="card" style="margin:12px 0"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 MEB Kitabı Doğrulanmış \u00d6rnek (2.5. Etkinlik)</div>' +
+      '<div class="card" style="margin:12px 0"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 Doğrulanmış \u00d6rnek (2.5. Etkinlik)</div>' +
       '<p style="font-size:13px;margin-bottom:8px">N\u2082O\u2084(g)\u21cc2NO\u2082(g) tepkimesi \u00fc\u00e7 farklı başlangı\u00e7tan (I: NO\u2082 ile, II: N\u2082O\u2084 ile, III: ikisiyle birden) başlatılıyor. Denge derişimleri:</p>' +
       '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:6px;text-align:left">Grafik</th><th style="padding:6px">[N\u2082O\u2084]</th><th style="padding:6px">[NO\u2082]</th><th style="padding:6px">Kc=[NO\u2082]\u00b2/[N\u2082O\u2084]</th></tr>' +
       '<tr><td style="padding:6px">I</td><td style="padding:6px;text-align:center">0,10 M</td><td style="padding:6px;text-align:center">0,02 M</td><td style="padding:6px;text-align:center">4\u00d710\u207b\u00b3</td></tr>' +
@@ -9137,7 +9085,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
         '<li><b>Q &lt; Kc</b> \u2192 \u00dcr\u00fcn derişimi \u201cyetersiz\u201d, sistem \u00dcR\u00dcNLER (İLERİ) y\u00f6n\u00fcnde ilerleyerek dengeye ulaşır.</li>' +
         '<li><b>Q &gt; Kc</b> \u2192 \u00dcr\u00fcn derişimi \u201cfazla\u201d, sistem TEPKENLER (GERİ) y\u00f6n\u00fcnde ilerleyerek dengeye ulaşır.</li>' +
       '</ul>' +
-      '<div class="card" style="margin:12px 0"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 MEB Kitabı Doğrulanmış \u00d6rnek (2.7. Etkinlik)</div>' +
+      '<div class="card" style="margin:12px 0"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 Doğrulanmış \u00d6rnek (2.7. Etkinlik)</div>' +
       '<p style="font-size:13px;margin-bottom:8px">H\u2082(g)+I\u2082(g)\u21cc2HI(g) tepkimesi Kc=30. Farklı zamanlardaki derişimler ve durumları:</p>' +
       '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:6px">S\u00fcre</th><th style="padding:6px">[H\u2082]</th><th style="padding:6px">[I\u2082]</th><th style="padding:6px">[HI]</th><th style="padding:6px">Q</th><th style="padding:6px">Durum</th></tr>' +
       '<tr><td style="padding:6px;text-align:center">15s</td><td style="padding:6px;text-align:center">2</td><td style="padding:6px;text-align:center">0,2</td><td style="padding:6px;text-align:center">2</td><td style="padding:6px;text-align:center">10</td><td style="padding:6px;text-align:center;color:#fbbf24">Q&lt;Kc, İLERİ</td></tr>' +
@@ -9173,10 +9121,10 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     app.insertAdjacentHTML('beforeend',
       '<div id="s-denge2" style="display:none"><div class="pw narrow">' +
         '<h1 class="ptitle">\u2696\ufe0f Kimyasal Denge</h1>' +
-        '<p class="psub">MEB kitabı konu anlatımı ve el yazması ders notu \u2014 çözümlü örnekler.</p>' +
+        '<p class="psub">Konu anlatımı ve ek sorular \u2014 çözümlü örnekler.</p>' +
         '<div class="ltabs" id="denge2-maingroup" style="margin-bottom:14px">' +
-          '<button class="ltab on" onclick="denge2GroupSet(0,this)">\ud83d\udcd8 MEB Konu Anlatımı</button>' +
-          '<button class="ltab" onclick="denge2GroupSet(1,this)">\ud83d\udcd3 Özel Ders Notu</button>' +
+          '<button class="ltab on" onclick="denge2GroupSet(0,this)">\ud83d\udcd8 Konu Anlatımı</button>' +
+          '<button class="ltab" onclick="denge2GroupSet(1,this)">\ud83d\udcd3 Ek Sorular</button>' +
         '</div>' +
         '<div id="denge2-group-0" style="display:block"></div>' +
         '<div id="denge2-group-1" style="display:none"></div>' +
@@ -9188,7 +9136,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     var tg = document.querySelector('#s-home .tgrid');
     if (tg && !document.getElementById('tile-denge2'))
       tg.insertAdjacentHTML('afterbegin',
-        '<div class="tc" id="tile-denge2" onclick="nav(\'denge2\')"><div class="ti">\u2696\ufe0f</div><div class="tt">Kimyasal Denge</div><div class="td">MEB konu anlatımı + denge sabiti, Kp/Kc, Le Chatelier çözümlü örnekler.</div></div>');
+        '<div class="tc" id="tile-denge2" onclick="nav(\'denge2\')"><div class="ti">\u2696\ufe0f</div><div class="tt">Kimyasal Denge</div><div class="td">Konu anlatımı + denge sabiti, Kp/Kc, Le Chatelier çözümlü örnekler.</div></div>');
     setupMaarifDenge();
     denge2RenderList();
   }
@@ -9213,7 +9161,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
       '<p style="font-size:13px"><b>Endotermik</b> tepkimede sıcaklık ARTARSA \u00fcr\u00fcnler y\u00f6n\u00fcne kayar, <b>Kc ARTAR</b>. Sıcaklık AZALIRSA tepkenler y\u00f6n\u00fcne kayar, <b>Kc AZALIR</b>. (Sıcaklık ile Kc DOĞRU orantılı.)<br><b>Ekzotermik</b> tepkimede sıcaklık ARTARSA tepkenler y\u00f6n\u00fcne kayar, <b>Kc AZALIR</b>. Sıcaklık AZALIRSA \u00fcr\u00fcnler y\u00f6n\u00fcne kayar, <b>Kc ARTAR</b>. (Sıcaklık ile Kc TERS orantılı.)</p></div>' +
     '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#f59e0b;margin-bottom:6px">5) Katalizör\u00fcn Etkisi</div>' +
       '<p style="font-size:13px">Katalizör ileri VE geri tepkimenin aktifleşme enerjisini AYNI ORANDA d\u00fcş\u00fcrerek dengeye ulaşma S\u00dcRESİNİ kısaltır. Y\u00d6N belirlemez, denge derişimlerini VE <b>Kc\u2019yi DEĞİŞTİRMEZ.</b></p></div>' +
-    '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#93c5fd;margin-bottom:10px">\u2713 MEB Kitabı Doğrulanmış \u00d6rnek (2.5. Kontrol Noktası)</div>' +
+    '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#93c5fd;margin-bottom:10px">\u2713 Doğrulanmış \u00d6rnek (2.5. Kontrol Noktası)</div>' +
       '<p style="font-size:13px;margin-bottom:10px">2H\u2082S(g)+CH\u2084(g)\u21ccCS\u2082(s)+4H\u2082(g)+ısı tepkimesi (EKZOTERMİK, CS\u2082 SAF SIVI, gaz mol sayısı tepken=3&lt;\u00fcr\u00fcn=4). Aşağıdaki her etkiye dokunup sistemin tepkisini g\u00f6r:</p>' +
       '<div id="mdg-kn25"></div></div>';
 
@@ -9257,9 +9205,9 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     host.insertAdjacentHTML('beforeend', '<div id="mdg-wrap"></div>');
     var wrap = document.getElementById('mdg-wrap');
     wrap.innerHTML =
-      '<p class="psub" style="margin-bottom:10px">MEB Maarif Modeli 11. Sınıf Kimya 2 ders kitabı, \u201cDenge\u201d ünitesinin TAM konu anlatımı (2.1.1-2.1.5).</p>' +
+      '<p class="psub" style="margin-bottom:10px">Maarif modeli 11. sınıf, \u201cDenge\u201d ünitesinin tam konu anlatımı (2.1.1-2.1.5).</p>' +
       MAARIF_DENGE_THEORY.t1 + MAARIF_DENGE_THEORY.t2 + MAARIF_DENGE_THEORY.t3 + MAARIF_DENGE_THEORY.t4 + MAARIF_DENGE_THEORY.t5 +
-      '<p style="font-size:12px;color:var(--tx3);margin-top:14px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px">\ud83d\udd39 B\u00f6l\u00fcm sonu \u00f6l\u00e7me-değerlendirme (2.1 t\u00fcm\u00fc) sıradaki g\u00fcncellemede eklenecek. Sırada ayrıca: MEB Asit-Baz Dengesi (2.2) ve Çözünürlük Dengesi (2.3).</p>';
+      '';
     setTimeout(maarifDengeDrawGraphs, 60);
     mdgKn25Render();
   }
@@ -9393,13 +9341,14 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     if (existingCard) existingCard.id = 'redox-group-0-card';
     pw.insertAdjacentHTML('afterbegin',
       '<div class="ltabs" id="redox-maintabs" style="margin-bottom:14px">' +
-        '<button class="ltab on" onclick="redoxMainSet(0,this)">\ud83d\udcda Hazır Örnekler</button>' +
+        '<button class="ltab on" onclick="redoxMainSet(2,this)">\ud83d\udd22 48 Örnek</button>' +
         '<button class="ltab" onclick="redoxMainSet(1,this)">\u270f\ufe0f Kendi Denklemim</button>' +
-        '<button class="ltab" onclick="redoxMainSet(2,this)">\ud83d\udd22 48 Örnek</button>' +
       '</div>' +
-      '<div id="redox-group-0"></div>' +
+      // İyonlu (asidik/bazik ortamda H\u207a/OH\u207b ile) yarı tepkime denkleştirmesi müfredatta yok;
+      // eski "Hazır Örnekler" içeriği gizli tutuluyor, sekmesi gösterilmiyor.
+      '<div id="redox-group-0" style="display:none"></div>' +
       '<div id="redox-group-1" style="display:none"></div>' +
-      '<div id="redox-group-2" style="display:none"></div>');
+      '<div id="redox-group-2"></div>');
     // Mevcut örnek-butonları ve kartı grup-0 içine taşı
     var g0 = document.getElementById('redox-group-0');
     if (existingBtns) g0.appendChild(existingBtns);
@@ -9567,7 +9516,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     { n:2, kat:'Kavram', t:'pH, pOH ve pKsu tanımlarını yazınız. 25°C\u2019de pH+pOH ka\u00e7tır?',
       c:'pH=\u2212log[H\u207a], pOH=\u2212log[OH\u207b], pKsu=\u2212logKsu.<br>25°C\u2019de Ksu=10\u207b\u00b9\u2074 olduğundan <b>pH+pOH=14</b>.<br>pH&lt;7: asidik \u00b7 pH=7: n\u00f6tr \u00b7 pH&gt;7: bazik (SADECE 25°C\u2019de ge\u00e7erlidir \u2014 Ksu sıcaklıkla değiştiği i\u00e7in n\u00f6tr noktanın pH\u2019ı da sıcaklıkla değişir).' },
     { n:3, kat:'Kavram', t:'Bronsted-Lowry asit-baz tanımını yazınız. Konjuge asit-baz \u00e7ifti nedir?',
-      c:'<b>Bronsted-Lowry:</b> Proton (H\u207a) VEREN maddeye asit, proton ALAN maddeye baz denir. Asit-baz tepkimelerinde H\u207a asitten baza aktarılır.<br><b>Konjuge \u00e7ift:</b> Bir asit proton verdiğinde geriye kendi KONJUGE BAZI kalır; bir baz proton aldığında kendi KONJUGE ASİDİ oluşur. \u00d6rn: NH\u2083(baz)+H\u2082O(asit)\u21ccNH\u2084\u207a(konjuge asit)+OH\u207b(konjuge baz).<br><b>Hem asit hem baz gibi davranabilen t\u00fcrler</b> (ek bilgi: bunlara amfiprotik t\u00fcr denir; MEB kitabında bu terim ge\u00e7mez) (\u00f6rn. H\u2082PO\u2084\u207b, HCO\u2083\u207b) hem asit hem baz gibi davranabilir \u2014 hem proton verebilir hem alabilir.' },
+      c:'<b>Bronsted-Lowry:</b> Proton (H⁺) VEREN maddeye asit, proton ALAN maddeye baz denir. Asit-baz tepkimelerinde H⁺ asitten baza aktarılır.<br><b>Konjuge çift:</b> Bir asit proton verdiğinde geriye kendi KONJUGE BAZI kalır; bir baz proton aldığında kendi KONJUGE ASİDİ oluşur. Örn: NH₃(baz)+H₂O(asit)⇌NH₄⁺(konjuge asit)+OH⁻(konjuge baz).<br><b>Hem asit hem baz gibi davranabilen türler</b> (ek bilgi: bunlara amfiprotik tür denir; müfredatta bu terim geçmez) (örn. H₂PO₄⁻, HCO₃⁻) hem asit hem baz gibi davranabilir — hem proton verebilir hem alabilir.' },
     { n:4, kat:'Hesaplama', t:'25°C\u2019de 4pH=3pOH olan bir sulu \u00e7\u00f6zeltideki [H\u207a] ve [OH\u207b] değerlerini bularak \u00e7\u00f6zeltinin t\u00fcr\u00fcn\u00fc belirleyiniz.',
       c:'pH+pOH=14 ve 4pH=3pOH \u2192 pOH=4pH/3. Yerine yazarsak: pH+4pH/3=14 \u2192 7pH/3=14 \u2192 <b>pH=6</b>, <b>pOH=8</b> (kontrol: 4\u00d76=24=3\u00d78 ✓).<br>[H\u207a]=10\u207b\u2076 M, [OH\u207b]=10\u207b\u2078 M.<br>pH&lt;7 olduğundan \u00e7\u00f6zelti <b>ASİDİKTİR</b>.' },
     { n:5, kat:'Hesaplama', t:'2,52 gram HNO\u2083 ile 20 litrelik bir \u00e7\u00f6zelti hazırlanıyor. Bu \u00e7\u00f6zeltiden 20 mL alınıp saf su ile 100 mL\u2019ye seyreltilirse [H\u207a] iyonu derişimi ka\u00e7 M olur? (HNO\u2083:63)',
@@ -9595,7 +9544,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     { n:16, kat:'Hesaplama', t:'Oda koşullarındaki sulu \u00e7\u00f6zeltisinde [H\u207a]/[OH\u207b] oranı 10\u2076 olan X \u00e7\u00f6zeltisi ile ilgili; pH ka\u00e7tır?',
       c:'[H\u207a]=10\u2076\u00d7[OH\u207b] ve [H\u207a][OH\u207b]=10\u207b\u00b9\u2074 (25°C). Yerine yazarsak: 10\u2076\u00d7[OH\u207b]\u00b2=10\u207b\u00b9\u2074 \u2192 [OH\u207b]\u00b2=10\u207b\u00b2\u2070 \u2192 <b>[OH\u207b]=10\u207b\u00b9\u2070 M</b>.<br>[H\u207a]=10\u2076\u00d710\u207b\u00b9\u2070=<b>10\u207b\u2074 M</b>.<br>pH=\u2212log(10\u207b\u2074)=<b>4</b>.' },
     { n:17, kat:'Kavram', t:'Bronsted-Lowry tanımına g\u00f6re aşağıdaki t\u00fcrlerin KONJUGE ASİTLERİNİ ve KONJUGE BAZLARINI yazınız: H\u2082O \u00b7 HCO\u2083\u207b \u00b7 H\u2082PO\u2084\u207b \u00b7 HPO\u2084\u207b \u00b7 NH\u2083',
-      c:'Bir t\u00fcr\u00fcn <b>konjuge asidi</b> = kendisine bir H\u207a EKLENMİŞ hali. <b>Konjuge bazı</b> = kendisinden bir H\u207a \u00c7IKARILMIŞ hali.<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:6px;text-align:left">T\u00fcr</th><th style="padding:6px">Konjuge Asidi (+H\u207a)</th><th style="padding:6px">Konjuge Bazı (\u2212H\u207a)</th></tr><tr><td style="padding:6px">H\u2082O</td><td style="padding:6px;text-align:center"><b>H\u2083O\u207a</b></td><td style="padding:6px;text-align:center"><b>OH\u207b</b></td></tr><tr><td style="padding:6px">HCO\u2083\u207b</td><td style="padding:6px;text-align:center"><b>H\u2082CO\u2083</b></td><td style="padding:6px;text-align:center"><b>CO\u2083\u00b2\u207b</b></td></tr><tr><td style="padding:6px">H\u2082PO\u2084\u207b</td><td style="padding:6px;text-align:center"><b>H\u2083PO\u2084</b></td><td style="padding:6px;text-align:center"><b>HPO\u2084\u00b2\u207b</b></td></tr><tr><td style="padding:6px">HPO\u2084\u00b2\u207b</td><td style="padding:6px;text-align:center"><b>H\u2082PO\u2084\u207b</b></td><td style="padding:6px;text-align:center"><b>PO\u2084\u00b3\u207b</b></td></tr><tr><td style="padding:6px">NH\u2083</td><td style="padding:6px;text-align:center"><b>NH\u2084\u207a</b></td><td style="padding:6px;text-align:center"><b>NH\u2082\u207b</b></td></tr></table><p style="margin-top:8px">\u2192 <b>H\u2082O, HCO\u2083\u207b ve H\u2082PO\u2084\u207b</b> hem H\u207a verip hem alabildikleri (yani hem bir molek\u00fcl\u00fcn konjuge asidi hem başka bir molek\u00fcl\u00fcn konjuge bazı olabildikleri) i\u00e7in <b>hem asit hem baz gibi davranabilen (amfiprotik)</b> t\u00fcrlerdir (ek bilgi, MEB kitabında ge\u00e7mez).</p>' },
+      c:'Bir türün <b>konjuge asidi</b> = kendisine bir H⁺ EKLENMİŞ hali. <b>Konjuge bazı</b> = kendisinden bir H⁺ ÇIKARILMIŞ hali.<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:6px;text-align:left">Tür</th><th style="padding:6px">Konjuge Asidi (+H⁺)</th><th style="padding:6px">Konjuge Bazı (−H⁺)</th></tr><tr><td style="padding:6px">H₂O</td><td style="padding:6px;text-align:center"><b>H₃O⁺</b></td><td style="padding:6px;text-align:center"><b>OH⁻</b></td></tr><tr><td style="padding:6px">HCO₃⁻</td><td style="padding:6px;text-align:center"><b>H₂CO₃</b></td><td style="padding:6px;text-align:center"><b>CO₃²⁻</b></td></tr><tr><td style="padding:6px">H₂PO₄⁻</td><td style="padding:6px;text-align:center"><b>H₃PO₄</b></td><td style="padding:6px;text-align:center"><b>HPO₄²⁻</b></td></tr><tr><td style="padding:6px">HPO₄²⁻</td><td style="padding:6px;text-align:center"><b>H₂PO₄⁻</b></td><td style="padding:6px;text-align:center"><b>PO₄³⁻</b></td></tr><tr><td style="padding:6px">NH₃</td><td style="padding:6px;text-align:center"><b>NH₄⁺</b></td><td style="padding:6px;text-align:center"><b>NH₂⁻</b></td></tr></table><p style="margin-top:8px">→ <b>H₂O, HCO₃⁻ ve H₂PO₄⁻</b> hem H⁺ verip hem alabildikleri (yani hem bir molekülün konjuge asidi hem başka bir molekülün konjuge bazı olabildikleri) için <b>hem asit hem baz gibi davranabilen (amfiprotik)</b> türlerdir (ek bilgi, müfredatta geçmez).</p>' },
     { n:18, kat:'Zayıf Asit/Baz', t:'pH\u2019ı 5 olan 0,1 M HF \u00e7\u00f6zeltisinin 1 L\u2019sine ka\u00e7 L su ilave edersek yeni \u00e7\u00f6zeltinin pH\u2019ı 6 olur?',
       c:'Başlangı\u00e7: C\u2081=0,1M, pH=5 \u2192 [H\u207a]\u2081=10\u207b\u2075.<br>Ka\u2248[H\u207a]\u2081\u00b2/C\u2081=(10\u207b\u2075)\u00b2/0,1=<b>10\u207b\u2079</b> (bu \u00f6rnekte HF i\u00e7in kullanılan Ka değeri).<br>Hedef: pH=6 \u2192 [H\u207a]\u2082=10\u207b\u2076. Ka=[H\u207a]\u2082\u00b2/C\u2082 \u2192 C\u2082=(10\u207b\u2076)\u00b2/10\u207b\u2079=<b>0,001 M</b>.<br>Zayıf asitte seyreltirken TOPLAM HF miktarı (mol) korunur: C\u2081V\u2081=C\u2082V\u2082 \u2192 0,1\u00d71=0,001\u00d7V\u2082 \u2192 <b>V\u2082=100 L</b>.<br>Eklenen su=100\u22121=<b>99 L</b>.<br><span style="color:#93c5fd">\ud83d\udca1 Dikkat: zayıf asitte pH\u2019ı 1 birim artırmak i\u00e7in KUVVETLİ asitteki gibi sadece 10 kat değil, TAM 100 KAT seyreltme gerekti \u2014 \u00e7\u00fcnk\u00fc seyreldik\u00e7e iyonlaşma oranı da artıyor, bu da derişim azalışını kısmen \u201ctelafi\u201d ediyor.</span>' },
     { n:19, kat:'Kavram', t:'N\u00f6trleşme tepkimesi nedir? Tam n\u00f6trleşme şartı nedir? Kuvvetli asit + kuvvetli baz tepkimesinde n(asit)\u00d7değerlik ile n(baz)\u00d7değerlik karşılaştırması sonucu \u00e7\u00f6zeltinin t\u00fcr\u00fc nasıl belirlenir?',
@@ -9778,7 +9727,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
   var MAARIF_ASITBAZ_THEORY = {
     t1: '<h3 style="color:#93c5fd;margin-bottom:10px">2.2.1 Saf Suyun Otoiyonizasyonu</h3>' +
       '<p style="margin-bottom:10px">2H\u2082O(s)+ısı\u21ccH\u2083O\u207a(suda)+OH\u207b(suda) \u2014 ENDOTERMİK bir olaydır. K<sub>su</sub>=[H\u2083O\u207a][OH\u207b], sıcaklığa bağlı değişir ve Le Chatelier ilkesine uyar.</p>' +
-      '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 MEB Kitabı Doğrulanmış Tablo (Tablo 2.2)</div>' +
+      '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 Doğrulanmış Tablo (Tablo 2.2)</div>' +
       '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:6px">Sıcaklık (°C)</th><th style="padding:6px">K<sub>su</sub></th></tr>' +
       '<tr><td style="padding:6px;text-align:center">0</td><td style="padding:6px;text-align:center">1,14\u00d710\u207b\u00b9\u2075</td></tr>' +
       '<tr><td style="padding:6px;text-align:center">10</td><td style="padding:6px;text-align:center">2,92\u00d710\u207b\u00b9\u2075</td></tr>' +
@@ -9798,7 +9747,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
       '<p style="font-size:13px;margin-top:8px"><b>Ametal oksitlerin asidik \u00f6zelliği:</b> Oksijence ZENGİN ametal oksitler (SO\u2082, N\u2082O\u2085, CO\u2082 gibi) su ile tepkimeye girip asit oluşturur:<br>SO\u2082+\u00bdO\u2082\u2192SO\u2083, SO\u2083+H\u2082O\u2192H\u2082SO\u2084 (g\u00fcbre, patlayıcı, pil \u00fcretiminde kullanılır)<br>N\u2082O\u2085+H\u2082O\u21922HNO\u2083 (g\u00fcbre, patlayıcı, roket oksitleyicisi)<br>CO\u2082+H\u2082O\u2192H\u2082CO\u2083 (kanın pH dengesi, okyanus asitleşmesi, gazlı i\u00e7ecekler)<br><span style="color:var(--tx3);font-size:11px">Not: Oksijence FAKİR ametal oksitler (CO, NO, N\u2082O gibi) N\u00d6TR \u00f6zellik g\u00f6sterir.</span></p></div>',
     t3: '<h3 style="color:#93c5fd;margin-bottom:10px">2.2.3 Asitlerin ve Bazların Kuvveti</h3>' +
       '<p style="margin-bottom:8px"><b>İyonlaşma y\u00fczdesi</b> = ([H\u2083O\u207a]/[HA]\u2080)\u00d7100 (asit i\u00e7in) ya da ([OH\u207b]/[BOH]\u2080)\u00d7100 (baz i\u00e7in). Y\u00fczde ~100 ise KUVVETLİ, k\u00fc\u00e7\u00fckse ZAYIF.</p>' +
-      '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 MEB Kitabı Doğrulanmış Veri (2.16. Etkinlik) \u2014 1M \u00e7\u00f6zeltilerde iyonlaşma y\u00fczdesi</div>' +
+      '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 Doğrulanmış Veri (2.16. Etkinlik) \u2014 1M \u00e7\u00f6zeltilerde iyonlaşma y\u00fczdesi</div>' +
       '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:6px;text-align:left">Asit</th><th style="padding:6px">İyonlaşma %</th><th style="padding:6px;text-align:left">Baz</th><th style="padding:6px">İyonlaşma %</th></tr>' +
       '<tr><td style="padding:6px">HCl</td><td style="padding:6px;text-align:center">%100</td><td style="padding:6px">NaOH</td><td style="padding:6px;text-align:center">%100</td></tr>' +
       '<tr><td style="padding:6px">HNO\u2083</td><td style="padding:6px;text-align:center">%100</td><td style="padding:6px">KOH</td><td style="padding:6px;text-align:center">%100</td></tr>' +
@@ -9822,7 +9771,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     '<p style="font-size:13px">Monofonksiyonel kuvvetli asitte: <b>[H\u2083O\u207a]=C<sub>a</sub></b> (asidin derişimi). Monofonksiyonel kuvvetli bazda: <b>[OH\u207b]=C<sub>b</sub></b>.<br>\u00d6rn: 0,1M HCl \u2192 [H\u2083O\u207a]=0,1M \u2192 pH=1. \u00d6rn: 0,1M NaOH \u2192 [OH\u207b]=0,1M \u2192 pOH=1 \u2192 pH=13 (25°C\u2019de).</p></div>' +
     '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:6px">Zayıf Asit/Baz (KISMEN iyonlaşır, denge kurulur, Ka/Kb kullanılır)</div>' +
     '<p style="font-size:13px">HA(suda)+H\u2082O(s)\u21ccH\u2083O\u207a(suda)+A\u207b(suda) i\u00e7in <b>Ka=[H\u2083O\u207a][A\u207b]/[HA]</b>. x, C<sub>a</sub>\u2019nın yanında ihmal edilebilecek kadar k\u00fc\u00e7\u00fckse:<br><b>x=[H\u2083O\u207a]=\u221a(C<sub>a</sub>\u00b7K<sub>a</sub>)</b> (asit i\u00e7in) \u00b7 <b>x=[OH\u207b]=\u221a(C<sub>b</sub>\u00b7K<sub>b</sub>)</b> (baz i\u00e7in).</p></div>' +
-    '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#93c5fd;margin-bottom:10px">\u2713 MEB Kitabı Doğrulanmış \u00d6rnekler (2.17-2.18. Etkinlik)</div>' +
+    '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#93c5fd;margin-bottom:10px">\u2713 Doğrulanmış \u00d6rnekler (2.17-2.18. Etkinlik)</div>' +
     '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:5px;text-align:left">Madde</th><th style="padding:5px">Derişim</th><th style="padding:5px">Ka/Kb</th><th style="padding:5px">pH</th></tr>' +
     '<tr><td style="padding:5px">HCl (kuvvetli asit)</td><td style="padding:5px;text-align:center">0,01M</td><td style="padding:5px;text-align:center">\u2014</td><td style="padding:5px;text-align:center"><b>2</b></td></tr>' +
     '<tr><td style="padding:5px">HNO\u2083 (kuvvetli asit)</td><td style="padding:5px;text-align:center">0,001M</td><td style="padding:5px;text-align:center">\u2014</td><td style="padding:5px;text-align:center"><b>3</b></td></tr>' +
@@ -9845,7 +9794,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     '<p style="margin-bottom:8px">Asit+Baz\u2192Tuz+Su+Isı (EKZOTERMİK). Net iyon denklemi: <b>H\u207a(suda)+OH\u207b(suda)\u2192H\u2082O(s)</b>. Kuvvetli asit-baz n\u00f6trleşmesi HIZLI ve TEK Y\u00d6NL\u00dcD\u00dcR, verim %100 kabul edilir.</p>' +
     '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:6px">Hesaplama Form\u00fclleri</div>' +
     '<p style="font-size:13px">n<sub>H\u207a</sub>=z<sub>asit</sub>\u00d7M<sub>asit</sub>\u00d7V<sub>asit</sub> \u00b7 n<sub>OH\u207b</sub>=z<sub>baz</sub>\u00d7M<sub>baz</sub>\u00d7V<sub>baz</sub> (z=değerlik)<br>\u2022 <b>n<sub>H\u207a</sub>=n<sub>OH\u207b</sub></b> \u2192 TAM N\u00d6TRALLEŞME, pH=7 (25°C).<br>\u2022 <b>n<sub>H\u207a</sub>&gt;n<sub>OH\u207b</sub></b> \u2192 KISMİ n\u00f6tralleşme, ASİDİK: [H\u207a]=(n<sub>H\u207a</sub>\u2212n<sub>OH\u207b</sub>)/(V<sub>asit</sub>+V<sub>baz</sub>)<br>\u2022 <b>n<sub>OH\u207b</sub>&gt;n<sub>H\u207a</sub></b> \u2192 KISMİ n\u00f6tralleşme, BAZİK: [OH\u207b]=(n<sub>OH\u207b</sub>\u2212n<sub>H\u207a</sub>)/(V<sub>asit</sub>+V<sub>baz</sub>)</p></div>' +
-    '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#93c5fd;margin-bottom:10px">\u2713 MEB Kitabı Doğrulanmış \u00d6rnekler (2.19-2.20. Etkinlik)</div>' +
+    '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#93c5fd;margin-bottom:10px">\u2713 Doğrulanmış \u00d6rnekler (2.19-2.20. Etkinlik)</div>' +
     '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:5px;text-align:left">Karışım</th><th style="padding:5px">n<sub>H\u207a</sub></th><th style="padding:5px">n<sub>OH\u207b</sub></th><th style="padding:5px">Sonu\u00e7</th></tr>' +
     '<tr><td style="padding:5px">H\u2082SO\u2084 1M100mL+NaOH 2M100mL</td><td style="padding:5px;text-align:center">0,2mol</td><td style="padding:5px;text-align:center">0,2mol</td><td style="padding:5px;text-align:center"><b>pH=7</b></td></tr>' +
     '<tr><td style="padding:5px">HCl 1M1000mL+NaOH 0,8M1000mL</td><td style="padding:5px;text-align:center">1mol</td><td style="padding:5px;text-align:center">0,8mol</td><td style="padding:5px;text-align:center"><b>pH=1</b></td></tr>' +
@@ -9872,9 +9821,9 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     '<tr><td style="padding:6px"><b>Mide sıvısı</b></td><td style="padding:6px;text-align:center">1,5\u20133,5<br>(\u00c7OK ASİDİK)</td><td style="padding:6px">HCl+pepsinojen protein sindirir, mikroorganizmaları \u00f6ld\u00fcr\u00fcr. Az asit\u2192enfeksiyon riski; \u00e7ok asit\u2192reflü/\u00fclser.</td></tr>' +
     '<tr><td style="padding:6px"><b>Diş macunu</b></td><td style="padding:6px;text-align:center">8\u20139<br>(HAFİF BAZİK)</td><td style="padding:6px">Ağız bakterilerinin şeker/nişastayı aside \u00e7evirip diş minesini aşındırmasını \u00f6nler. pH&lt;8 yetersiz; pH&gt;9 diş eti/mine hasarı.</td></tr>' +
     '<tr><td style="padding:6px"><b>Cilt</b></td><td style="padding:6px;text-align:center">4,5\u20135,5<br>(HAFİF ASİDİK)</td><td style="padding:6px">Hafif asidik yapı zararlı mikroorganizmalara karşı koruyucu bariyer oluşturur. \u00c7ok bazik sabun\u2192cilt kuruluğu.</td></tr></table>' +
-    '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 MEB Kitabı \u00d6rneği (2.8. Uygulama Noktası \u2014 Sabun Deneyi)</div>' +
+    '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">✓ Örnek (2.8. Uygulama Noktası — Sabun Deneyi)</div>' +
     '<p style="font-size:13px;margin-bottom:8px">A(pH=11,5), B(pH=5,5), C(pH=8,4) sabunları test ediliyor; anketle \u201ckuruluk/temizleme/koku/durulama\u201d puanlanıyor. B sabunu (pH=5,5, cildin doğal pH\u2019ına EN YAKIN) en AZ kuruluk yaratıyor \u2014 <b>cilt sağlığı i\u00e7in en uygun se\u00e7im pH\u2019ı cildin kendi pH aralığına (4,5-5,5) en yakın olandır</b>, en bazik olan (A) DEĞİL.</p></div>' +
-    '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">\u2713 MEB Kitabı \u00d6rneği (2.12. Kontrol Noktası \u2014 Antiasit Tablet Deneyi)</div>' +
+    '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#f59e0b;margin-bottom:8px">✓ Örnek (2.12. Kontrol Noktası — Antiasit Tablet Deneyi)</div>' +
     '<p style="font-size:13px">X(pH=11,2), Y(pH=9,6), Z(pH=10,5) antiasit tabletleri 0,1M HCl ile tepkimeye sokuluyor: X 3dk/pH=6, Y 4dk/pH=7, Z 2dk/pH=8 sonu\u00e7 veriyor. <b>Y tableti tepkime SONUNDA TAM pH=7 (n\u00f6tr) verdiği i\u00e7in mide asidini ne EKSİK ne FAZLA n\u00f6trler \u2014 en uygun se\u00e7imdir</b> (X hâlâ hafif asidik/eksik n\u00f6trlemiş, Z fazla n\u00f6trleyip bazik bırakmış olabilir \u2014 tepkime s\u00fcresi de \u00f6nemli bir ikincil \u00f6l\u00e7\u00fctt\u00fcr).</p></div>';
 
   function setupMaarifAsitBaz(){
@@ -9883,7 +9832,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     if (!host) return;
     host.insertAdjacentHTML('beforeend', '<div id="mab-wrap"></div>');
     var wrap = document.getElementById('mab-wrap');
-    var html = '<p class="psub" style="margin-bottom:10px">MEB Maarif Modeli 11. Sınıf Kimya 2 ders kitabı, \u201cAsit-Baz Dengesi\u201d \u00fcnitesinin TAM konu anlatımı (2.2.1-2.2.7).</p>' +
+    var html = '<p class="psub" style="margin-bottom:10px">Maarif modeli 11. sınıf, \u201cAsit-Baz Dengesi\u201d \u00fcnitesinin TAM konu anlatımı (2.2.1-2.2.7).</p>' +
       MAARIF_ASITBAZ_THEORY.t1 + MAARIF_ASITBAZ_THEORY.t2 + MAARIF_ASITBAZ_THEORY.t3 + MAARIF_ASITBAZ_THEORY.t4 + MAARIF_ASITBAZ_THEORY.t5 + MAARIF_ASITBAZ_THEORY.t6 + MAARIF_ASITBAZ_THEORY.t7 +
       '<h4 style="color:#f59e0b;margin:14px 0 8px">\ud83d\udcdd Uygulama Noktası \u00d6rnekleri (2.2.1-2.2.3)</h4>';
     MAB_UYG.forEach(function(u, i){
@@ -9906,7 +9855,6 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
         '<div onclick="molToggle(\'mabuyg3-' + i + '\')" style="cursor:pointer;text-align:center;font-size:12px;font-weight:700;color:#050510;background:#93c5fd;border-radius:8px;padding:8px">\ud83d\udc41\ufe0f Çözümü Göster</div>' +
         '<div id="mabuyg3-' + i + '" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:var(--tx2);line-height:1.8">' + u.c + '</div></div>';
     });
-    html += '<p style="font-size:12px;color:#86efac;margin-top:14px;padding:12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px">\u2705 MEB Asit-Baz Dengesi (2.2) konu anlatımı TAMAMLANDI (2.2.1-2.2.7). Sırada: MEB \u00c7\u00f6z\u00fcn\u00fcrl\u00fck Dengesi (2.3).</p>';
     wrap.innerHTML = html;
   }
 
@@ -9917,10 +9865,10 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     app.insertAdjacentHTML('beforeend',
       '<div id="s-asitbaz2" style="display:none"><div class="pw narrow">' +
         '<h1 class="ptitle">\ud83e\uddea Asit-Baz Dengesi</h1>' +
-        '<p class="psub">MEB kitabı konu anlatımı ve el yazması ders notu \u2014 çözümlü örnekler.</p>' +
+        '<p class="psub">Konu anlatımı ve ek sorular \u2014 çözümlü örnekler.</p>' +
         '<div class="ltabs" id="asitbaz2-maingroup" style="margin-bottom:14px">' +
-          '<button class="ltab on" onclick="asitbaz2GroupSet(0,this)">\ud83d\udcd8 MEB Konu Anlatımı</button>' +
-          '<button class="ltab" onclick="asitbaz2GroupSet(1,this)">\ud83d\udcd3 Özel Ders Notu</button>' +
+          '<button class="ltab on" onclick="asitbaz2GroupSet(0,this)">\ud83d\udcd8 Konu Anlatımı</button>' +
+          '<button class="ltab" onclick="asitbaz2GroupSet(1,this)">\ud83d\udcd3 Ek Sorular</button>' +
         '</div>' +
         '<div id="asitbaz2-group-0" style="display:block"></div>' +
         '<div id="asitbaz2-group-1" style="display:none"></div>' +
@@ -9932,7 +9880,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     var tg = document.querySelector('#s-home .tgrid');
     if (tg && !document.getElementById('tile-asitbaz2'))
       tg.insertAdjacentHTML('afterbegin',
-        '<div class="tc" id="tile-asitbaz2" onclick="nav(\'asitbaz2\')"><div class="ti">\ud83e\uddea</div><div class="tt">Asit-Baz Dengesi</div><div class="td">MEB konu anlatımı + pH/pOH, Ka/Kb çözümlü örnekler.</div></div>');
+        '<div class="tc" id="tile-asitbaz2" onclick="nav(\'asitbaz2\')"><div class="ti">\ud83e\uddea</div><div class="tt">Asit-Baz Dengesi</div><div class="td">Konu anlatımı + pH/pOH, Ka/Kb çözümlü örnekler.</div></div>');
     setupMaarifAsitBaz();
     asitbaz2RenderList();
   }
@@ -10036,7 +9984,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
       '<tr><td style="padding:6px;text-align:center">XY\u2082 / X\u2082Y</td><td style="padding:6px;text-align:center">CaF\u2082 / Ag\u2082SO\u2084</td><td style="padding:6px;text-align:center"><b>4s\u00b3</b></td></tr>' +
       '<tr><td style="padding:6px;text-align:center">XY\u2083 / X\u2083Y</td><td style="padding:6px;text-align:center">Li\u2083PO\u2084</td><td style="padding:6px;text-align:center"><b>27s\u2074</b></td></tr>' +
       '<tr><td style="padding:6px;text-align:center">X\u2082Y\u2083</td><td style="padding:6px;text-align:center">\u2014</td><td style="padding:6px;text-align:center"><b>108s\u2075</b></td></tr></table></div>' +
-      '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#93c5fd;margin-bottom:8px">\u2713 MEB Kitabı Doğrulanmış Tablo (Tablo 2.6, 25°C)</div>' +
+      '<div class="card" style="margin-bottom:14px"><div style="font-weight:700;color:#93c5fd;margin-bottom:8px">\u2713 Doğrulanmış Tablo (Tablo 2.6, 25°C)</div>' +
       '<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:4px">Tuz</th><th style="padding:4px">K<sub>\u00e7\u00e7</sub></th><th style="padding:4px">Tuz</th><th style="padding:4px">K<sub>\u00e7\u00e7</sub></th></tr>' +
       '<tr><td style="padding:4px">AgCl</td><td style="padding:4px;text-align:center">1,6\u00d710\u207b\u00b9\u2070</td><td style="padding:4px">CuS</td><td style="padding:4px;text-align:center">6,0\u00d710\u207b\u00b3\u2077</td></tr>' +
       '<tr><td style="padding:4px">AgI</td><td style="padding:4px;text-align:center">8,3\u00d710\u207b\u00b9\u2077</td><td style="padding:4px">FeS</td><td style="padding:4px;text-align:center">6,0\u00d710\u207b\u00b9\u2079</td></tr>' +
@@ -10069,7 +10017,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
   COZ_THEORY.t2 = '<h3 style="color:#93c5fd;margin-bottom:10px">2.3.2 \u00c7\u00f6z\u00fcn\u00fcrl\u00fcğe Etki Eden Fakt\u00f6rler</h3>' +
     '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#f59e0b;margin-bottom:6px">1) Sıcaklığın Etkisi (Le Chatelier)</div>' +
     '<p style="font-size:13px"><b>Endotermik \u00e7\u00f6z\u00fcnme</b> (\u00f6rn. BaSO\u2084(k)+ısı\u21ccBa\u00b2\u207a+SO\u2084\u00b2\u207b): Sıcaklık artınca denge \u00c7\u00d6Z\u00dcNME y\u00f6n\u00fcne kayar \u2192 \u00e7\u00f6z\u00fcn\u00fcrl\u00fck ARTAR, K<sub>\u00e7\u00e7</sub> ARTAR.<br><b>Ekzotermik \u00e7\u00f6z\u00fcnme</b> (\u00f6rn. Li\u2082CO\u2083(k)\u21cc2Li\u207a+CO\u2083\u00b2\u207b+ısı): Sıcaklık artınca denge \u00c7\u00d6KELME y\u00f6n\u00fcne kayar \u2192 \u00e7\u00f6z\u00fcn\u00fcrl\u00fck AZALIR, K<sub>\u00e7\u00e7</sub> AZALIR.</p></div>' +
-    '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#93c5fd;margin-bottom:8px">\u2713 MEB Kitabı Doğrulanmış Veri (2.24 Etkinlik)</div>' +
+    '<div class="card" style="margin-bottom:10px"><div style="font-weight:700;color:#93c5fd;margin-bottom:8px">\u2713 Doğrulanmış Veri (2.24 Etkinlik)</div>' +
     '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px"><tr style="background:rgba(255,255,255,.05)"><th style="padding:4px">Ca(IO\u2083)\u2082</th><th style="padding:4px">0°C</th><th style="padding:4px">20°C</th><th style="padding:4px">40°C</th></tr>' +
     '<tr><td style="padding:4px">\u00c7\u00f6z\u00fcn\u00fcrl\u00fck</td><td style="padding:4px;text-align:center">2,3\u00d710\u207b\u00b3</td><td style="padding:4px;text-align:center">6,2\u00d710\u207b\u00b3</td><td style="padding:4px;text-align:center">1,3\u00d710\u207b\u00b2</td></tr>' +
     '<tr><td style="padding:4px">K<sub>\u00e7\u00e7</sub></td><td style="padding:4px;text-align:center">4,9\u00d710\u207b\u2078</td><td style="padding:4px;text-align:center">9,5\u00d710\u207b\u2077</td><td style="padding:4px;text-align:center">8,8\u00d710\u207b\u2076</td></tr></table>' +
@@ -10381,7 +10329,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
   function temaMcRenderHtml(){
     var all = TEMA2_MC.concat(TEMA2_MC2).sort(function(a,b){ return a.n-b.n; });
     var html = '<div style="font-weight:700;color:#93c5fd;margin-bottom:10px">\ud83d\udcdd Se\u00e7ilmiş Çoktan Se\u00e7meli \u00d6rnekler</div>' +
-      '<p style="font-size:12px;color:var(--tx3);margin-bottom:10px">MEB\u2019in devasa (75 soruluk) test bankasından, Denge/Asit-Baz/\u00c7\u00f6z\u00fcn\u00fcrl\u00fck konularını kapsayan ' + all.length + ' se\u00e7ilmiş \u00f6rnek.</p>';
+      '<p style="font-size:12px;color:var(--tx3);margin-bottom:10px">75 soruluk ölçme ve değerlendirme bankasından, Denge/Asit-Baz/\u00c7\u00f6z\u00fcn\u00fcrl\u00fck konularını kapsayan ' + all.length + ' se\u00e7ilmiş \u00f6rnek.</p>';
     all.forEach(function(q, i){
       html += '<div class="card" style="margin-bottom:8px;padding:12px 14px">' +
         '<div style="font-size:10px;color:var(--tx3);text-transform:uppercase;margin-bottom:4px">' + q.kat + ' \u00b7 Soru ' + q.n + '</div>' +
@@ -10412,7 +10360,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     app.insertAdjacentHTML('beforeend',
       '<div id="s-cozunurluk2" style="display:none"><div class="pw narrow">' +
         '<h1 class="ptitle">\ud83e\uddc2 \u00c7\u00f6z\u00fcn\u00fcrl\u00fck Dengesi</h1>' +
-        '<p class="psub">MEB kitabı konu anlatımı (2.3.1) \u2014 Kçç, molar \u00e7\u00f6z\u00fcn\u00fcrl\u00fck, ' + COZ_Q.length + ' \u00e7\u00f6z\u00fcml\u00fc \u00f6rnek.</p>' +
+        '<p class="psub">Konu anlatımı (2.3.1) \u2014 Kçç, molar \u00e7\u00f6z\u00fcn\u00fcrl\u00fck, ' + COZ_Q.length + ' \u00e7\u00f6z\u00fcml\u00fc \u00f6rnek.</p>' +
         '<div id="cozunurluk-body"></div>' +
       '</div></div>');
     if (typeof SCREENS !== 'undefined' && SCREENS.indexOf('s-cozunurluk2') === -1) SCREENS.push('s-cozunurluk2');
@@ -10422,7 +10370,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     var tg = document.querySelector('#s-home .tgrid');
     if (tg && !document.getElementById('tile-cozunurluk2'))
       tg.insertAdjacentHTML('afterbegin',
-        '<div class="tc" id="tile-cozunurluk2" onclick="nav(\'cozunurluk2\')"><div class="ti">\ud83e\uddc2</div><div class="tt">\u00c7\u00f6z\u00fcn\u00fcrl\u00fck Dengesi</div><div class="td">Kçç, molar \u00e7\u00f6z\u00fcn\u00fcrl\u00fck \u2014 MEB konu anlatımı + \u00e7\u00f6z\u00fcml\u00fc \u00f6rnekler.</div></div>');
+        '<div class="tc" id="tile-cozunurluk2" onclick="nav(\'cozunurluk2\')"><div class="ti">\ud83e\uddc2</div><div class="tt">Çözünürlük Dengesi</div><div class="td">Kçç, molar çözünürlük — konu anlatımı + çözümlü örnekler.</div></div>');
 
     var body = document.getElementById('cozunurluk-body');
     var html = COZ_THEORY.t1 + '<h4 style="color:#f59e0b;margin:14px 0 8px">\ud83d\udcdd \u00c7\u00f6z\u00fcml\u00fc \u00d6rnekler (2.3.1)</h4>';
@@ -10439,7 +10387,6 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
         '<div onclick="molToggle(\'cozq2-' + i + '\')" style="cursor:pointer;text-align:center;font-size:12px;font-weight:700;color:#050510;background:#93c5fd;border-radius:8px;padding:8px">\ud83d\udc41\ufe0f Çözümü Göster</div>' +
         '<div id="cozq2-' + i + '" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:var(--tx2);line-height:1.8">' + q.c + '</div></div>';
     });
-    html += '<p style="font-size:12px;color:#86efac;margin-top:14px;padding:12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px">\u2705 MEB \u00c7\u00f6z\u00fcn\u00fcrl\u00fck Dengesi (2.3) konu anlatımı TAMAMLANDI (2.3.1-2.3.2). B\u00f6ylece Tema 2\u2019nin (Denge, Asit-Baz, \u00c7\u00f6z\u00fcn\u00fcrl\u00fck) T\u00dcM MEB konu anlatımı bitti!</p>';
     html += '<h3 style="color:#f59e0b;margin:20px 0 10px;padding-top:16px;border-top:2px solid rgba(245,158,11,.3)">\ud83c\udfaf Tema Sonu \u00d6l\u00e7me-Değerlendirme</h3>' + temaBoslukRenderHtml() + temaAcikRenderHtml() + temaMcRenderHtml();
     body.innerHTML = html;
   }
@@ -10479,7 +10426,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     var otherTiles = home.querySelectorAll ? home.querySelectorAll('.tc') : [];
     if (otherTiles && otherTiles.forEach) otherTiles.forEach(function(el){ if (!tg || !tg.contains(el)) el.style.display = 'none'; });
     var rows = [
-      ['1\ufe0f\u20e3','Ders \u00e7alışıyorsan','\u2630 men\u00fcden <b>\u2696\ufe0f Denge \u00dcnitesi (Tema 2)</b> grubunu a\u00e7 \u2014 Tepkime Hızı, Enerji, Denge, Redoks, Asit-Baz, \u00c7\u00f6z\u00fcn\u00fcrl\u00fck. Her biri MEB konu anlatımı + \u00f6zel ders notu i\u00e7erir.'],
+      ['1️⃣','Ders çalışıyorsan','☰ menüden <b>⚖️ Denge Ünitesi (Tema 2)</b> grubunu aç — Tepkime Hızı, Enerji, Denge, Redoks, Asit-Baz, Çözünürlük. Her biri konu anlatımı ve ek sorular içerir.'],
       ['2\ufe0f\u20e3','Hızlı hesaplama lazımsa','<b>\ud83d\udcd6 Temel Ara\u00e7lar</b> grubuna bak (Mol, Denklem, pH hesaplayıcılar vb.).'],
       ['3\ufe0f\u20e3','G\u00f6rsel/3D anlatım istiyorsan','<b>\ud83e\uddec 3D Sim\u00fclasyonlar</b> grubunu incele.'],
       ['4\ufe0f\u20e3','Motivasyon/geri sayım','<b>\u23f1\ufe0f Sınav & Motivasyon</b> grubu.']

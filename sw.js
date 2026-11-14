@@ -35,6 +35,9 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;
+  // Videolar ve parça (Range) istekleri doğrudan sunucudan gelsin: 206 yanıtları
+  // önbelleğe konamaz, Safari de önbellekten gelen tam yanıtla video oynatmaz.
+  if (req.headers.has('range') || /\/videos\//.test(new URL(req.url).pathname)) return;
   var sameOrigin = new URL(req.url).origin === self.location.origin;
   var net = sameOrigin
     ? fetch(req.mode === 'navigate' ? req.url : req, { cache: 'no-cache' })

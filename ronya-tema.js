@@ -64,6 +64,7 @@
         ['URL:simulasyonlar.html', 'Kimya simülasyonları', 'Asit-baz, atom modelleri, katılar ve daha fazlası.', 'sim'],
         ['URL:gaz-lab.html', 'Gaz laboratuvarı', 'Piston düzenekleri, kinetik teori, Graham difüzyonu.', 'gaslab'],
         ['URL:denge.html', 'Denge kinetiği', 'Le Chatelier etkilerini derişim-zaman grafiğinde izle.', 'eq'],
+        ['ledenge', 'Kimyasal denge 3D', 'N₂ + 3H₂ ⇌ 2NH₃ dengesini basınç, sıcaklık ve derişimle değiştir, kaymayı izle.', 'eq'],
         ['URL:elektro.html', 'Elektrokimyasal hücre', 'Galvanik hücre, Nernst denklemi ve pil potansiyeli.', 'cell'],
         ['gv', 'Galvanik hücre 3D', 'Anot, katot ve tuz köprüsünde elektron ve iyon akışı.', 'cell'],
         ['elz', 'Elektroliz laboratuvarı', 'Elektroliz düzeneğinde iyonların hareketini izle.', 'elz'],

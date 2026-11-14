@@ -279,7 +279,7 @@ header {
       <div class="tc" onclick="nav('puan')"><div class="ti">📊</div><div class="tt">YKS Puan</div><div class="td">SAY · EA · SÖZ puan hesaplama.</div></div>
       <div class="tc" onclick="nav('risk')"><div class="ti">⚠️</div><div class="tt">Risk Piktogramları</div><div class="td">MEB müfredatı GHS/CLP güvenlik sembolleri ve anlamları.</div></div>
       <div class="tc" onclick="nav('lab')"><div class="ti">🧪</div><div class="tt">Lab Malzemeleri</div><div class="td">25 laboratuvar aracı — kullanım, materyal ve dikkat noktaları.</div></div>
-      <div class="tc" onclick="nav('video')"><div class="ti">🎬</div><div class="tt">Video Dersler</div><div class="td">Kendi yüklediğin video dosyalarını izle.</div></div>
+      <div class="tc" onclick="nav('video')"><div class="ti">🎬</div><div class="tt">Video Dersler</div><div class="td">Deney ve konu anlatım videolarını izle.</div></div>
       <div class="tc" onclick="nav('lab3d')"><div class="ti">🔬</div><div class="tt">3D Lab Malzemeleri</div><div class="td">27 laboratuvar aracının gerçek 3D simülasyonu — döndür, incele.</div></div>
    <div class="tc" onclick="location.href='denge.html'"><div class="ti">📊</div><div class="tt">Kimyasal Denge</div><div class="td">Le Chatelier prensibi ile interaktif grafikler</div></div>
 
@@ -762,23 +762,11 @@ header {
 <div id="s-video" style="display:none">
   <div class="pw narrow">
     <h1 class="ptitle">🎬 Video Dersler</h1>
-    <p class="psub">GitHub reposuna eklediğin video dosyalarını buradan izle.</p>
-
-    <div class="card" style="margin-bottom:16px">
-      <div class="slbl">Video Ekle</div>
-      <p style="font-size:13px;color:var(--tx2);margin-bottom:12px;line-height:1.6">
-        Videoyu GitHub reposuna ekle, aşağıya dosya adını yaz (örn: <code style="background:var(--sf3);padding:2px 6px;border-radius:4px">kimya1.mp4</code>)
-      </p>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input type="text" id="video-url-input" class="inp" placeholder="Dosya adı: video.mp4">
-        <button class="btn bp" onclick="addVideo()">Ekle</button>
-      </div>
-      <div style="font-size:11px;color:var(--tx3)">Video GitHub reponda <code>/videos/</code> klasöründe olmalı</div>
-    </div>
+    <p class="psub">Deney ve konu anlatım videolarını buradan izle.</p>
 
     <div id="video-player-wrap" style="display:none;margin-bottom:16px">
       <div class="card" style="padding:0;overflow:hidden">
-        <video id="video-player" controls style="width:100%;max-height:320px;background:#000;display:block">
+        <video id="video-player" controls playsinline preload="metadata" style="width:100%;max-height:70vh;background:#000;display:block">
           Tarayıcın video oynatmayı desteklemiyor.
         </video>
       </div>
@@ -789,6 +777,17 @@ header {
     </div>
 
     <div id="video-list" style="margin-top:8px"></div>
+
+    <details class="card" style="margin-top:16px">
+      <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--tx2)">➕ Listede olmayan bir videoyu aç</summary>
+      <p style="font-size:13px;color:var(--tx2);margin:10px 0 12px;line-height:1.6">
+        Sitenin deposundaki <code style="background:var(--sf3);padding:2px 6px;border-radius:4px">videos</code> klasörüne yüklenen videolar bu listede kendiliğinden görünür; yeni yüklenen bir videonun görünmesi bir saati bulabilir. Henüz görünmeyen bir dosyayı adını yazarak açabilirsin. Bu ekleme yalnızca bu cihazda kalır.
+      </p>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="video-url-input" class="inp" placeholder="Dosya adı: video.mp4" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <button class="btn bp" onclick="addVideo()">Aç</button>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -1484,11 +1483,20 @@ function calcPH(){
   var C=parseFloat(document.getElementById('ph1').value);
   if(isNaN(C)||C<=0){toast('Geçersiz derişim!');return;}
   document.getElementById('phr').style.display='block';
-  var pH=type==='acid'?-Math.log10(C):14+Math.log10(C);
+  // Suyun kendi iyonlaşması da hesaba katılır: [H⁺] = C + [OH⁻] ve [H⁺][OH⁻] = Kw
+  // → x = (C + √(C² + 4Kw)) / 2. Derişim 10⁻⁶ M'den büyükse sonuç −log C ile aynı çıkar;
+  // çok seyreltik çözeltide (örn. 10⁻⁸ M HCl) pH'ın 7'yi geçmesini önler.
+  var Kw=1e-14;
+  var x=(C+Math.sqrt(C*C+4*Kw))/2;
+  var pH=type==='acid'?-Math.log10(x):14+Math.log10(x);
+  var pHbasit=type==='acid'?-Math.log10(C):14+Math.log10(C);
   document.getElementById('phv1').textContent=pH.toFixed(2);
-  document.getElementById('phm1').style.left=(pH/14*100)+'%';
+  document.getElementById('phm1').style.left=Math.max(0,Math.min(100,pH/14*100))+'%';
   var H=Math.pow(10,-pH), OH=Math.pow(10,pH-14);
-  document.getElementById('phdet').innerHTML='pH = '+pH.toFixed(2)+'<br>pOH = '+(14-pH).toFixed(2)+'<br>[H⁺] = '+H.toExponential(2)+' M · [OH⁻] = '+OH.toExponential(2)+' M<br><span style="font-size:12px">25 °C kabul edilmiştir. H₂SO₄ veya Ca(OH)₂ gibi birden fazla H⁺/OH⁻ veren maddelerde derişimi bu sayıyla çarparak girin.</span>';
+  var h='pH = '+pH.toFixed(2)+'<br>pOH = '+(14-pH).toFixed(2)+'<br>[H⁺] = '+H.toExponential(2)+' M · [OH⁻] = '+OH.toExponential(2)+' M';
+  if(Math.abs(pH-pHbasit)>=0.005) h+='<br><b>Not:</b> Derişim çok küçük olduğu için suyun kendi iyonlaşması da hesaba katıldı. Yalnızca '+(type==='acid'?'[H⁺]':'[OH⁻]')+' = C alınsaydı pH '+pHbasit.toFixed(2)+' çıkardı; '+(type==='acid'?'bir asit çözeltisinin pH değeri 7\'yi geçemez.':'bir baz çözeltisinin pH değeri 7\'nin altına inemez.');
+  h+='<br><span style="font-size:12px">25 °C kabul edilmiştir. H₂SO₄ veya Ca(OH)₂ gibi birden fazla H⁺/OH⁻ veren maddelerde derişimi bu sayıyla çarparak girin.</span>';
+  document.getElementById('phdet').innerHTML=h;
 }
 
 function calcWk(){
@@ -1497,19 +1505,29 @@ function calcWk(){
   var K=parseFloat(document.getElementById('ph2k').value);
   if(isNaN(C)||isNaN(K)||C<=0||K<=0){toast('Eksik ya da geçersiz giriş!');return;}
   document.getElementById('ph2r').style.display='block';
-  // x^2/(C-x)=K  →  x = (-K + sqrt(K^2 + 4KC)) / 2  (yaklaşım yapılmadan)
+  // x^2/(C-x)=K  →  x = (-K + sqrt(K^2 + 4KC)) / 2  (yaklaşım yapılmadan, suyun katkısı hariç)
   var x=(-K+Math.sqrt(K*K+4*K*C))/2;
   var xa=Math.sqrt(K*C);
-  var pH=type==='acid'?-Math.log10(x):14+Math.log10(x);
+  // Suyun iyonlaşması da katılınca tam çözüm: y = [H⁺] (asit) ya da [OH⁻] (baz) için
+  // y³ + K·y² − (K·C + Kw)·y − K·Kw = 0. Tek pozitif kökü ikiye bölme yöntemiyle bulunur.
+  var Kw=1e-14;
+  var f=function(y){return ((y+K)*y-(K*C+Kw))*y-K*Kw;};
+  var lo=0, hi=Math.max(x,1e-7)*2+1e-7;
+  while(f(hi)<0) hi*=2;
+  for(var i=0;i<200;i++){var m=(lo+hi)/2; if(f(m)>0) hi=m; else lo=m;}
+  var y=(lo+hi)/2;
+  var pH=type==='acid'?-Math.log10(y):14+Math.log10(y);
+  var pHq=type==='acid'?-Math.log10(x):14+Math.log10(x);
   var pHa=type==='acid'?-Math.log10(xa):14+Math.log10(xa);
   var ion=type==='acid'?'[H⁺]':'[OH⁻]';
   document.getElementById('phv2').textContent=pH.toFixed(2);
   var det=document.getElementById('ph2det');
   if(!det){det=document.createElement('div');det.id='ph2det';det.style.cssText='font-size:13px;color:var(--tx2);line-height:1.8;margin-top:8px';document.getElementById('ph2r').appendChild(det);}
-  var oran=x/C*100;
-  var h=ion+' = '+x.toExponential(2)+' M · iyonlaşma yüzdesi %'+oran.toFixed(2)+'<br>25 °C kabul edilmiştir.';
+  var oran=K/(K+y)*100;
+  var h=ion+' = '+y.toExponential(2)+' M · iyonlaşma yüzdesi %'+oran.toFixed(2)+'<br>25 °C kabul edilmiştir.';
   if(Math.abs(xa-x)/x>0.05) h+='<br><b>Not:</b> Bu çözeltide iyonlaşma yüzdesi %5\'ten büyük olduğu için “C − x ≈ C” yaklaşımı geçerli değildir. Yaklaşımla bulunacak pH '+pHa.toFixed(2)+' olurdu; burada tam çözüm kullanıldı.';
   else h+='<br>“C − x ≈ C” yaklaşımı bu çözeltide geçerlidir (sonuç aynı çıkar).';
+  if(Math.abs(pH-pHq)>=0.005) h+='<br><b>Not:</b> Çözelti çok seyreltik olduğu için suyun kendi iyonlaşması da hesaba katıldı; katılmasaydı pH '+pHq.toFixed(2)+' çıkardı.';
   det.innerHTML=h;
 }
 

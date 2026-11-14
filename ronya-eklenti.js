@@ -300,6 +300,13 @@
    26) 🧊 Maarif 9. Sınıf Etkileşim Ünitesi: Zayıf Etkileşimler
        (London/dipol-dipol/hidrojen bağı) + Maddenin Halleri
        (katı/sıvı/gaz/plazma parçacık simülasyonu), 3D + detaylı konu
+   27) 🛠️ Kasım 2026 onarımı: Etkileşimler ekranı yeniden çiziliyor
+       (bozuk ikinci kopya silindi); Kimyasal Denge 3D menüden açılıyor;
+       Fonksiyonel Gruplar'a "İsimden Çiz" ve "Genel Bakış" geri geldi;
+       Element Testi'ne IUPAC soru tipleri geri geldi; Tepkime Türü
+       ekranı Maarif'in 3 kategorisiyle (asit-baz, çözünme-çökelme,
+       redoks); videolar herkese görünür (depodaki videos/ klasörü
+       GitHub'dan okunur, yerleşik liste yedekte); metan formülü CH4.
    KURULUM: index.html'de </body> etiketinden hemen önce,
    diğer script'lerin ALTINA şu satırı ekle:
    <script src="ronya-eklenti.js"></script>
@@ -690,6 +697,33 @@
     {f:'K2Cr2O7', n:'Potasyum dikromat', c:'Tuz'}, {f:'CaSO4', n:'Kalsiyum s\u00fclfat (al\u00e7\u0131 ta\u015f\u0131)', c:'Tuz'}
   ];
   function isCmpType(t){ return t === 'cmp2name' || t === 'name2cmp'; }
+  function isHcType(t){ return t === 'hc2name' || t === 'name2hc'; }
+  var ORG_POOL = null;
+  function organicQuizPool(){
+    if (ORG_POOL) return ORG_POOL;
+    ORG_POOL = [];
+    hcList().forEach(function(m){
+      var cat = m.kind === 'an' ? 'Alkan' : m.kind === 'en' ? 'Alken' : 'Alkin';
+      ORG_POOL.push({ name: m.name, f: m.f, cat: cat });
+    });
+    fgList().forEach(function(m){
+      ORG_POOL.push({ name: m.name, f: m.f, cat: FG_CLASS_NAMES[m.cls] });
+    });
+    return ORG_POOL;
+  }
+  var ORG_UNIQUE_POOL = null;
+  function organicUniqueFormulaPool(){
+    // "Formül → Ad" yönünde aynı formüle sahip birden çok molekül varsa
+    // (etanol/dimetil eter, propanal/propanon, asetik asit/metil format gibi
+    // izomerler) formül tek başına cevabı belirlemez; bunlar yalnızca
+    // "Ad → Formül" yönünde sorulur.
+    if (ORG_UNIQUE_POOL) return ORG_UNIQUE_POOL;
+    var pool = organicQuizPool();
+    var counts = {};
+    pool.forEach(function(p){ counts[p.f] = (counts[p.f] || 0) + 1; });
+    ORG_UNIQUE_POOL = pool.filter(function(p){ return counts[p.f] === 1; });
+    return ORG_UNIQUE_POOL;
+  }
 
   function weakMap(){ return sget('rk_weak', {}); }
   function weakList(){ var w = weakMap(); return ELS.filter(function(e){ return w[e.n]; }); }
@@ -754,7 +788,9 @@
         '<button type="button" class="ob" onclick="setQType(\'period\',this)">Periyot</button>' +
         '<button type="button" class="ob" onclick="setQType(\'conf\',this)">e\u207b Dizilimi</button>' +
         '<button type="button" class="ob" onclick="setQType(\'cmp2name\',this)">Bile\u015fik \u2192 Ad</button>' +
-        '<button type="button" class="ob" onclick="setQType(\'name2cmp\',this)">Ad \u2192 Form\u00fcl</button>');
+        '<button type="button" class="ob" onclick="setQType(\'name2cmp\',this)">Ad \u2192 Form\u00fcl</button>' +
+        '<button type="button" class="ob" onclick="setQType(\'hc2name\',this)">\ud83e\uddea Form\u00fcl \u2192 IUPAC Ad</button>' +
+        '<button type="button" class="ob" onclick="setQType(\'name2hc\',this)">\ud83e\uddea IUPAC Ad \u2192 Form\u00fcl</button>');
     }
 
     var startBtn = card.querySelector('button.btn.bp');
@@ -781,6 +817,10 @@
     if (!note) return;
     if (isCmpType(quizCfg.type)) {
       note.textContent = 'Bile\u015fik sorular\u0131 ' + COMPOUNDS.length + ' bile\u015fiklik YKS listesinden gelir; element aral\u0131\u011f\u0131 se\u00e7imi bu tipte uygulanmaz.';
+      return;
+    }
+    if (isHcType(quizCfg.type)) {
+      note.textContent = 'IUPAC sorular\u0131 Hidrokarbonlar 3D ve Fonksiyonel Gruplar galerilerindeki toplam ' + organicQuizPool().length + ' molek\u00fclden gelir; element aral\u0131\u011f\u0131 se\u00e7imi bu tipte uygulanmaz.';
       return;
     }
     var size = poolFor(qMode).length;
@@ -828,6 +868,11 @@
     if (isCmpType(quizCfg.type)) {
       var cp = shuffleArr(COMPOUNDS.slice());
       items = cp.slice(0, Math.min(quizCfg.count, cp.length)).map(function(c){ return { cmp: c, type: quizCfg.type }; });
+      qPool = [];
+    } else if (isHcType(quizCfg.type)) {
+      var hcSrc = quizCfg.type === 'hc2name' ? organicUniqueFormulaPool() : organicQuizPool();
+      var hp = shuffleArr(hcSrc.slice());
+      items = hp.slice(0, Math.min(quizCfg.count, hp.length)).map(function(m){ return { hc: m, type: quizCfg.type }; });
       qPool = [];
     } else {
       var pool = typeFilter(poolFor(qMode), quizCfg.type);
@@ -911,6 +956,12 @@
         return { big: c.n, sub: c.c, label: 'Bu bile\u015fi\u011fin form\u00fcl\u00fc nedir?', ans: pretty(c.f), plain: c.f, kind: 'cmpf', smallBig: true };
       return { big: pretty(c.f), sub: c.c, label: 'Bu bile\u015fi\u011fin ad\u0131 nedir?', ans: c.n, kind: 'cmpn' };
     }
+    if (item.hc) {
+      var m = item.hc;
+      if (t === 'name2hc')
+        return { big: m.name, sub: m.cat, label: 'Bu molek\u00fcl\u00fcn molek\u00fcl form\u00fcl\u00fc nedir?', ans: pretty(m.f), plain: m.f, kind: 'hcf', smallBig: true };
+      return { big: pretty(m.f), sub: m.cat, label: 'Bu molek\u00fcl\u00fcn IUPAC ad\u0131 nedir?', ans: m.name, kind: 'hcn' };
+    }
     var el = item.el, d = EL_DATA[el.n] || {};
     if (t === 'sym2name')
       return { big: el.sym, sub: el.cat, label: 'Bu sembol\u00fcn elementi hangisidir?', ans: el.name, kind: 'name' };
@@ -944,6 +995,25 @@
       while (opts.length < OPT_N && guard++ < 800) {
         r = COMPOUNDS[Math.floor(Math.random()*COMPOUNDS.length)];
         cand = q.kind === 'cmpn' ? r.n : pretty(r.f);
+        if (cand && opts.indexOf(cand) === -1) opts.push(cand);
+      }
+    } else if (q.kind === 'hcn' || q.kind === 'hcf') {
+      // Önce aynı sınıftan (alkan/alken/alkin/alkol/eter/...) çeldirici dene.
+      // Formülü doğru cevapla aynı olan (izomer) moleküller şık olamaz:
+      // "Ad → Formül"de aynı formül iki kez, "Formül → Ad"da iki doğru ad çıkardı.
+      var orgAll = organicQuizPool();
+      var notSameF = orgAll.filter(function(x){ return x.f !== item.hc.f; });
+      var sameK = notSameF.filter(function(x){ return x.cat === item.hc.cat; });
+      var src3 = sameK.length >= OPT_N - 1 ? sameK : notSameF;
+      while (opts.length < OPT_N && guard++ < 800) {
+        r = src3[Math.floor(Math.random()*src3.length)];
+        cand = q.kind === 'hcn' ? r.name : pretty(r.f);
+        if (cand && opts.indexOf(cand) === -1) opts.push(cand);
+      }
+      guard = 0;
+      while (opts.length < OPT_N && guard++ < 800) {
+        r = notSameF[Math.floor(Math.random()*notSameF.length)];
+        cand = q.kind === 'hcn' ? r.name : pretty(r.f);
         if (cand && opts.indexOf(cand) === -1) opts.push(cand);
       }
     } else {
@@ -987,7 +1057,7 @@
     var fb = document.getElementById('fbar');
     fb.className = 'fb'; fb.textContent = '';
     var item = quizSt.items[quizSt.cur];
-    if (item && !item.el && !item.cmp) item = { el: item, type: quizCfg.type }; // geriye uyumluluk
+    if (item && !item.el && !item.cmp && !item.hc) item = { el: item, type: quizCfg.type }; // geriye uyumluluk
     document.getElementById('qcnt-lbl').textContent = 'Soru ' + (quizSt.cur + 1) + '/' + quizSt.items.length;
     document.getElementById('lvc').textContent = '\u2713 ' + quizSt.score;
     document.getElementById('lvw').textContent = '\u2717 ' + quizSt.wrongs;
@@ -1014,7 +1084,7 @@
         ww.style.display = 'block';
         var inp = document.getElementById('writeInp');
         inp.disabled = false; inp.value = '';
-        inp.placeholder = q.kind === 'cmpf' ? 'Form\u00fcl\u00fc d\u00fcz yaz (\u00f6rn: H2SO4)...' : 'Cevab\u0131n\u0131 yaz...';
+        inp.placeholder = q.kind === 'cmpf' ? 'Form\u00fcl\u00fc d\u00fcz yaz (\u00f6rn: H2SO4)...' : q.kind === 'hcf' ? 'Form\u00fcl\u00fc d\u00fcz yaz (\u00f6rn: C4H10)...' : 'Cevab\u0131n\u0131 yaz...';
         setTimeout(function(){ try { inp.focus(); } catch (e) {} }, 60);
       }
     } else {
@@ -1091,10 +1161,25 @@
       }
       return true;
     }
-    if (kind === 'cmpn') {
-      // Parantezli ek açıklamayı ("sönmemiş kireç" gibi) tolere et
+    if (kind === 'cmpn' || kind === 'hcn') {
+      // "Ad (Yaygın ad)" biçiminde: tam metni, parantez öncesini ve
+      // parantez içindeki yaygın adı ("sönmüş kireç", "Aseton") ayrı ayrı kabul et.
       var core = String(correct).replace(/\(.*?\)/g, '');
-      return fold(user) === fold(correct) || fold(user) === fold(core);
+      var innerM = String(correct).match(/\(([^)]*)\)/);
+      var inner = innerM ? innerM[1] : '';
+      if (fold(user) === fold(correct) || fold(user) === fold(core) || (inner !== '' && fold(user) === fold(inner))) return true;
+      // Alken/alkin: C4H8 hem 1-büten hem 2-büten olabilir; konum numarası
+      // formülden belirlenemediği için "2-büten" ya da numarasız "büten" de doğru sayılır.
+      var hm = kind === 'hcn' ? hcList().filter(function(x){ return x.name === correct && x.kind !== 'an'; })[0] : null;
+      if (hm && /^\d+-/.test(core.trim())) {
+        var bare = function(s){ return fold(String(s).replace(/^\s*\d+\s*-\s*/, '')); };
+        if (bare(user) !== bare(core)) return false;
+        var lm = String(user).match(/^\s*(\d+)\s*-/);
+        if (!lm) return true;                       // numarasız "büten"
+        var k = +lm[1];
+        return k >= 1 && k <= Math.floor(hm.n / 2); // en küçük numara kuralı: 5 karbonda 1 ya da 2
+      }
+      return false;
     }
     return fold(user) === fold(correct);
   }
@@ -1107,7 +1192,7 @@
     if (!v) { if (typeof toast === 'function') toast('Bir cevap yaz!'); return; }
     qAnswered = true;
     inp.disabled = true;
-    var target = quizSt._kind === 'cmpf' ? quizSt._plain : quizSt.correct;
+    var target = (quizSt._kind === 'cmpf' || quizSt._kind === 'hcf') ? quizSt._plain : quizSt.correct;
     var ok = matchAnswer(v, target, quizSt._kind);
     var fb = document.getElementById('fbar');
     if (ok) { fb.className = 'fb show cor'; fb.textContent = '\u2713 Do\u011fru!'; }
@@ -3098,7 +3183,7 @@
     var k, i, n;
     for (i = 0; i < 10; i++) {
       n = i + 1;
-      HC_LIST.push({ kind: 'an', n: n, name: HC_NAMES.an[i], f: 'C' + n + 'H' + (2*n+2), mol: null });
+      HC_LIST.push({ kind: 'an', n: n, name: HC_NAMES.an[i], f: 'C' + (n > 1 ? n : '') + 'H' + (2*n+2), mol: null }); // metan: CH4 (C1H4 değil)
     }
     for (i = 0; i < 10; i++) {
       n = i + 2;
@@ -4464,18 +4549,27 @@
   }
 
   // --- Alkol: R-OH (n karbonlu düz zincir, OH ucundaki C1'de) ---
-  function buildAlcohol(n, branchAt2){
+  function buildAlcohol(n, ohLocant){
+    ohLocant = ohLocant || 1;
     var atoms = [], bonds = [];
     atoms.push({ x:0, y:0, z:0, el:'C' });
     if (n > 1) fgAddChainFrom(atoms, bonds, 0, v3(0,0,0), v3(1,0,0), n - 1);
-    var c1pos = v3(atoms[0].x, atoms[0].y, atoms[0].z);
-    var nb0 = n > 1 ? [{ dir: vNorm(vSub(v3(atoms[1].x,atoms[1].y,atoms[1].z), c1pos)), o:1 }] : [];
-    var dirO = freeDirs(nb0, 1)[0] || v3(0,1,0);
-    var oIdx = fgAddO(atoms, bonds, 0, c1pos, dirO, 1, 1.43);
+    function nbOf(idx){
+      var nb = [];
+      bonds.forEach(function(bd){
+        var A = atoms[bd.a], B = atoms[bd.b];
+        if (bd.a === idx) nb.push({ dir: vNorm(vSub(v3(B.x,B.y,B.z), v3(A.x,A.y,A.z))), o: bd.o });
+        if (bd.b === idx) nb.push({ dir: vNorm(vSub(v3(A.x,A.y,A.z), v3(B.x,B.y,B.z))), o: bd.o });
+      });
+      return nb;
+    }
+    var pIdx = Math.max(0, Math.min(n - 1, ohLocant - 1));
+    var pPos = v3(atoms[pIdx].x, atoms[pIdx].y, atoms[pIdx].z);
+    var dirO = freeDirs(nbOf(pIdx), 1)[0] || v3(0,1,0);
+    var oIdx = fgAddO(atoms, bonds, pIdx, pPos, dirO, 1, 1.43);
     var oPos = v3(atoms[oIdx].x, atoms[oIdx].y, atoms[oIdx].z);
     var hDir = freeDirs([{ dir: vScale(dirO,-1), o:1 }], 1)[0];
     fgAddH(atoms, bonds, oIdx, oPos, hDir, 0.96);
-    if (branchAt2 && n >= 3) { /* 2-propanol vb. için basitleştirilmiş: ek dal eklenmez, düz zincir yeterli görsel verir */ }
     fgFillH(atoms, bonds);
     var nC = atoms.filter(function(a){return a.el==='C';}).length;
     var nO = atoms.filter(function(a){return a.el==='O';}).length;
@@ -4537,7 +4631,10 @@
     atoms.push({ x:c2pos.x, y:c2pos.y, z:c2pos.z, el:'C' });
     bonds.push({ a:0, b:c2idx, o:1 });
     if (n2 > 1) fgAddChainFrom(atoms, bonds, c2idx, c2pos, dirRight, n2 - 1);
-    var dirO = freeDirs([nb1[0], { dir: dirRight, o:1 }], 1)[0];
+    // NOT: karbonil karbonu sp² (düzlemsel) olmalı; freeDirs'e "çoklu bağ var"
+    // ipucu vermek için o:2 kullanıyoruz (gerçek bağ derecesini etkilemez,
+    // sadece düzlemsel mi tetrahedral mi hesaplanacağını belirler).
+    var dirO = freeDirs([{ dir: nb1[0].dir, o: 2 }, { dir: dirRight, o: 1 }], 1)[0];
     fgAddO(atoms, bonds, 0, v3(0,0,0), dirO, 2, 1.20);
     fgFillH(atoms, bonds);
     var nC = atoms.filter(function(a){return a.el==='C';}).length;
@@ -4605,6 +4702,7 @@
       { cls:'alkol', name:'Etanol', f:'C2H6O', build:function(){ return buildAlcohol(2); } },
       { cls:'alkol', name:'1-Propanol', f:'C3H8O', build:function(){ return buildAlcohol(3); } },
       { cls:'alkol', name:'1-Bütanol', f:'C4H10O', build:function(){ return buildAlcohol(4); } },
+      { cls:'alkol', name:'2-Propanol (İzopropil Alkol)', f:'C3H8O', build:function(){ return buildAlcohol(3, 2); } },
       { cls:'eter', name:'Dimetil Eter', f:'C2H6O', build:function(){ return buildEther(1,1); } },
       { cls:'eter', name:'Metil Etil Eter', f:'C3H8O', build:function(){ return buildEther(1,2); } },
       { cls:'eter', name:'Dietil Eter', f:'C4H10O', build:function(){ return buildEther(2,2); } },
@@ -4723,6 +4821,125 @@
     }
   };
 
+  // ---------- 12c. FONKSİYONEL GRUP İSİM AYRIŞTIRICISI ----------
+  var FG_ALKAN_ROOTS = {};
+  IUPAC_PARENTS.forEach(function(p){ if (p[1] === 'an') FG_ALKAN_ROOTS[p[0]] = p[2]; });
+  var FG_ALKAN_ROOT_LIST = Object.keys(FG_ALKAN_ROOTS).sort(function(a,b){ return b.length - a.length; });
+
+  var FG_ALKIL_MAP = { metil:1, etil:2, propil:3, butil:4 };
+  var FG_ALKIL_LIST = Object.keys(FG_ALKIL_MAP).sort(function(a,b){ return b.length - a.length; });
+
+  var FG_ACID_COMMON = { formik:1, asetik:2, propiyonik:3, butirik:4 };
+  var FG_ESTER_STEM = { format:1, asetat:2, propiyonat:3, butirat:4 };
+
+  function fgMatchAlkanRoot(s){
+    for (var i = 0; i < FG_ALKAN_ROOT_LIST.length; i++)
+      if (s.indexOf(FG_ALKAN_ROOT_LIST[i]) === 0) {
+        var found = null;
+        for (var j = 0; j < IUPAC_PARENTS.length; j++)
+          if (IUPAC_PARENTS[j][0] === FG_ALKAN_ROOT_LIST[i] && IUPAC_PARENTS[j][1] === 'an') { found = IUPAC_PARENTS[j]; break; }
+        return { root: FG_ALKAN_ROOT_LIST[i], n: FG_ALKAN_ROOTS[FG_ALKAN_ROOT_LIST[i]], proper: found ? found[3].toLocaleLowerCase('tr') : FG_ALKAN_ROOT_LIST[i] };
+      }
+    return null;
+  }
+  function fgMatchAlkil(s){
+    for (var i = 0; i < FG_ALKIL_LIST.length; i++)
+      if (s.indexOf(FG_ALKIL_LIST[i]) === 0) return { name: FG_ALKIL_LIST[i], n: FG_ALKIL_MAP[FG_ALKIL_LIST[i]] };
+    return null;
+  }
+
+  // Türkçe fonksiyonel grup ismini ayrıştırır. Dönüş: { ok, type, build() } ya da { ok:false, error }
+  function parseFgName(raw){
+    if (!raw || !String(raw).trim()) return { ok:false, error:'Bo\u015f isim girildi.' };
+    var trimmed = String(raw).trim().replace(/^n-\s*/i, '');   // "n-pentanol" = düz zincir pentanol
+    var tokens = trimmed.split(/\s+/).map(function(t){ return foldOrg(t); }).filter(Boolean);
+    var norm = tokens.join('');       // boşluksuz tek parça (tek kelimeli isimler için)
+    var normTr = norm;                // Türkçe karakterler korunur
+
+    // --- ETER: "dimetil eter" / "metil etil eter" / "dietil eter" ---
+    if (tokens.length >= 2 && tokens[tokens.length - 1] === 'eter') {
+      var body = tokens.slice(0, -1).join(' ');
+      var mDi = body.match(/^di(.+)$/);
+      if (mDi) {
+        var a1 = fgMatchAlkil(mDi[1]);
+        if (!a1) return { ok:false, error:'"' + mDi[1] + '" tan\u0131nan bir alkil grubu de\u011fil.' };
+        return { ok:true, type:'eter', label:'Eter', build:function(){ return buildEther(a1.n, a1.n); },
+          canon: 'di' + a1.name + ' eter' };
+      }
+      var parts = body.split(/\s+/);
+      if (parts.length === 2) {
+        var b1 = fgMatchAlkil(parts[0]), b2 = fgMatchAlkil(parts[1]);
+        if (!b1 || !b2) return { ok:false, error:'Alkil gruplar\u0131 tan\u0131namad\u0131 (metil, etil, propil, b\u00fctil desteklenir).' };
+        return { ok:true, type:'eter', label:'Eter', build:function(){ return buildEther(b1.n, b2.n); },
+          canon: b1.name + ' ' + b2.name + ' eter' };
+      }
+      return { ok:false, error:'Eter ad\u0131 "dimetil eter" ya da "metil etil eter" bi\u00e7iminde yaz\u0131lmal\u0131.' };
+    }
+
+    // --- ESTER: "etil asetat" / "metil format" ---
+    if (tokens.length === 2 && (FG_ESTER_STEM[tokens[1]] || /at$/.test(tokens[1]))) {
+      var alkPart = fgMatchAlkil(tokens[0]);
+      if (!alkPart) return { ok:false, error:'"' + tokens[0] + '" tan\u0131nan bir alkil grubu de\u011fil.' };
+      var stem = tokens[1], acidN = FG_ESTER_STEM[stem];
+      if (!acidN) {
+        // sistematik: "<parent>oat" (örn. "propanoat" -> propan -> 3)
+        var stemBase = stem.replace(/oat$/, '');
+        var pr = fgMatchAlkanRoot(stemBase);
+        if (pr) acidN = pr.n;
+      }
+      if (!acidN) return { ok:false, error:'"' + stem + '" tan\u0131nan bir asit k\u00f6k\u00fc de\u011fil (format, asetat, propiyonat, b\u00fctirat desteklenir).' };
+      return { ok:true, type:'ester', label:'Ester', build:function(){ return buildEster(acidN, alkPart.n); },
+        canon: tokens[0] + ' ' + stem };
+    }
+
+    // --- ASİT: "propanoik asit" / "asetik asit" / "formik asit" ---
+    if (tokens.length === 2 && tokens[1] === 'asit') {
+      var acidWord = tokens[0];
+      if (FG_ACID_COMMON[acidWord])
+        return { ok:true, type:'asit', label:'Karboksilik Asit', build:function(){ return buildCarboxylicAcid(FG_ACID_COMMON[acidWord]); }, canon: acidWord + ' asit' };
+      var mOik = acidWord.match(/^(.+)oik$/);
+      if (mOik) {
+        var ar = fgMatchAlkanRoot(mOik[1]);
+        if (ar) return { ok:true, type:'asit', label:'Karboksilik Asit', build:function(){ return buildCarboxylicAcid(ar.n); }, canon: ar.proper + 'oik asit' };
+      }
+      return { ok:false, error:'"' + acidWord + '" tan\u0131nan bir asit k\u00f6k\u00fc de\u011fil.' };
+    }
+
+    // --- Tek kelimelik isimler: alkol (-ol), aldehit (-al), keton (-on) ---
+    // Başta olası bir locant (örn. "2-propanol", "2-bütanon") olabilir.
+    var locM = norm.match(/^(\d+)(.+)$/);
+    var locant = null, rest = norm;
+    if (locM) { locant = parseInt(locM[1], 10); rest = locM[2]; }
+
+    if (/ol$/.test(rest)) {
+      var alcRoot = fgMatchAlkanRoot(rest.replace(/ol$/, ''));
+      if (!alcRoot) return { ok:false, error:'"' + rest + '" tan\u0131nan bir alkol k\u00f6k\u00fc de\u011fil.' };
+      var ohLoc = locant || 1;
+      if (ohLoc < 1 || ohLoc > alcRoot.n) return { ok:false, error: ohLoc + ' konumu ' + alcRoot.n + ' karbonlu zincirin d\u0131\u015f\u0131nda.' };
+      return { ok:true, type:'alkol', label:'Alkol', build:function(){ return buildAlcohol(alcRoot.n, ohLoc); },
+        canon: (ohLoc > 1 ? ohLoc + '-' : '') + alcRoot.proper + 'ol' };
+    }
+    if (/al$/.test(rest) && !/eter$/.test(rest)) {
+      var aldRoot = fgMatchAlkanRoot(rest.replace(/al$/, ''));
+      if (!aldRoot) return { ok:false, error:'"' + rest + '" tan\u0131nan bir aldehit k\u00f6k\u00fc de\u011fil.' };
+      return { ok:true, type:'aldehit', label:'Aldehit', build:function(){ return buildAldehyde(aldRoot.n); },
+        canon: aldRoot.proper + 'al' };
+    }
+    if (/on$/.test(rest)) {
+      var ketRoot = fgMatchAlkanRoot(rest.replace(/on$/, ''));
+      if (!ketRoot) return { ok:false, error:'"' + rest + '" tan\u0131nan bir keton k\u00f6k\u00fc de\u011fil.' };
+      if (ketRoot.n < 3) return { ok:false, error:'Keton en az 3 karbonlu bir zincir gerektirir.' };
+      var coLoc = locant || Math.ceil(ketRoot.n / 2);
+      if (coLoc < 2 || coLoc > ketRoot.n - 1) return { ok:false, error: coLoc + ' konumunda karbonil olamaz (2 ile ' + (ketRoot.n-1) + ' aras\u0131 olmal\u0131).' };
+      var kn1 = coLoc - 1, kn2 = ketRoot.n - coLoc;
+      return { ok:true, type:'keton', label:'Keton', build:function(){ return buildKetone(kn1, kn2); },
+        canon: (ketRoot.n > 4 ? coLoc + '-' : '') + ketRoot.proper + 'on' };
+    }
+
+    return { ok:false, error:'Tan\u0131nan bir fonksiyonel grup ismi de\u011fil. \u00d6rnekler: etanol, propanal, b\u00fctanon, propanoik asit, etil asetat, dimetil eter.' };
+  }
+
+
   var fgCat = 'alkol';
   var fgSt = { rotX: 0.42, rotY: 0.6, zoom: 1, fit: 1, spin: true, spd: 1, drag: false,
                lx: 0, ly: 0, dist: 0, t: 0, anim: null, labels: true, item: null, stars: null, sw: 0 };
@@ -4740,6 +4957,15 @@
       '<div id="s-fg" style="display:none"><div style="max-width:900px;margin:0 auto;padding:15px">' +
         '<h1 class="ptitle">\u2697\ufe0f Fonksiyonel Gruplar 3D</h1>' +
         '<p class="psub">Alkol, eter, aldehit, keton, karboksilik asit, ester \u2014 3D yap\u0131, \u00f6zellikler ve tepkimeler.</p>' +
+        '<div class="card" style="margin-bottom:14px">' +
+          '<div class="slbl">\u270f\ufe0f \u0130simden \u00c7iz (IUPAC)</div>' +
+          '<div style="display:flex;gap:8px">' +
+            '<input type="text" id="fg-name-inp" class="inp" placeholder="\u00f6rn: etanol, propanal, b\u00fctanon, etil asetat" autocapitalize="off" autocorrect="off" spellcheck="false">' +
+            '<button type="button" class="btn bp" onclick="fgDrawFromName()">\u00c7iz</button>' +
+          '</div>' +
+          '<div id="fg-name-out" style="font-size:12px;margin-top:8px;line-height:1.6"></div>' +
+        '</div>' +
+        '<div id="fg-overview" style="margin-bottom:18px"></div>' +
         '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin-bottom:14px"><div style="display:flex;gap:6px;min-width:max-content">' + catBtns + '</div></div>' +
         '<div id="fg-theory" style="margin-bottom:16px"></div>' +
         '<div id="fg-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px"></div>' +
@@ -4766,7 +4992,78 @@
         '<div class="tc" id="tile-fg" onclick="nav(\'fg\')"><div class="ti">\u2697\ufe0f</div><div class="tt">Fonksiyonel Gruplar 3D</div><div class="td">Alkol, eter, aldehit, keton, asit, ester \u2014 3D yap\u0131 ve tepkimeler.</div></div>');
     fgBindCanvas();
     fgRenderTheory();
+    fgRenderOverview();
+    var fgNameInp = document.getElementById('fg-name-inp');
+    if (fgNameInp) fgNameInp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); window.fgDrawFromName(); } });
   }
+
+  window.fgDrawFromName = function(){
+    var inp = document.getElementById('fg-name-inp');
+    var out = document.getElementById('fg-name-out');
+    if (!inp || !out) return;
+    var raw = inp.value.trim();
+    if (!raw) { out.innerHTML = '<span style="color:var(--yw)">Bir isim yaz (\u00f6rn: etanol, propanal, b\u00fctanon).</span>'; return; }
+    var r = parseFgName(raw);
+    if (!r.ok) { out.innerHTML = '<span style="color:var(--yw)">\u26a0\ufe0f ' + r.error + '</span>'; return; }
+    try {
+      var mol = r.build();
+      var item = { cls: r.type, name: raw.trim(), f: 'C' + (mol.nC > 1 ? mol.nC : '') + 'H' + (mol.nH > 1 ? mol.nH : '') + (mol.nO > 1 ? 'O' + mol.nO : (mol.nO ? 'O' : '')), mol: mol, custom: true };
+      out.innerHTML = '<span style="color:var(--gr)">\u2713 ' + r.label + ' \u00b7 ' + pretty(item.f) +
+        (r.canon !== foldOrg(raw) ? ' \u00b7 IUPAC: ' + r.canon : '') + '</span>';
+      window.fgOpen(item);
+    } catch (err) {
+      out.innerHTML = '<span style="color:var(--yw)">\u00c7izim hatas\u0131: ' + err.message + '</span>';
+    }
+  };
+
+  function fgRenderOverview(){
+    var box = document.getElementById('fg-overview');
+    if (!box) return;
+    var html = '';
+    FG_CLASSES.forEach(function(c){
+      var list = fgList().filter(function(m){ return m.cls === c; });
+      var preview = list.slice(0, 3);
+      html += '<div style="margin-bottom:16px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+          '<div style="font-size:14px;font-weight:700;color:#fff">' + FG_THEORY[c].icon + ' ' + FG_CLASS_NAMES[c] + '</div>' +
+          '<button type="button" onclick="fgJumpCat(\'' + c + '\')" style="background:none;border:none;color:#f87171;font-size:12px;cursor:pointer;font-weight:600">T\u00fcm\u00fcn\u00fc G\u00f6r (' + list.length + ') \u2192</button>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">';
+      preview.forEach(function(m){
+        var idx = fgList().indexOf(m);
+        html += '<div onclick="fgOpen(' + idx + ')" style="min-width:0;display:flex;flex-direction:column;background:var(--sf);border:2px solid rgba(239,68,68,0.2);border-radius:12px;padding:6px;text-align:center;cursor:pointer">' +
+          '<div style="font-size:10.5px;font-weight:700;color:#fca5a5;margin-bottom:1px;line-height:1.25;overflow-wrap:anywhere">' + m.name + '</div>' +
+          '<div style="font-size:9.5px;color:var(--tx3);margin-bottom:4px">' + pretty(m.f) + '</div>' +
+          '<canvas id="fg-ov-' + idx + '" width="120" height="90" style="width:100%;margin-top:auto;border-radius:8px;background:#050510;border:1px solid rgba(239,68,68,0.15)"></canvas>' +
+        '</div>';
+      });
+      html += '</div></div>';
+    });
+    box.innerHTML = html;
+    setTimeout(function(){
+      FG_CLASSES.forEach(function(c){
+        fgList().filter(function(m){ return m.cls === c; }).slice(0, 3).forEach(function(m){
+          fgThumbOv(fgList().indexOf(m));
+        });
+      });
+    }, 60);
+  }
+  function fgThumbOv(idx){
+    var cv = document.getElementById('fg-ov-' + idx);
+    if (!cv) return;
+    var item = fgList()[idx], mol = fgMol(item);
+    var st = { rotX: 0.45, rotY: 0.5 + idx*0.4, zoom: 0.92, fit: mol.fit, t: idx, stars: null, sw: 0 };
+    hcDraw(cv.getContext('2d'), mol, st, 120, 90, false);
+  }
+  window.fgJumpCat = function(c){
+    fgCat = c;
+    var btn = document.getElementById('fg-cat-' + c);
+    if (btn) selectInRow(btn);
+    fgRenderTheory();
+    fgRenderGrid();
+    var tabsEl = btn ? btn.closest('div') : null;
+    if (tabsEl && tabsEl.scrollIntoView) tabsEl.scrollIntoView({ behavior:'smooth', block:'center' });
+  };
 
   window.fgSetCat = function(c, btn){
     fgCat = c;
@@ -4822,8 +5119,8 @@
     hcDraw(cv.getContext('2d'), mol, st, 170, 130, false);
   }
 
-  window.fgOpen = function(idx){
-    var item = fgList()[idx];
+  window.fgOpen = function(idxOrItem){
+    var item = typeof idxOrItem === 'number' ? fgList()[idxOrItem] : idxOrItem;
     if (!item) return;
     fgSt.item = item; fgSt.rotX = 0.42; fgSt.rotY = 0.6; fgSt.zoom = 1; fgSt.spin = true;
     fgSt.fit = fgMol(item).fit;
@@ -4894,7 +5191,7 @@
     }, { passive:false });
     cv.addEventListener('touchend', function(){ fgSt.drag = false; fgSt.dist = 0; });
   }
-  function fgEnter(){ fgRenderTheory(); fgRenderGrid(); }
+  function fgEnter(){ fgRenderTheory(); fgRenderGrid(); fgRenderOverview(); }
   function fgLeave(){ window.fgClose(); }
 
   // ---------- 13. MAARİF 9. SINIF — ETKİLEŞİM ÜNİTESİ ----------
@@ -5264,371 +5561,6 @@
 
 window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormula };
   // --- Başlat ---
-  // ---------- 13. MAARİF 9. SINIF — ETKİLEŞİM ÜNİTESİ ----------
-  // Zayıf Etkileşimler (London/dipol-dipol/hidrojen bağı) ve
-  // Maddenin Halleri (katı/sıvı/gaz/plazma) — 3D görsel + detaylı konu.
-
-  // ---- 13a. ZAYIF ETKİLEŞİMLER ----
-  var WI_TYPES = {
-    london: {
-      name:'London (Van der Waals) Kuvvetleri', icon:'\u26a1',
-      tanim:'T\u00fcm molek\u00fcller aras\u0131nda bulunan, elektron bulutunun ANLIK ve GE\u00c7\u0130C\u0130 kaym\u0131 sonucu olu\u015fan EN ZAYIF \u00e7ekim kuvvetidir. Apolar molek\u00fcllerin (N\u2082, CH\u2084, soy gazlar) TEK etkile\u015fim t\u00fcr\u00fcd\u00fcr.',
-      ozellikler:[
-        'Elektron say\u0131s\u0131 (molek\u00fcl k\u00fctlesi) artt\u0131k\u00e7 London kuvveti G\u00dc\u00c7LEN\u0130R \u2192 kaynama noktas\u0131 y\u00fckselir (\u00f6rn. F\u2082<Cl\u2082<Br\u2082<I\u2082).',
-        'Molek\u00fcl \u015fekli de \u00f6nemlidir: DO\u011eRUSAL/uzun molek\u00fcllerde temas y\u00fczeyi fazla oldu\u011fu i\u00e7in London kuvveti, dallanm\u0131\u015f/k\u00fcresel izomerlerden daha g\u00fc\u00e7l\u00fcd\u00fcr.',
-        'T\u00fcm di\u011fer etkile\u015fim t\u00fcrlerinin YANINDA da her zaman bulunur (en zay\u0131f ama en yayg\u0131n olan\u0131d\u0131r).',
-        'Oda s\u0131cakl\u0131\u011f\u0131nda soy gazlar\u0131n ve H\u2082, N\u2082, O\u2082 gibi apolar molek\u00fcllerin gaz halde bulunmas\u0131n\u0131n nedeni budur \u2014 \u00e7ok zay\u0131f oldu\u011fu i\u00e7in kolayca ayr\u0131l\u0131rlar.'
-      ]
-    },
-    dipol: {
-      name:'Dipol-Dipol Etkile\u015fimi', icon:'\u2194\ufe0f',
-      tanim:'POLAR molek\u00fcllerin kal\u0131c\u0131 (+) ve (\u2212) u\u00e7lar\u0131n\u0131n birbirini \u00e7ekmesiyle olu\u015fur. London kuvvetinden G\u00dc\u00c7L\u00dc, hidrojen ba\u011f\u0131ndan ZAYIFTIR.',
-      ozellikler:[
-        'Yaln\u0131zca polar molek\u00fcllerde (HCl, SO\u2082, aseton gibi) g\u00f6r\u00fcl\u00fcr \u2014 molek\u00fclde kal\u0131c\u0131 bir dipol moment olmal\u0131d\u0131r.',
-        'Ayn\u0131 molek\u00fcl k\u00fctlesine sahip apolar bir molek\u00fclden DAHA Y\u00dcKSEK kaynama noktas\u0131na yol a\u00e7ar (\u00f6rn. HCl, F\u2082\u2019den daha polar ve daha y\u00fcksek kaynar).',
-        'Molek\u00fcller birbirine (+) u\u00e7 \u2014 (\u2212) u\u00e7 \u015feklinde, elektrostatik \u00e7ekimle diz1lir.',
-        '\u00d6rnekler: HCl, HBr, SO\u2082, aseton (CH\u2083COCH\u2083), kloroform (CHCl\u2083).'
-      ]
-    },
-    hidrojen: {
-      name:'Hidrojen Ba\u011f\u0131', icon:'\ud83d\udca7',
-      tanim:'H atomunun \u00c7OK elektronegatif bir atoma (F, O, N) do\u011frudan ba\u011fl\u0131 oldu\u011fu molek\u00fcllerde g\u00f6r\u00fclen, zay\u0131f etkile\u015fimlerin EN G\u00dc\u00c7L\u00dcS\u00fcd\u00fcr (yine de gerçek bir kovalent/iyonik bağdan çok daha zayıftır).',
-      ozellikler:[
-        '"F-O-N kural\u0131": Hidrojen ba\u011f\u0131 i\u00e7in H, mutlaka F, O veya N atomuna DO\u011eRUDAN ba\u011fl\u0131 olmal\u0131d\u0131r.',
-        'Su (H\u2082O), amonyak (NH\u2083), hidrojen florür (HF) ve alkoller (R-OH) hidrojen ba\u011f\u0131 yapan ba\u015fl\u0131ca örneklerdir.',
-        'Suyun beklenenden ÇOK y\u00fcksek kaynama noktas\u0131na (100°C) sahip olmas\u0131n\u0131n nedeni budur \u2014 H\u2082S (hidrojen ba\u011f\u0131 yapamaz) \u2212 60°C\u2019de kaynar!',
-        'DNA\u2019n\u0131n çift sarmal yap\u0131s\u0131n\u0131 bir arada tutan da hidrojen ba\u011flar\u0131d\u0131r; buz, hidrojen ba\u011flar\u0131 sayesinde sudan daha az yo\u011fundur (bu yüzden buz suda yüzer).'
-      ]
-    }
-  };
-  var WI_ORDER = ['london','dipol','hidrojen'];
-  var wiKind = 'london';
-  var wiSt = { rotX: 0.3, rotY: 0.4, zoom: 1, spin: true, drag: false, lx:0, ly:0, dist:0, t: 0, anim: null, stars: null, sw: 0, bound: false };
-
-  function wiDraw(x, W, H2){
-    hcBg(x, wiSt, W, H2);
-    var items = [];
-    function pushMol(cx, polarity){ // polarity: 0=apolar, 1=+uçlu, -1=−uçlu (basit iki-küre gösterim)
-      var col = polarity > 0 ? [96,165,250] : polarity < 0 ? [248,113,113] : [148,197,255];
-      var p = hcProj(wiSt, cx, 0, 0, W, H2);
-      items.push({ z: p.z, x: p.x, y: p.y, s: p.s, r: 30*p.s, col: col, lab: polarity>0?'\u03b4+':polarity<0?'\u03b4\u2212':'' });
-    }
-    var gap = 95 + 25*Math.sin(wiSt.t*0.6);
-    if (wiKind === 'london') {
-      // Sürekli titreşen, anlık dipol vurgusu
-      var phase = Math.sin(wiSt.t*2.2);
-      pushMol(-gap/2, phase>0.15?1:phase<-0.15?-1:0);
-      pushMol(gap/2, phase>0.15?-1:phase<-0.15?1:0);
-    } else if (wiKind === 'dipol') {
-      pushMol(-gap/2, 1); pushMol(gap/2, -1);
-    } else {
-      pushMol(-gap/2, 1); pushMol(gap/2, -1);
-    }
-    // Çekim çizgisi
-    var pL = hcProj(wiSt, -gap/2+30, 0, 0, W, H2), pR = hcProj(wiSt, gap/2-30, 0, 0, W, H2);
-    x.save();
-    if (wiKind === 'hidrojen') { x.setLineDash([6,5]); x.strokeStyle = 'rgba(248,113,113,0.85)'; x.lineWidth = 2.4; }
-    else if (wiKind === 'dipol') { x.strokeStyle = 'rgba(96,165,250,0.6)'; x.lineWidth = 1.8; }
-    else { x.strokeStyle = 'rgba(148,197,255,' + (0.2+0.35*Math.abs(Math.sin(wiSt.t*2.2))) + ')'; x.lineWidth = 1.4; x.setLineDash([2,4]); }
-    x.beginPath(); x.moveTo(pL.x,pL.y); x.lineTo(pR.x,pR.y); x.stroke();
-    x.restore();
-    items.sort(function(a,b){ return b.z-a.z; });
-    for (var i=0;i<items.length;i++){
-      var it = items[i];
-      var gg = x.createRadialGradient(it.x-it.r*0.3, it.y-it.r*0.3, it.r*0.1, it.x, it.y, it.r);
-      gg.addColorStop(0, 'rgba(' + it.col.join(',') + ',0.95)');
-      gg.addColorStop(1, 'rgba(' + it.col.join(',') + ',0.35)');
-      x.beginPath(); x.arc(it.x, it.y, it.r, 0, 6.283); x.fillStyle = gg; x.fill();
-      x.strokeStyle = 'rgba(255,255,255,0.3)'; x.lineWidth = 1; x.stroke();
-      if (it.lab) {
-        x.fillStyle = '#fff'; x.font = 'bold ' + Math.max(11, it.r*0.5) + 'px sans-serif';
-        x.textAlign = 'center'; x.textBaseline = 'middle';
-        x.fillText(it.lab, it.x, it.y); x.textBaseline = 'alphabetic';
-      }
-    }
-    x.fillStyle = 'rgba(255,255,255,.3)'; x.font = '10px sans-serif'; x.textAlign = 'left';
-    x.fillText('\ud83d\udc46 S\u00fcr\u00fckle d\u00f6nd\u00fcr', 8, H2-8);
-    x.textAlign = 'left';
-  }
-
-  window.wiSetKind = function(k, btn){ wiKind = k; if (btn) selectInRow(btn); wiRenderTheory(); };
-  function wiRenderTheory(){
-    var box = document.getElementById('wi-theory');
-    if (!box) return;
-    var th = WI_TYPES[wiKind];
-    var html = '<div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
-      '<span style="font-size:26px">' + th.icon + '</span><div style="font-family:Space Grotesk,sans-serif;font-size:17px;font-weight:800;color:#fff">' + th.name + '</div></div>' +
-      '<p style="font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:12px">' + th.tanim + '</p>' +
-      '<div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">\u00d6zellikler</div>' +
-      '<ul style="margin:0 0 4px 18px;padding:0;font-size:13px;color:var(--tx2);line-height:1.9">';
-    th.ozellikler.forEach(function(o){ html += '<li>' + o + '</li>'; });
-    html += '</ul></div>';
-    html += '<div class="card" style="margin-top:10px"><div class="slbl">G\u00fc\u00e7 S\u0131ralamas\u0131</div>' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--tx2);margin-top:6px">' +
-      '<span>London <b style="color:#93c5fd">(en zay\u0131f)</b></span><span>\u2192</span><span>Dipol-Dipol</span><span>\u2192</span><span><b style="color:#f87171">Hidrojen Ba\u011f\u0131</b> (en g\u00fc\u00e7l\u00fc)</span></div></div>';
-    box.innerHTML = html;
-  }
-
-  function wiLoop(){
-    var scr = document.getElementById('s-wi');
-    if (!scr || scr.style.display === 'none') { wiStop(); return; }
-    wiSt.anim = requestAnimationFrame(wiLoop);
-    var cv = document.getElementById('wi-cv');
-    if (!cv) return;
-    var rect = cv.getBoundingClientRect();
-    var W = rect.width || cv.clientWidth || 300, H2 = 260;
-    var dpr = window.devicePixelRatio || 1;
-    if (Math.abs(cv.width - W*dpr) > 2 || Math.abs(cv.height - H2*dpr) > 2) { cv.width = W*dpr; cv.height = H2*dpr; }
-    var x = cv.getContext('2d');
-    x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    try {
-      if (wiSt.spin && !wiSt.drag) wiSt.rotY += 0.006;
-      wiSt.t += 0.016;
-      wiDraw(x, W, H2);
-    } catch (e) { drawErr(x, W, H2, e); }
-  }
-  function wiStop(){ if (wiSt.anim) { cancelAnimationFrame(wiSt.anim); wiSt.anim = null; } }
-  function wiStart(){ wiBind(); if (wiSt.anim) cancelAnimationFrame(wiSt.anim); wiLoop(); }
-  function wiBind(){
-    if (wiSt.bound) return;
-    var cv = document.getElementById('wi-cv');
-    if (!cv) return;
-    wiSt.bound = true;
-    cv.onmousedown = function(e){ wiSt.drag = true; wiSt.lx = e.clientX; wiSt.ly = e.clientY; };
-    cv.onmousemove = function(e){ if (!wiSt.drag) return; wiSt.rotY += (e.clientX-wiSt.lx)*0.01; wiSt.rotX += (e.clientY-wiSt.ly)*0.01; wiSt.lx=e.clientX; wiSt.ly=e.clientY; };
-    cv.onmouseup = cv.onmouseleave = function(){ wiSt.drag = false; };
-    cv.addEventListener('touchstart', function(e){ wiSt.drag=true; wiSt.lx=e.touches[0].clientX; wiSt.ly=e.touches[0].clientY; e.preventDefault(); }, {passive:false});
-    cv.addEventListener('touchmove', function(e){ if(!wiSt.drag) return; wiSt.rotY += (e.touches[0].clientX-wiSt.lx)*0.013; wiSt.rotX += (e.touches[0].clientY-wiSt.ly)*0.013; wiSt.lx=e.touches[0].clientX; wiSt.ly=e.touches[0].clientY; e.preventDefault(); }, {passive:false});
-    cv.addEventListener('touchend', function(){ wiSt.drag = false; });
-  }
-
-  // ---- 13b. MADDENİN HALLERİ ----
-  var MH_STATES = {
-    kati: {
-      name:'Kat\u0131', icon:'\ud83e\uddca',
-      tanim:'Tanecikler birbirine \u00e7ok yak\u0131n, D\u00dcZENL\u0130 (\u00f6rg\u00fc/kristal) bir diziliminde ve sabit konumlar etraf\u0131nda sadece T\u0130TRE\u015e\u0130R.',
-      ozellikler:[
-        'Belirli \u015fekli VE belirli hacmi vard\u0131r.',
-        'Tanecikler aras\u0131 \u00e7ekim kuvveti EN G\u00dc\u00c7L\u00dc, taneciklerin kinetik enerjisi EN D\u00dc\u015e\u00dcKT\u00dcR.',
-        'S\u0131k\u0131\u015ft\u0131r\u0131lamaz (tanecikler aras\u0131 bo\u015fluk neredeyse yoktur).',
-        'Ak\u0131\u015fkan de\u011fildir; kendi \u015feklini korur.'
-      ]
-    },
-    sivi: {
-      name:'S\u0131v\u0131', icon:'\ud83d\udca7',
-      tanim:'Tanecikler birbirine yak\u0131n ama D\u00dcZENS\u0130Zdir; sabit bir konumlar\u0131 yoktur, birbirinin \u00fczerinden KAYARAK hareket ederler.',
-      ozellikler:[
-        'Belirli hacmi vard\u0131r fakat belirli \u015fekli YOKTUR \u2014 konuldu\u011fu kab\u0131n \u015feklini al\u0131r.',
-        'Tanecikler aras\u0131 \u00e7ekim kat\u0131dan zay\u0131f, gazdan g\u00fc\u00e7l\u00fcd\u00fcr; orta d\u00fczeyde kinetik enerjiye sahiptirler.',
-        'Ak\u0131\u015fkand\u0131r; \u00e7ok az s\u0131k\u0131\u015ft\u0131r\u0131labilir (neredeyse s\u0131f\u0131r).',
-        'Y\u00fczey gerilimi ve viskozite gibi \u00f6zellikler s\u0131v\u0131lara \u00f6zg\u00fcd\u00fcr.'
-      ]
-    },
-    gaz: {
-      name:'Gaz', icon:'\ud83d\udca8',
-      tanim:'Tanecikler birbirinden ÇOK uzak, tamamen D\u00dcZENSİZ ve BA\u011eIMSIZ olarak h\u0131zl\u0131 ve rastgele hareket eder.',
-      ozellikler:[
-        'Ne belirli \u015fekli NE de belirli hacmi vard\u0131r \u2014 bulundu\u011fu kab\u0131n tamam\u0131n\u0131 doldurur.',
-        'Tanecikler aras\u0131 \u00e7ekim kuvveti \u0130HMAL ED\u0130LEB\u0130L\u0130R d\u00fczeydedir; kinetik enerji EN Y\u00dcKSEKT\u0130R.',
-        'Kolayca S\u0130KI\u015eTIRILABİLİR (tanecikler aras\u0131 bo\u015fluk \u00e7ok fazlad\u0131r).',
-        'Bas\u0131n\u00e7, hacim ve s\u0131cakl\u0131k aras\u0131ndaki ili\u015fki ideal gaz yasas\u0131yla (PV=nRT) a\u00e7\u0131klan\u0131r.'
-      ]
-    },
-    plazma: {
-      name:'Plazma', icon:'\u2604\ufe0f',
-      tanim:'Gaz\u0131n \u00e7ok y\u00fcksek s\u0131cakl\u0131kta İYONLA\u015eMASIYLA (elektronlar\u0131n atomdan kopmas\u0131yla) olu\u015fan D\u00d6RD\u00dcNC\u00dc hal say\u0131lan\u0131r.',
-      ozellikler:[
-        'Serbest elektronlar ve pozitif iyonlardan olu\u015fur \u2014 elektrik ak\u0131m\u0131n\u0131 iletir, manyetik alandan etkilenir.',
-        'Evrendeki maddenin \u00e7o\u011funlu\u011fu plazma halindedir (y\u0131ld\u0131zlar, g\u00fcne\u015f).',
-        'G\u00fcnl\u00fck hayatta floresan/neon lambalar, y\u0131ld\u0131r\u0131m ve kutup \u0131\u015f\u0131klar\u0131 (aurora) plazma \u00f6rnekleridir.',
-        'Gazdan daha y\u00fcksek enerjilidir; tanecikler hem h\u0131zl\u0131 hareket eder hem de elektrik y\u00fckl\u00fcd\u00fcr.'
-      ]
-    }
-  };
-  var MH_TRANS = [
-    ['Erime','Kat\u0131 \u2192 S\u0131v\u0131','Is\u0131 al\u0131n\u0131r'], ['Donma','S\u0131v\u0131 \u2192 Kat\u0131','Is\u0131 verilir'],
-    ['Buharla\u015fma','S\u0131v\u0131 \u2192 Gaz','Is\u0131 al\u0131n\u0131r'], ['Yo\u011fu\u015fma','Gaz \u2192 S\u0131v\u0131','Is\u0131 verilir'],
-    ['S\u00fcblimle\u015fme','Kat\u0131 \u2192 Gaz (do\u011frudan)','Is\u0131 al\u0131n\u0131r'], ['Kra\u011f\u0131la\u015fma','Gaz \u2192 Kat\u0131 (do\u011frudan)','Is\u0131 verilir']
-  ];
-  var mhState = 'kati';
-  var mhSt = { rotX: 0.35, rotY: 0.5, zoom: 1, spin: false, drag: false, lx:0, ly:0, dist:0, t: 0, anim: null, stars: null, sw: 0, bound: false, particles: [] };
-  var MH_N = 24, MH_BOX = 85;
-
-  function mhInitParticles(){
-    mhSt.particles = [];
-    var side = Math.ceil(Math.pow(MH_N, 1/3));
-    for (var i = 0; i < MH_N; i++) {
-      var gx = (i % side) - side/2, gy = (Math.floor(i/side) % side) - side/2, gz = Math.floor(i/(side*side)) - side/2;
-      mhSt.particles.push({
-        hx: gx * (MH_BOX*1.7/side), hy: gy * (MH_BOX*1.7/side), hz: gz * (MH_BOX*1.7/side),
-        x: (Math.random()-0.5)*MH_BOX*1.6, y: (Math.random()-0.5)*MH_BOX*1.6, z: (Math.random()-0.5)*MH_BOX*1.6,
-        vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, vz: (Math.random()-0.5)*2
-      });
-    }
-  }
-  mhInitParticles();
-
-  window.mhSetState = function(s, btn){
-    mhState = s;
-    if (btn) selectInRow(btn);
-    mhRenderTheory();
-  };
-  function mhRenderTheory(){
-    var box = document.getElementById('mh-theory');
-    if (!box) return;
-    var th = MH_STATES[mhState];
-    var html = '<div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
-      '<span style="font-size:26px">' + th.icon + '</span><div style="font-family:Space Grotesk,sans-serif;font-size:17px;font-weight:800;color:#fff">' + th.name + '</div></div>' +
-      '<p style="font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:12px">' + th.tanim + '</p>' +
-      '<div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">\u00d6zellikler</div>' +
-      '<ul style="margin:0 0 4px 18px;padding:0;font-size:13px;color:var(--tx2);line-height:1.9">';
-    th.ozellikler.forEach(function(o){ html += '<li>' + o + '</li>'; });
-    html += '</ul></div>';
-    if (mhState !== 'plazma') {
-      html += '<div class="card" style="margin-top:10px"><div class="slbl">Hal De\u011fi\u015fim Tepkimeleri</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;font-size:11px">';
-      MH_TRANS.forEach(function(t){
-        html += '<div style="background:var(--sf2);border-radius:8px;padding:8px;text-align:center">' +
-          '<div style="font-weight:700;color:#fff;margin-bottom:2px">' + t[0] + '</div>' +
-          '<div style="color:var(--ac2);margin-bottom:2px">' + t[1] + '</div>' +
-          '<div style="color:var(--tx3)">' + t[2] + '</div></div>';
-      });
-      html += '</div></div>';
-    }
-    box.innerHTML = html;
-  }
-
-  function mhDraw(x, W, H2){
-    hcBg(x, mhSt, W, H2);
-    var items = [];
-    // Kap
-    var boxPts = [];
-    for (var sx=-1; sx<=1; sx+=2) for (var sy=-1; sy<=1; sy+=2) for (var sz=-1; sz<=1; sz+=2) boxPts.push([sx*MH_BOX,sy*MH_BOX,sz*MH_BOX]);
-    var edges = [[0,1],[0,2],[0,4],[3,1],[3,2],[3,7],[5,1],[5,4],[5,7],[6,2],[6,4],[6,7]];
-    x.strokeStyle = 'rgba(129,140,248,0.35)'; x.lineWidth = 1.2;
-    edges.forEach(function(e){
-      var p1 = hcProj(mhSt, boxPts[e[0]][0],boxPts[e[0]][1],boxPts[e[0]][2], W, H2);
-      var p2 = hcProj(mhSt, boxPts[e[1]][0],boxPts[e[1]][1],boxPts[e[1]][2], W, H2);
-      x.beginPath(); x.moveTo(p1.x,p1.y); x.lineTo(p2.x,p2.y); x.stroke();
-    });
-    var speed = mhState==='kati'?0.06:mhState==='sivi'?0.5:mhState==='gaz'?2.4:3.2;
-    var isPlazma = mhState === 'plazma';
-    for (var i = 0; i < mhSt.particles.length; i++) {
-      var pt = mhSt.particles[i];
-      if (mhState === 'kati') {
-        pt.x = pt.hx + Math.sin(mhSt.t*8 + i)*2.5;
-        pt.y = pt.hy + Math.cos(mhSt.t*7 + i*1.3)*2.5;
-        pt.z = pt.hz + Math.sin(mhSt.t*6 + i*0.7)*2.5;
-      } else {
-        pt.x += pt.vx * speed; pt.y += pt.vy * speed; pt.z += pt.vz * speed;
-        var lim = mhState === 'sivi' ? MH_BOX*0.55 : MH_BOX*0.92;
-        if (Math.abs(pt.x) > lim) { pt.vx *= -1; pt.x = Math.sign(pt.x)*lim; }
-        if (Math.abs(pt.y) > lim) { pt.vy *= -1; pt.y = Math.sign(pt.y)*lim; }
-        if (Math.abs(pt.z) > lim) { pt.vz *= -1; pt.z = Math.sign(pt.z)*lim; }
-        if (mhState === 'sivi' && Math.random() < 0.02) { pt.vx += (Math.random()-0.5)*0.6; pt.vy += (Math.random()-0.5)*0.6; pt.vz += (Math.random()-0.5)*0.6; }
-      }
-      var p = hcProj(mhSt, pt.x, pt.y, pt.z, W, H2);
-      items.push({ z: p.z, x: p.x, y: p.y, r: (isPlazma?7:6)*p.s, plasma: isPlazma });
-    }
-    items.sort(function(a,b){ return b.z-a.z; });
-    for (var j = 0; j < items.length; j++) {
-      var it = items[j];
-      if (it.plasma) {
-        x.beginPath(); x.arc(it.x, it.y, it.r+5, 0, 6.283);
-        x.fillStyle = 'rgba(168,85,247,0.25)'; x.fill();
-      }
-      var gg = x.createRadialGradient(it.x-it.r*0.3, it.y-it.r*0.3, it.r*0.1, it.x, it.y, it.r);
-      if (it.plasma) { gg.addColorStop(0,'#e9d5ff'); gg.addColorStop(0.6,'#a855f7'); gg.addColorStop(1,'#581c87'); }
-      else { gg.addColorStop(0,'#93c5fd'); gg.addColorStop(0.6,'#3b82f6'); gg.addColorStop(1,'#1e3a8a'); }
-      x.beginPath(); x.arc(it.x, it.y, it.r, 0, 6.283); x.fillStyle = gg; x.fill();
-    }
-    x.fillStyle = 'rgba(255,255,255,.3)'; x.font = '10px sans-serif'; x.textAlign = 'left';
-    x.fillText('\ud83d\udc46 S\u00fcr\u00fckle d\u00f6nd\u00fcr', 8, H2-8);
-  }
-
-  function mhLoop(){
-    var scr = document.getElementById('s-wi');
-    if (!scr || scr.style.display === 'none') { mhStop(); return; }
-    mhSt.anim = requestAnimationFrame(mhLoop);
-    var cv = document.getElementById('mh-cv');
-    if (!cv) return;
-    var rect = cv.getBoundingClientRect();
-    var W = rect.width || cv.clientWidth || 300, H2 = 260;
-    var dpr = window.devicePixelRatio || 1;
-    if (Math.abs(cv.width - W*dpr) > 2 || Math.abs(cv.height - H2*dpr) > 2) { cv.width = W*dpr; cv.height = H2*dpr; }
-    var x = cv.getContext('2d');
-    x.setTransform(dpr, 0, 0, dpr, 0, 0);
-    try {
-      if (mhSt.spin && !mhSt.drag) mhSt.rotY += 0.006;
-      mhSt.t += 0.016;
-      mhDraw(x, W, H2);
-    } catch (e) { drawErr(x, W, H2, e); }
-  }
-  function mhStop(){ if (mhSt.anim) { cancelAnimationFrame(mhSt.anim); mhSt.anim = null; } }
-  function mhStart(){ mhBind(); if (mhSt.anim) cancelAnimationFrame(mhSt.anim); mhLoop(); }
-  function mhBind(){
-    if (mhSt.bound) return;
-    var cv = document.getElementById('mh-cv');
-    if (!cv) return;
-    mhSt.bound = true;
-    cv.onmousedown = function(e){ mhSt.drag = true; mhSt.lx = e.clientX; mhSt.ly = e.clientY; };
-    cv.onmousemove = function(e){ if (!mhSt.drag) return; mhSt.rotY += (e.clientX-mhSt.lx)*0.01; mhSt.rotX += (e.clientY-mhSt.ly)*0.01; mhSt.lx=e.clientX; mhSt.ly=e.clientY; };
-    cv.onmouseup = cv.onmouseleave = function(){ mhSt.drag = false; };
-    cv.addEventListener('touchstart', function(e){ mhSt.drag=true; mhSt.lx=e.touches[0].clientX; mhSt.ly=e.touches[0].clientY; e.preventDefault(); }, {passive:false});
-    cv.addEventListener('touchmove', function(e){ if(!mhSt.drag) return; mhSt.rotY += (e.touches[0].clientX-mhSt.lx)*0.013; mhSt.rotX += (e.touches[0].clientY-mhSt.ly)*0.013; mhSt.lx=e.touches[0].clientX; mhSt.ly=e.touches[0].clientY; e.preventDefault(); }, {passive:false});
-    cv.addEventListener('touchend', function(){ mhSt.drag = false; });
-  }
-
-  // ---- 13c. Ekran kurulumu (Zayıf Etkileşimler + Maddenin Halleri sekmeleri) ----
-  function setupWI(){
-    if (document.getElementById('s-wi')) return;
-    var app = document.querySelector('.app');
-    if (!app) return;
-    var wiBtns = '', mhBtns = '';
-    WI_ORDER.forEach(function(k, i){ wiBtns += '<button type="button" class="ob' + (i===0?' sel2':'') + '" onclick="wiSetKind(\'' + k + '\',this)">' + WI_TYPES[k].icon + ' ' + WI_TYPES[k].name + '</button>'; });
-    ['kati','sivi','gaz','plazma'].forEach(function(k, i){ mhBtns += '<button type="button" class="ob' + (i===0?' sel2':'') + '" onclick="mhSetState(\'' + k + '\',this)">' + MH_STATES[k].icon + ' ' + MH_STATES[k].name + '</button>'; });
-
-    app.insertAdjacentHTML('beforeend',
-      '<div id="s-wi" style="display:none"><div class="pw narrow">' +
-        '<h1 class="ptitle">\ud83e\uddf2 Etkile\u015fim \u00dcnitesi \u00b7 9. S\u0131n\u0131f</h1>' +
-        '<p class="psub">Zay\u0131f etkile\u015fimler ve maddenin halleri \u2014 3D g\u00f6rsel + detayl\u0131 konu.</p>' +
-        '<div class="tabs" id="wi-tabs">' +
-          '<button class="tab on" onclick="tswitch(\'wi-tabs\',\'wi-tps\',0)">\u26a1 Zay\u0131f Etkile\u015fimler</button>' +
-          '<button class="tab" onclick="tswitch(\'wi-tabs\',\'wi-tps\',1)">\ud83e\uddca Maddenin Halleri</button>' +
-        '</div>' +
-        '<div id="wi-tps">' +
-          '<div class="tp on">' +
-            '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin-bottom:10px"><div style="display:flex;gap:6px;min-width:max-content">' + wiBtns + '</div></div>' +
-            '<div style="background:#050510;border:1px solid rgba(129,140,248,.3);border-radius:16px;overflow:hidden;margin-bottom:12px">' +
-              '<canvas id="wi-cv" style="width:100%;display:block;touch-action:none" height="260"></canvas>' +
-            '</div>' +
-            '<div id="wi-theory"></div>' +
-          '</div>' +
-          '<div class="tp">' +
-            '<div style="display:flex;gap:6px;margin-bottom:10px">' + mhBtns + '</div>' +
-            '<div style="background:#050510;border:1px solid rgba(129,140,248,.3);border-radius:16px;overflow:hidden;margin-bottom:12px">' +
-              '<canvas id="mh-cv" style="width:100%;display:block;touch-action:none" height="260"></canvas>' +
-            '</div>' +
-            '<div id="mh-theory"></div>' +
-          '</div>' +
-        '</div>' +
-      '</div></div>');
-
-    if (typeof SCREENS !== 'undefined' && SCREENS.indexOf('s-wi') === -1) SCREENS.push('s-wi');
-    var mn = document.getElementById('mn');
-    if (mn && !document.getElementById('mn-wi'))
-      mn.insertAdjacentHTML('beforeend', '<button id="mn-wi" onclick="nav(\'wi\')">\ud83e\uddf2 Etkile\u015fim \u00dcnitesi (9. S\u0131n\u0131f)</button>');
-    var tg = document.querySelector('#s-home .tgrid');
-    if (tg && !document.getElementById('tile-wi'))
-      tg.insertAdjacentHTML('afterbegin',
-        '<div class="tc" id="tile-wi" onclick="nav(\'wi\')"><div class="ti">\ud83e\uddf2</div><div class="tt">Etkile\u015fim \u00dcnitesi</div><div class="td">9. S\u0131n\u0131f: Zay\u0131f etkile\u015fimler ve maddenin halleri, 3D g\u00f6rsel.</div></div>');
-
-    wiRenderTheory(); mhRenderTheory();
-    wiBind(); mhBind();
-  }
-  function wiEnter(){ setTimeout(function(){ wiStart(); mhStart(); }, 80); }
-  function wiLeave(){ wiStop(); mhStop(); }
-
   // ---------- 14. AYARLAR EKRANI ----------
   var SET_KEYS = [
     { k:'rk_stats', label:'Element Testi', icon:'\ud83e\uddea', kind:'ac' },
@@ -6227,11 +6159,11 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     '</div>';
 
   function setupEQ(){
-    if (document.getElementById('s-eq')) return;
+    if (document.getElementById('s-ledenge')) return;
     var app = document.querySelector('.app');
     if (!app) return;
     app.insertAdjacentHTML('beforeend',
-      '<div id="s-eq" style="display:none"><div class="pw narrow">' +
+      '<div id="s-ledenge" style="display:none"><div class="pw narrow">' +
         '<h1 class="ptitle">\u2696\ufe0f Kimyasal Denge 3D</h1>' +
         '<p class="psub">Le Chatelier \u0130lkesi \u2014 N\u2082 + 3H\u2082 \u21cc 2NH\u2083. Bas\u0131n\u00e7, s\u0131cakl\u0131k ve derişimi de\u011fi\u015ftir, dengenin canl\u0131 kaymasını izle.</p>' +
         '<div style="background:#050510;border:1px solid rgba(129,140,248,.3);border-radius:16px;overflow:hidden;margin-bottom:12px">' +
@@ -6261,14 +6193,14 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
         '<div id="eq-info" style="margin-bottom:16px"></div>' +
         EQ_THEORY_HTML +
       '</div></div>');
-    if (typeof SCREENS !== 'undefined' && SCREENS.indexOf('s-eq') === -1) SCREENS.push('s-eq');
+    if (typeof SCREENS !== 'undefined' && SCREENS.indexOf('s-ledenge') === -1) SCREENS.push('s-ledenge');
     var mn = document.getElementById('mn');
-    if (mn && !document.getElementById('mn-eq'))
-      mn.insertAdjacentHTML('beforeend', '<button id="mn-eq" onclick="nav(\'eq\')">\u2696\ufe0f Kimyasal Denge 3D</button>');
+    if (mn && !document.getElementById('mn-ledenge'))
+      mn.insertAdjacentHTML('beforeend', '<button id="mn-ledenge" onclick="nav(\'ledenge\')">\u2696\ufe0f Kimyasal Denge 3D</button>');
     var tg = document.querySelector('#s-home .tgrid');
-    if (tg && !document.getElementById('tile-eq'))
+    if (tg && !document.getElementById('tile-ledenge'))
       tg.insertAdjacentHTML('afterbegin',
-        '<div class="tc" id="tile-eq" onclick="nav(\'eq\')"><div class="ti">\u2696\ufe0f</div><div class="tt">Kimyasal Denge 3D</div><div class="td">Le Chatelier ilkesi \u2014 basın\u00e7/s\u0131cakl\u0131k/derişim ile canlı denge kayması.</div></div>');
+        '<div class="tc" id="tile-ledenge" onclick="nav(\'ledenge\')"><div class="ti">\u2696\ufe0f</div><div class="tt">Kimyasal Denge 3D</div><div class="td">Le Chatelier ilkesi \u2014 basın\u00e7/s\u0131cakl\u0131k/derişim ile canlı denge kayması.</div></div>');
     eqBindCanvas();
     eqRenderInfo();
   }
@@ -6278,7 +6210,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
   window.eqNudge = eqNudge;
 
   function eqLoop(){
-    var scr = document.getElementById('s-eq');
+    var scr = document.getElementById('s-ledenge');
     if (!scr || scr.style.display === 'none') { eqStop(); return; }
     eqSt.anim = requestAnimationFrame(eqLoop);
     var cv = document.getElementById('eq-cv');
@@ -6317,32 +6249,29 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
 
   // ---------- 17. TEPKİME TÜRÜ SINIFLANDIRICI ----------
   var RXN_TYPES = {
-    sentez: { n:'Sentez (Birleşme)', c:'#22c55e', d:'\u0130ki ya da daha fazla madde birle\u015fip TEK bir \u00fcr\u00fcn olu\u015fturur: A + B \u2192 AB' },
-    analiz: { n:'Analiz (Ayr\u0131\u015fma)', c:'#3b82f6', d:'TEK bir madde, iki ya da daha fazla \u00fcr\u00fcne ayr\u0131\u015f\u0131r: AB \u2192 A + B' },
-    yerdeg: { n:'Yer De\u011fi\u015ftirme (Tekli)', c:'#f59e0b', d:'Bir element, bir bile\u015fikteki ba\u015fka bir elementin yerini al\u0131r: A + BC \u2192 AC + B' },
-    ciftdeg: { n:'\u00c7ift De\u011fi\u015fim (Bile\u015fim De\u011fi\u015ftirme)', c:'#a855f7', d:'\u0130ki bile\u015fik, katyon/anyonlar\u0131n\u0131 kar\u015f\u0131l\u0131kl\u0131 de\u011fi\u015ftirir: AB + CD \u2192 AD + CB' }
+    asitbaz: { n:'Asit-Baz Tepkimeleri', c:'#3b82f6', d:'Bir asit ile bir baz tepkimeye girerek TUZ ve genellikle SU olu\u015fturur (n\u00f6tralle\u015fme): Asit + Baz \u2192 Tuz + Su' },
+    cozunme: { n:'\u00c7\u00f6z\u00fcnme-\u00c7\u00f6kelme Tepkimeleri', c:'#a855f7', d:'\u0130ki \u00e7\u00f6zeltinin kar\u0131\u015ft\u0131r\u0131lmas\u0131yla suda \u00e7\u00f6zünmeyen (\u00e7\u00f6kelek) bir kat\u0131 olu\u015fur, ya da bir kat\u0131 suda iyonlar\u0131na ayr\u0131larak \u00e7\u00f6z\u00fcn\u00fcr.' },
+    redoks: { n:'Y\u00fckseltgenme-\u0130ndirgenme (Redoks) Tepkimeleri', c:'#f59e0b', d:'Tanecikler aras\u0131nda ELEKTRON al\u0131\u015fveri\u015fi olur \u2014 bir tanecik elektron verirken (y\u00fckseltgenir) di\u011feri elektron al\u0131r (indirgenir).' }
   };
   var RXN_LIST = [
-    { eq:'2H\u2082 + O\u2082 \u2192 2H\u2082O', t:'sentez', not:'\u0130ki element birle\u015fip tek \u00fcr\u00fcn (su) olu\u015fturdu.' },
-    { eq:'N\u2082 + 3H\u2082 \u2192 2NH\u2083', t:'sentez', not:'Haber-Bosch s\u00fcreci \u2014 iki gaz birle\u015fip amonyak verir.' },
-    { eq:'C + O\u2082 \u2192 CO\u2082', t:'sentez', not:'Karbonun yanmas\u0131 \u2014 klasik bir birle\u015fme tepkimesi.' },
-    { eq:'CaO + H\u2082O \u2192 Ca(OH)\u2082', t:'sentez', not:'S\u00f6nmemi\u015f kire\u00e7 + su \u2192 s\u00f6nm\u00fc\u015f kire\u00e7.' },
-    { eq:'SO\u2083 + H\u2082O \u2192 H\u2082SO\u2084', t:'sentez', not:'K\u00fck\u00fcrt trioksit + su \u2192 s\u00fclf\u00fcrik asit.' },
-    { eq:'2H\u2082O \u2192 2H\u2082 + O\u2082', t:'analiz', not:'Suyun elektrolizle ayr\u0131\u015fmas\u0131.' },
-    { eq:'CaCO\u2083 \u2192 CaO + CO\u2082', t:'analiz', not:'Kire\u00e7ta\u015f\u0131n\u0131n \u0131s\u0131yla ayr\u0131\u015fmas\u0131 (kalsinasyon).' },
-    { eq:'2KClO\u2083 \u2192 2KCl + 3O\u2082', t:'analiz', not:'Potasyum klorat\u0131n ayr\u0131\u015farak oksijen vermesi.' },
-    { eq:'2H\u2082O\u2082 \u2192 2H\u2082O + O\u2082', t:'analiz', not:'Hidrojen peroksitin ayr\u0131\u015fmas\u0131.' },
-    { eq:'2NaHCO\u2083 \u2192 Na\u2082CO\u2083 + H\u2082O + CO\u2082', t:'analiz', not:'Karbonat\u0131n \u0131s\u0131yla ayr\u0131\u015fmas\u0131.' },
-    { eq:'Zn + CuSO\u2084 \u2192 ZnSO\u2084 + Cu', t:'yerdeg', not:'\u00c7inko, bak\u0131r\u0131n yerini al\u0131r (\u00e7inko daha aktif).' },
-    { eq:'Fe + CuSO\u2084 \u2192 FeSO\u2084 + Cu', t:'yerdeg', not:'Demir, bak\u0131r\u0131n yerini al\u0131r.' },
-    { eq:'2Na + 2H\u2082O \u2192 2NaOH + H\u2082', t:'yerdeg', not:'Sodyum, suyun hidrojeninin yerini al\u0131r.' },
-    { eq:'Cl\u2082 + 2NaBr \u2192 2NaCl + Br\u2082', t:'yerdeg', not:'Klor, bromun yerini al\u0131r (klor daha aktif halojen).' },
-    { eq:'Mg + 2HCl \u2192 MgCl\u2082 + H\u2082', t:'yerdeg', not:'Magnezyum, asitteki hidrojenin yerini al\u0131r.' },
-    { eq:'AgNO\u2083 + NaCl \u2192 AgCl + NaNO\u2083', t:'ciftdeg', not:'A\u011f\u2019\u0131n katyonu Na\u2019n\u0131n katyonuyla yer de\u011fi\u015ftirir; AgCl \u00e7\u00f6kelir.' },
-    { eq:'BaCl\u2082 + Na\u2082SO\u2084 \u2192 BaSO\u2084 + 2NaCl', t:'ciftdeg', not:'BaSO\u2084 \u00e7\u00f6kele\u011fi olu\u015fur.' },
-    { eq:'HCl + NaOH \u2192 NaCl + H\u2082O', t:'ciftdeg', not:'N\u00f6tralle\u015fme tepkimesi \u2014 asit + baz \u2192 tuz + su.' },
-    { eq:'Pb(NO\u2083)\u2082 + 2KI \u2192 PbI\u2082 + 2KNO\u2083', t:'ciftdeg', not:'Sar\u0131 PbI\u2082 \u00e7\u00f6keleği klasik bir \u00e7ift de\u011fi\u015fim \u00f6rne\u011fidir.' },
-    { eq:'CuSO\u2084 + 2NaOH \u2192 Cu(OH)\u2082 + Na\u2082SO\u2084', t:'ciftdeg', not:'Mavi Cu(OH)\u2082 \u00e7\u00f6kele\u011fi olu\u015fur.' }
+    { eq:'HCl + NaOH \u2192 NaCl + H\u2082O', t:'asitbaz', not:'Klasik n\u00f6tralle\u015fme \u2014 g\u00fc\u00e7l\u00fc asit + g\u00fc\u00e7l\u00fc baz \u2192 tuz + su.' },
+    { eq:'H\u2082SO\u2084 + 2KOH \u2192 K\u2082SO\u2084 + 2H\u2082O', t:'asitbaz', not:'\u0130ki protonlu (diprotik) asit, 2 mol KOH ile tamamen n\u00f6tralle\u015fir.' },
+    { eq:'CH\u2083COOH + NH\u2083 \u2192 CH\u2083COONH\u2084', t:'asitbaz', not:'Zay\u0131f asit + zay\u0131f baz \u2192 amonyum asetat tuzu.' },
+    { eq:'2HNO\u2083 + Ca(OH)\u2082 \u2192 Ca(NO\u2083)\u2082 + 2H\u2082O', t:'asitbaz', not:'Nitrik asit ile kalsiyum hidroksitin n\u00f6tralle\u015fmesi.' },
+    { eq:'HCl + NH\u2083 \u2192 NH\u2084Cl', t:'asitbaz', not:'Gaz halindeki amonyak, asitle do\u011frudan tuz olu\u015fturur (su a\u00e7\u0131\u011fa \u00e7\u0131kmaz).' },
+    { eq:'H\u2082CO\u2083 + 2NaOH \u2192 Na\u2082CO\u2083 + 2H\u2082O', t:'asitbaz', not:'Karbonik asidin n\u00f6tralle\u015fmesi.' },
+    { eq:'AgNO\u2083 + NaCl \u2192 AgCl\u2193 + NaNO\u2083', t:'cozunme', not:'Beyaz AgCl \u00e7\u00f6kele\u011fi olu\u015fur \u2014 klasik bir \u00e7\u00f6kelme tepkimesi.' },
+    { eq:'BaCl\u2082 + Na\u2082SO\u2084 \u2192 BaSO\u2084\u2193 + 2NaCl', t:'cozunme', not:'Suda \u00e7\u00f6zünmeyen BaSO\u2084 beyaz \u00e7\u00f6kelek olarak ayr\u0131l\u0131r.' },
+    { eq:'Pb(NO\u2083)\u2082 + 2KI \u2192 PbI\u2082\u2193 + 2KNO\u2083', t:'cozunme', not:'Sar\u0131 PbI\u2082 \u00e7\u00f6keleği olu\u015fur.' },
+    { eq:'CuSO\u2084 + 2NaOH \u2192 Cu(OH)\u2082\u2193 + Na\u2082SO\u2084', t:'cozunme', not:'Mavi Cu(OH)\u2082 \u00e7\u00f6kele\u011fi olu\u015fur.' },
+    { eq:'NaCl (k) \u2192 Na\u207a (suda) + Cl\u207b (suda)', t:'cozunme', not:'Kat\u0131 tuzun suda \u00e7\u00f6z\u00fcnerek iyonlar\u0131na ayr\u0131lmas\u0131 \u2014 \u00e7\u00f6kelmenin tersi.' },
+    { eq:'CaCl\u2082 + Na\u2082CO\u2083 \u2192 CaCO\u2083\u2193 + 2NaCl', t:'cozunme', not:'Suda \u00e7\u00f6zünmeyen CaCO\u2083 \u00e7\u00f6kelir.' },
+    { eq:'Zn + CuSO\u2084 \u2192 ZnSO\u2084 + Cu', t:'redoks', not:'\u00c7inko elektron verip Zn\u00b2\u207a\u2019ya y\u00fckseltgenir; Cu\u00b2\u207a elektron al\u0131p Cu\u2019ya indirgenir.' },
+    { eq:'2Na + Cl\u2082 \u2192 2NaCl', t:'redoks', not:'Sodyum elektron verir (y\u00fckseltgenir), klor elektron al\u0131r (indirgenir).' },
+    { eq:'Fe + 2HCl \u2192 FeCl\u2082 + H\u2082', t:'redoks', not:'Demir y\u00fckseltgenir (0\u2192+2), asitteki H\u207a indirgenir (+1\u21920).' },
+    { eq:'2Mg + O\u2082 \u2192 2MgO', t:'redoks', not:'Magnezyumun yanmas\u0131 \u2014 Mg y\u00fckseltgenir, O indirgenir.' },
+    { eq:'Zn + 2AgNO\u2083 \u2192 Zn(NO\u2083)\u2082 + 2Ag', t:'redoks', not:'\u00c7inko elektron verir, g\u00fcm\u00fc\u015f iyonu elektron al\u0131p metalik g\u00fcm\u00fc\u015fe indirgenir.' },
+    { eq:'2KMnO\u2084 + 16HCl \u2192 2KCl + 2MnCl\u2082 + 5Cl\u2082 + 8H\u2082O', t:'redoks', not:'Mn +7\u2019den +2\u2019ye indirgenirken, Cl\u207b elektron verip Cl\u2082\u2019ye y\u00fckseltgenir.' }
   ];
   var rxnSt = { cur: null, score: 0, total: 0, order: [], idx: 0 };
 
@@ -6368,11 +6297,11 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
           '<div style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">Bu tepkime hangi t\u00fcrdendir?</div>' +
           '<div id="rxn-eq" style="font-family:monospace;font-size:20px;font-weight:700;color:#fff;line-height:1.6;word-break:break-word"></div>' +
         '</div>' +
-        '<div id="rxn-opts" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"></div>' +
+        '<div id="rxn-opts" style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px"></div>' +
         '<div id="rxn-fb" style="display:none;padding:12px;border-radius:var(--r);margin-bottom:12px;font-size:13px;line-height:1.6"></div>' +
         '<button type="button" id="rxn-next" onclick="rxnNext()" style="display:none;width:100%;padding:12px;background:var(--sf2);border:1px solid var(--br);border-radius:var(--r);color:var(--tx);font-size:14px;font-weight:600;cursor:pointer">Sonraki \u2192</button>' +
         '<div class="card" style="margin-top:20px">' +
-          '<div class="slbl">4 Tepkime T\u00fcr\u00fc</div>' +
+          '<div class="slbl">3 Tepkime T\u00fcr\u00fc</div>' +
           '<div id="rxn-theory"></div>' +
         '</div>' +
       '</div></div>');
@@ -6383,10 +6312,10 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     var tg = document.querySelector('#s-home .tgrid');
     if (tg && !document.getElementById('tile-rxntype'))
       tg.insertAdjacentHTML('afterbegin',
-        '<div class="tc" id="tile-rxntype" onclick="nav(\'rxntype\')"><div class="ti">\ud83e\uddea</div><div class="tt">Tepkime T\u00fcr\u00fc S\u0131n\u0131fland\u0131r\u0131c\u0131</div><div class="td">Sentez/analiz/yer de\u011fi\u015ftirme/\u00e7ift de\u011fi\u015fim tan\u0131ma quiz\u2019i.</div></div>');
+        '<div class="tc" id="tile-rxntype" onclick="nav(\'rxntype\')"><div class="ti">\ud83e\uddea</div><div class="tt">Tepkime T\u00fcr\u00fc S\u0131n\u0131fland\u0131r\u0131c\u0131</div><div class="td">Asit-baz, \u00e7\u00f6z\u00fcnme-\u00e7\u00f6kelme ve redoks tepkimelerini tan\u0131ma testi.</div></div>');
 
     var th = '';
-    ['sentez','analiz','yerdeg','ciftdeg'].forEach(function(k){
+    ['asitbaz','cozunme','redoks'].forEach(function(k){
       var rt = RXN_TYPES[k];
       th += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
         '<div style="font-size:13px;font-weight:700;color:' + rt.c + '">' + rt.n + '</div>' +
@@ -6405,7 +6334,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     document.getElementById('rxn-eq').textContent = item.eq;
     var fb = document.getElementById('rxn-fb'); fb.style.display = 'none';
     document.getElementById('rxn-next').style.display = 'none';
-    var keys = ['sentez','analiz','yerdeg','ciftdeg'];
+    var keys = ['asitbaz','cozunme','redoks'];
     var html = '';
     keys.forEach(function(k){
       html += '<button type="button" class="ob2" onclick="rxnCheck(\'' + k + '\',this)">' + RXN_TYPES[k].n + '</button>';
@@ -8900,11 +8829,73 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
   }
 
   // ---------- 28. VİDEO DERSLER — KALICI KÜT\u00dcPHANE (bug düzeltmeleri + geliştirme) ----------
-  var videoSt = { list: sget('ronya_videos', []), current: null };
+  // Depodaki videos/ klasöründe bulunan videolar herkese görünür. Dosya adları depodaki
+  // hâliyle birebir yazılmalıdır: 04 numaralı dosyanın adı ayrışık Unicode (NFD) biçimindedir.
+  var VIDEO_BUILTIN = [
+    { f: '01.Aminoasit.mp4', t: 'Amino asitler', d: 'Proteinlerin 20 yapı taşı' },
+    { f: '02.Redoks.01.mp4', t: 'Demir ve bakır(II) sülfat', d: 'Redoks · CuSO₄ + Fe → FeSO₄ + Cu' },
+    { f: '03.Asit-Baz.01.mp4', t: 'Amonyak ve hidroklorik asit', d: 'Asit-baz · NH₃ + HCl → NH₄Cl' },
+    { f: '03.Redoks.02.mp4', t: 'Çinko ve nitrik asit', d: 'Redoks · kahverengi NO₂ gazı çıkar' },
+    { f: '04.Çökelme.01.mp4', t: 'Gümüş nitrat ve sodyum klorür', d: 'Çözünme-çökelme · beyaz AgCl çökeler' },
+    { f: '05.Rutherford.01.mp4', t: 'Rutherford deneyi', d: 'Atom modeli · alfa taneciklerinin saçılması' },
+    { f: '07.Asit-Baz.01.MP4', t: 'Karbonat ve asit', d: 'Asit-baz · çıkan CO₂ balonu şişirir' }
+  ];
+  var VIDEO_EXT = /\.(mp4|webm|ogg|ogv|mov|m4v)$/i;
+  // own: bu cihazda elle eklenenler · repo: depodaki dosya adları (GitHub'dan okunur, bilinmiyorsa null)
+  var videoSt = { own: sget('ronya_videos', []), repo: null, current: null, shown: [] };
+
+  function videoKey(name){ name = String(name); return name.normalize ? name.normalize('NFC') : name; }
+  function videoEsc(s){ return String(s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+  function videoSrc(filename){ return 'videos/' + String(filename).split('/').map(encodeURIComponent).join('/'); }
+
+  // Herkese görünen liste: depo okunabildiyse depoda gerçekten olan dosyalar (yerleşik
+  // başlıklarıyla), okunamadıysa yerleşik liste.
+  function videoMainList(){
+    var byKey = {};
+    VIDEO_BUILTIN.forEach(function(v){ byKey[videoKey(v.f)] = v; });
+    if (!videoSt.repo) return VIDEO_BUILTIN.map(function(v){ return { f: v.f, t: v.t, d: v.d }; });
+    return videoSt.repo.map(function(name){
+      var b = byKey[videoKey(name)];
+      return { f: name, t: b ? b.t : videoNiceTitle(name), d: b ? b.d : '' };
+    });
+  }
+
+  function videoRepoInfo(){
+    var m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+    if (m) {
+      var seg = location.pathname.split('/').filter(Boolean)[0];
+      return { owner: m[1], repo: seg && !/\.html?$/i.test(seg) ? seg : m[1] + '.github.io' };
+    }
+    return { owner: 'medenigklp', repo: 'ronya' };
+  }
+
+  // Depodaki videos/ klasörünü GitHub'dan oku: öğretmen yeni video yükleyince kod
+  // değiştirmeden listede görünür. 1 saat önbellekte tutulur (GitHub saatte 60 isteğe izin
+  // verir); okunamazsa en son okunan liste ya da yerleşik liste kalır.
+  function videoFetchRepo(){
+    var cache = sget('ronya_videos_repo', null);
+    if (cache && Array.isArray(cache.names)) {
+      videoSt.repo = cache.names;
+      if (Date.now() - (cache.at || 0) < 3600 * 1000) { renderVideoList(); return; }
+    }
+    if (!window.fetch) return;
+    var ri = videoRepoInfo();
+    fetch('https://api.github.com/repos/' + ri.owner + '/' + ri.repo + '/contents/videos', { headers: { 'Accept': 'application/vnd.github+json' } })
+      .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(arr){
+        if (!Array.isArray(arr)) return;
+        var names = arr.filter(function(x){ return x && x.type === 'file' && VIDEO_EXT.test(x.name); })
+                       .map(function(x){ return x.name; });
+        videoSt.repo = names;
+        sset('ronya_videos_repo', { at: Date.now(), names: names });
+        renderVideoList();
+      })
+      .catch(function(){ /* çevrimdışı ya da istek sınırı: eldeki liste kalır */ });
+  }
 
   function videoNiceTitle(filename){
-    var base = filename.replace(/\.[^.]+$/, '');
-    base = base.replace(/[_\-]+/g, ' ').trim();
+    var base = String(filename).split('/').pop().replace(/\.[^.]+$/, '');
+    base = base.replace(/^\d+[.\s_-]+/, '').replace(/[._-]+/g, ' ').trim() || filename;
     return base.charAt(0).toUpperCase() + base.slice(1);
   }
 
@@ -8912,25 +8903,36 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     if (window.__rkVideoLibReady) return;
     window.__rkVideoLibReady = true;
 
-    // 1) addVideo() — taban index.html'deki sürümü GEÇERSİZ KILAR: artık oynatmakla
-    //    kalmıyor, kalıcı listeye de ekliyor (localStorage, sayfa yenilense de kalıcı).
+    // 1) addVideo() — taban index.html'deki sürümü GEÇERSİZ KILAR: listede olmayan bir
+    //    dosyayı adıyla açar ve bu cihazdaki "Eklediklerin" listesine kaydeder.
     window.addVideo = function(){
       var input = document.getElementById('video-url-input');
       if (!input) return;
-      var filename = input.value.trim();
+      var filename = input.value.trim().replace(/^\/?videos\//i, '');
       if (!filename) return;
-      if (!/\.(mp4|webm|ogg|mov|m4v)$/i.test(filename)) {
-        if (typeof toast === 'function') toast('Dosya adı .mp4/.webm/.mov gibi bir uzantıyla bitmeli');
+      if (!VIDEO_EXT.test(filename)) {
+        if (typeof toast === 'function') toast('Dosya adı .mp4, .webm ya da .mov gibi bir uzantıyla bitmeli');
         return;
       }
-      // Kalıcı listeye ekle (aynı dosya adı zaten varsa tekrar eklemez, sadece oynatır)
-      var exists = videoSt.list.some(function(v){ return v.filename === filename; });
-      if (!exists) {
-        videoSt.list.unshift({ filename: filename, title: videoNiceTitle(filename), addedAt: Date.now() });
-        sset('ronya_videos', videoSt.list);
+      var k = videoKey(filename).toLowerCase();
+      var main = videoMainList().filter(function(v){ return videoKey(v.f).toLowerCase() === k; })[0];
+      var known = videoSt.own.some(function(v){ return videoKey(v.filename).toLowerCase() === k; });
+      if (main) filename = main.f;   // zaten herkese açık listede: yalnızca oynat
+      else if (!known) {
+        // Yalnızca video gerçekten açılırsa listeye kaydet (yanlış yazılan ad listede kalmasın)
+        var pl = document.getElementById('video-player');
+        if (pl) pl.addEventListener('loadedmetadata', function onMeta(){
+          pl.removeEventListener('loadedmetadata', onMeta);
+          if (videoSt.current !== filename) return;
+          if (videoSt.own.some(function(v){ return v.filename === filename; })) return;
+          videoSt.own.unshift({ filename: filename, title: videoNiceTitle(filename), addedAt: Date.now() });
+          sset('ronya_videos', videoSt.own);
+          var nm = document.getElementById('video-current-name');
+          if (nm) nm.innerText = videoNiceTitle(filename);
+          renderVideoList();
+        });
       }
       input.value = '';
-      renderVideoList();
       playVideo(filename);
     };
 
@@ -8949,52 +8951,82 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
       var wrap = document.getElementById('video-player-wrap');
       var name = document.getElementById('video-current-name');
       if (!player) return;
-      player.src = 'videos/' + filename;
+      player.src = videoSrc(filename);
       player.load();
-      player.play().catch(function(){});
+      var pr = player.play(); if (pr && pr.catch) pr.catch(function(){});
       if (wrap) wrap.style.display = 'block';
-      var v = videoSt.list.find(function(x){ return x.filename === filename; });
-      if (name) name.innerText = v ? v.title : filename;
+      var v = videoMainList().filter(function(x){ return x.f === filename; })[0];
+      var o = videoSt.own.filter(function(x){ return x.filename === filename; })[0];
+      if (name) name.innerText = v ? v.t : (o ? o.title : filename);
       videoSt.current = filename;
-      var wrapEl = document.getElementById('video-player-wrap');
-      if (wrapEl && wrapEl.scrollIntoView) wrapEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      renderVideoList();
+      if (wrap && wrap.scrollIntoView) wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    // 4) Videoyu kütüphaneden sil
+    // 4) Videoyu "Eklediklerin" listesinden sil (herkese açık liste silinemez)
     window.deleteVideo = function(filename, ev){
       if (ev) ev.stopPropagation();
-      videoSt.list = videoSt.list.filter(function(v){ return v.filename !== filename; });
-      sset('ronya_videos', videoSt.list);
+      videoSt.own = videoSt.own.filter(function(v){ return v.filename !== filename; });
+      sset('ronya_videos', videoSt.own);
       if (videoSt.current === filename) window.closeVideo();
       renderVideoList();
     };
 
+    // 5) Dosya bulunamazsa ya da biçim desteklenmezse sessizce donmak yerine söyle
+    var pl = document.getElementById('video-player');
+    if (pl) pl.addEventListener('error', function(){
+      var nm = document.getElementById('video-current-name');
+      if (nm && videoSt.current) nm.innerHTML = '<span style="color:#ef4444">Video açılamadı. Dosya adını kontrol et; dosya depoda <code>videos/</code> klasöründe olmalı.</span>';
+    });
+
+    // 6) Liste tıklamaları: tek dinleyici, dosya adı data-f içinde (tırnaklı adlar da çalışır)
+    var box = document.getElementById('video-list');
+    if (box) box.addEventListener('click', function(e){
+      var del = e.target.closest ? e.target.closest('[data-del]') : null;
+      if (del) { window.deleteVideo(videoSt.shown[+del.getAttribute('data-del')], e); return; }
+      var it = e.target.closest ? e.target.closest('[data-i]') : null;
+      if (it) window.playVideo(videoSt.shown[+it.getAttribute('data-i')]);
+    });
+    if (box) box.addEventListener('keydown', function(e){
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.hasAttribute && e.target.hasAttribute('data-i')) {
+        e.preventDefault(); window.playVideo(videoSt.shown[+e.target.getAttribute('data-i')]);
+      }
+    });
+
+    // Depo listesi, Videolar ekranı ilk açıldığında okunur (nav sarmalayıcısında).
+    var cache = sget('ronya_videos_repo', null);
+    if (cache && Array.isArray(cache.names)) videoSt.repo = cache.names;
     renderVideoList();
   }
 
   function renderVideoList(){
     var box = document.getElementById('video-list');
     if (!box) return;
-    if (videoSt.list.length === 0) {
-      box.innerHTML = '<div class="card" style="text-align:center;padding:24px 16px;color:var(--tx3)">' +
-        '<div style="font-size:32px;margin-bottom:8px">\ud83c\udfac</div>' +
-        '<div style="font-size:13px">Hen\u00fcz video eklenmedi.<br>Y\u0131kar\u0131daki kutuya bir dosya ad\u0131 yaz\u0131p \u201cEkle\u201d ye bas.</div>' +
-      '</div>';
-      return;
-    }
-    var html = '<div class="slbl" style="margin-bottom:8px">\ud83d\udcda K\u00fct\u00fcphane (' + videoSt.list.length + ')</div>';
-    videoSt.list.forEach(function(v){
-      var active = videoSt.current === v.filename;
-      html += '<div class="card" style="display:flex;align-items:center;gap:10px;padding:12px;margin-bottom:8px;cursor:pointer;' +
-        (active ? 'border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.06)' : '') + '" onclick="playVideo(\'' + v.filename.replace(/'/g, "\\'") + '\')">' +
+    var main = videoMainList();
+    var mainKeys = {};
+    main.forEach(function(v){ mainKeys[videoKey(v.f).toLowerCase()] = 1; });
+    var own = videoSt.own.filter(function(v){ return !mainKeys[videoKey(v.filename).toLowerCase()]; });
+    videoSt.shown = [];
+    function row(file, title, sub, canDelete){
+      var i = videoSt.shown.push(file) - 1;
+      var active = videoSt.current === file;
+      return '<div class="card" data-i="' + i + '" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;padding:12px;margin-bottom:8px;cursor:pointer;' +
+        (active ? 'border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.06)' : '') + '">' +
         '<div style="width:36px;height:36px;border-radius:10px;background:rgba(245,158,11,.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">' + (active ? '\u25b6\ufe0f' : '\ud83c\udfa5') + '</div>' +
         '<div style="flex:1;min-width:0">' +
-          '<div style="font-size:13px;color:#fff;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + v.title + '</div>' +
-          '<div style="font-size:11px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + v.filename + '</div>' +
+          '<div style="font-size:14px;color:var(--tx);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + videoEsc(title) + '</div>' +
+          (sub ? '<div style="font-size:12px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + videoEsc(sub) + '</div>' : '') +
         '</div>' +
-        '<button type="button" onclick="deleteVideo(\'' + v.filename.replace(/'/g, "\\'") + '\', event)" style="background:none;border:none;color:var(--tx3);font-size:16px;padding:6px;flex-shrink:0">\ud83d\uddd1\ufe0f</button>' +
+        (canDelete ? '<button type="button" data-del="' + i + '" aria-label="Listeden kald\u0131r" style="background:none;border:none;color:var(--tx3);font-size:16px;padding:6px;flex-shrink:0">\ud83d\uddd1\ufe0f</button>' : '') +
       '</div>';
-    });
+    }
+    var html = '<div class="slbl" style="margin-bottom:8px">\ud83c\udfac Videolar (' + main.length + ')</div>';
+    if (!main.length) html += '<div class="card" style="text-align:center;padding:20px 16px;color:var(--tx3);font-size:13px;margin-bottom:8px">\u015eu an listede video yok.</div>';
+    main.forEach(function(v){ html += row(v.f, v.t, v.d, false); });
+    if (own.length) {
+      html += '<div class="slbl" style="margin:16px 0 8px">\ud83d\udcf1 Bu cihazda ekledi\u011fin (' + own.length + ')</div>';
+      own.forEach(function(v){ html += row(v.filename, v.title, v.filename, true); });
+    }
     box.innerHTML = html;
   }
 
@@ -10422,7 +10454,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     ]},
     { key:'3d', title:'\ud83e\uddec 3D Sim\u00fclasyonlar', items:[
       ['lab3d','\ud83d\udd2c 3D Lab'], ['bagSim','\u269b\ufe0f Lewis Bağ Sim\u00fclasyonu'], ['elz','\ud83d\udd0b Elektroliz Laboratuvarı'], ['hc','\ud83e\uddec Hidrokarbonlar 3D'],
-      ['fg','\u2697\ufe0f Fonksiyonel Gruplar 3D'], ['wi','\ud83e\uddf2 Etkileşim \u00dcnitesi'], ['gv','\ud83d\udd0b Galvanik H\u00fccre 3D'],
+      ['fg','\u2697\ufe0f Fonksiyonel Gruplar 3D'], ['wi','\ud83e\uddf2 Etkileşim \u00dcnitesi'], ['gv','\ud83d\udd0b Galvanik H\u00fccre 3D'], ['ledenge','\u2696\ufe0f Kimyasal Denge 3D'],
       ['rxntype','\ud83e\uddea Tepkime T\u00fcr\u00fc Sınıflandırıcı'], ['alev','\ud83d\udd25 Alev Testi']
     ]},
     { key:'denge', title:'\u2696\ufe0f Denge \u00dcnitesi (Tema 2)', items:[
@@ -10554,6 +10586,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
             if (id === 'gv') gvEnter(); else gvLeave();
             if (id === 'ledenge') eqEnter(); else eqLeave();
             if (id === 'rxntype') rxnEnter();
+            if (id === 'video') videoFetchRepo();
             if (id === 'alev') flameEnter(); else flameLeave();
             if (id === 'redoks') redoxEnter();
             if (id === 'kinetik') kinEnter(); else kinLeave();

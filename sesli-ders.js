@@ -445,22 +445,97 @@
     'Ve son olarak: Bugünkü dersimiz burada bitti. Konuyu tekrar etmeyi, soruları kendi başınıza çözmeyi unutmayın. Sorularınızı bekliyorum. Hepinize kolay gelsin, görüşmek üzere.'
   ];
 
+  /* ---- Metni tahta adımlarına böl: bir cümleden 2–3 sayfalık konuya kadar ----
+     Her cümle bir adım olur. Başlık satırı yeni tahtada başlar, maddeler işaretiyle
+     yazılır, çok uzun cümleler noktalı virgül, iki nokta, virgül ya da bağlaçtan
+     bölünür. PDF'den kopyalanan metinde cümlenin ortasına düşen satır sonları birleşir.
+     Tahta dolunca silinip yazmaya devam edilir (bkz. Oynatici.prototype.ekle). */
+  var METIN_SINIR = 30000;   // eklenebilecek en uzun metin: yaklaşık 10 sayfa
+  var PARCA_SINIR = 230;     // tahtaya tek adımda yazılacak en uzun parça
+  var ozelSayac = 0;
+  var MADDE_RE = /^(?:[-–—•*·▪●◦►✓✔]|\d{1,2}[.)]|[a-eA-E][)])\s+/;
+  var KISALTMA_RE = /(?:^|[\s(])(?:vb|vs|vd|örn|ör|bkz|yy|sf|no|dr|prof|doç|yrd|av|bl)\.$/i;
+  var CUMLE_SONU_RE = /[.!?…:;]["”»’)\]]*$/;
+  function binlik(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function cumlelereAyir(s) {
+    var out = [], bas = 0, re = /[.!?…]+["”»’)\]]*(?=\s+["“«(\[]?[A-ZÇĞİÖŞÜ0-9])/g, m, p;
+    while ((m = re.exec(s))) {
+      p = s.slice(bas, m.index + m[0].length);
+      // kısaltma (vb., örn.), baş harf (M.) ya da madde numarası (1.) cümleyi bitirmez
+      if (m[0] === '.' && (KISALTMA_RE.test(p) || /(?:^|\s)[A-ZÇĞİÖŞÜ]\.$/.test(p) || /^\s*\d{1,2}\.$/.test(p))) continue;
+      if (p.trim()) out.push(p.trim());
+      bas = m.index + m[0].length;
+    }
+    if (s.slice(bas).trim()) out.push(s.slice(bas).trim());
+    return out;
+  }
+  function uzunuBol(c) {
+    if (c.length <= PARCA_SINIR) return [c];
+    var ayraclar = [/;\s+/g, /:\s+/g, /,\s+/g, /\s(?=(?:ve|veya|ya da|ancak|fakat|ama|çünkü|yani|bu nedenle|bu yüzden|böylece)\s)/g];
+    for (var k = 0; k < ayraclar.length; k++) {
+      var re = ayraclar[k], m, en = -1, fark = Infinity, kes;
+      while ((m = re.exec(c))) {
+        kes = k < 3 ? m.index + 1 : m.index; // noktalama önceki parçada kalır, bağlaç sonrakine geçer
+        if (kes >= 40 && c.length - kes >= 40 && Math.abs(kes - c.length / 2) < fark) { fark = Math.abs(kes - c.length / 2); en = kes; }
+      }
+      if (en > 0) return uzunuBol(c.slice(0, en).trim()).concat(uzunuBol(c.slice(en).trim()));
+    }
+    var b = c.lastIndexOf(' ', Math.floor(c.length / 2));
+    return b > 20 ? uzunuBol(c.slice(0, b)).concat(uzunuBol(c.slice(b + 1))) : [c];
+  }
+  function metniBol(metin) {
+    var B = [];
+    String(metin || '').replace(/\r\n?/g, '\n').split('\n').forEach(function (ham) {
+      var s = ham.replace(/[\t  ]+/g, ' ').trim(), son = B[B.length - 1];
+      if (!s) { if (son && son.tur !== 'bos') B.push({ tur: 'bos' }); return; }
+      var madde = MADDE_RE.exec(s), kucuk = /^[a-zçğıöşü(]/.test(s);
+      // satır sonu cümlenin ortasına düşmüşse alt satır üsttekine eklenir
+      var devam = son && son.tur !== 'bos' && !madde && (son.tur === 'metin' ? !CUMLE_SONU_RE.test(son.t) : kucuk && (son.tur === 'baslik' || !CUMLE_SONU_RE.test(son.t)));
+      if (devam) {
+        son.t = /[-‐]$/.test(son.t) && kucuk ? son.t.replace(/[-‐]$/, '') + s : son.t + ' ' + s;
+        if (son.tur === 'baslik') son.tur = 'metin';
+        return;
+      }
+      if (madde) { B.push({ tur: 'madde', t: s.slice(madde[0].length), isaret: /^[\da-eA-E]/.test(madde[0]) ? madde[0].trim() : '•' }); return; }
+      var baslik = s.length <= 70 && s.split(' ').length <= 9 && !kucuk && !/[.!?;:,…]["”»’)\]]*$/.test(s) && /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(s);
+      B.push({ tur: baslik ? 'baslik' : 'metin', t: s });
+    });
+    for (var i = B.length - 1; i >= 0; i--) if (B[i].tur !== 'bos') { if (B[i].tur === 'baslik') B[i].tur = 'metin'; break; } // en sondaki kısa satır başlık değildir
+    var out = [];
+    B.forEach(function (b) {
+      if (b.tur === 'bos') return;
+      if (b.tur === 'baslik') { out.push({ tur: 'baslik', t: b.t }); return; }
+      var parca = [];
+      cumlelereAyir(b.t).forEach(function (c) { parca.push.apply(parca, uzunuBol(c)); });
+      parca.forEach(function (c, k) { out.push({ tur: b.tur, t: b.tur === 'madde' && k === 0 ? b.isaret + ' ' + c : c, s: c }); });
+    });
+    return out;
+  }
+  // Parçalardan tahta adımları. o.grup: eklenen metnin kimliği, o.sinif(p, i, hepsi): yazı sınıfı
+  function metinAdimlari(parcalar, o) {
+    o = o || {};
+    return parcalar.map(function (p, i) {
+      var soz = p.tur === 'baslik' && !/[.!?…]$/.test(p.t) ? p.t + '.' : (p.s || p.t);
+      var a = { oto: 1, w: [{ c: p.tur === 'baslik' ? 'title' : (o.sinif ? o.sinif(p, i, parcalar) : ''), t: p.t }], s: konusmaMetni(soz) };
+      if (p.tur === 'baslik' && i > 0) a.sil = 1;
+      if (o.grup) a.ozel = o.grup;
+      return a;
+    });
+  }
+  function metinOzeti(metin) {
+    var t = String(metin || '').trim();
+    if (!t) return 'En çok ' + binlik(METIN_SINIR) + ' karakter (yaklaşık 10 sayfa) ekleyebilirsin.';
+    var n = metniBol(t).length;
+    return binlik(t.length) + ' / ' + binlik(METIN_SINIR) + ' karakter · ' + n + ' adım · yaklaşık ' + Math.max(1, Math.round(t.length / 800)) + ' dakika';
+  }
   // Metinden ders: her cümle bir adım
   function metindenDers(metin, baslik) {
-    var parca = [];
-    String(metin || '').split(/\n+/).forEach(function (satir) {
-      satir = satir.trim(); if (!satir) return;
-      (satir.match(/[^.!?]+[.!?]+["”»]?|[^.!?]+$/g) || [satir]).forEach(function (c) {
-        c = c.trim(); if (!c) return;
-        if (c.length > 200 && c.indexOf(';') > 0) c.split(/;\s*/).forEach(function (x) { if (x.trim()) parca.push(x.trim()); });
-        else parca.push(c);
-      });
-    });
-    var adimlar = [{ sil: 1, sahne: null, w: [{ c: 'title', t: 'Birlikte çözelim' }], s: 'Bu metni birlikte tahtada inceleyelim.' }];
-    parca.forEach(function (c, i) {
-      adimlar.push({ oto: 1, w: [{ c: /^soru\b/i.test(c) ? 'q' : (i === parca.length - 1 ? 'ok' : ''), t: c }], s: konusmaMetni(c) });
-    });
-    return { id: 'metin', baslik: baslik || 'Kendi metnin', adimlar: adimlar };
+    var parcalar = metniBol(metin), kisa = parcalar.length <= 12;
+    var ilkBaslik = parcalar.length && parcalar[0].tur === 'baslik' ? parcalar[0].t : null;
+    var adimlar = metinAdimlari(parcalar, { sinif: function (p, i, hepsi) { return /^soru\b/i.test(p.t) ? 'q' : (kisa && i === hepsi.length - 1 ? 'ok' : ''); } });
+    if (!ilkBaslik) adimlar.unshift({ w: [{ c: 'title', t: 'Birlikte çözelim' }], s: 'Bu metni birlikte tahtada inceleyelim.' });
+    adimlar[0].sil = 1; adimlar[0].sahne = null;
+    return { id: 'metin', baslik: baslik || ilkBaslik || 'Kendi metnin', adimlar: adimlar };
   }
   // HTML parçalarından ders (kimyamed soru kartı, Ronya çözüm kartı)
   function gorselsizMetin(html) {
@@ -1141,7 +1216,7 @@
     '.renkler button{width:30px;height:30px;border-radius:50%;border:2px solid var(--cizgi);padding:0;box-shadow:inset 0 0 0 2px var(--kart)}',
     '.renkler button[aria-pressed="true"]{border-color:var(--murekkep);transform:scale(1.08)}',
     'select,input[type="text"],textarea{width:100%;border:1px solid var(--cizgi);background:var(--kagit);border-radius:10px;padding:9px 11px;font-size:15px}',
-    'textarea{resize:vertical;line-height:1.5;min-height:170px}',
+    'textarea{resize:vertical;line-height:1.5;min-height:170px}textarea.kisa{min-height:110px}',
     '.satir{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.satir input[type="range"]{flex:1;accent-color:var(--turuncu)}',
     'output{font-variant-numeric:tabular-nums;font-size:14px;min-width:3.6em;text-align:right;color:var(--gri)}',
     '.anahtar{display:flex;align-items:center;gap:10px;font-size:15px}.anahtar input{width:18px;height:18px;accent-color:var(--turuncu)}',
@@ -1239,9 +1314,9 @@
         '</div>' +
       '</section>' +
       '<aside class="sd-yan" data-r="yan" aria-label="Ayarlar">' +
-        (o.metin ? '<section class="kart" data-r="metinKart" hidden><h3>Kendi metnini anlat</h3><textarea data-r="metin" aria-label="Anlatılacak metin"></textarea>' +
+        (o.metin ? '<section class="kart" data-r="metinKart" hidden><h3>Kendi metnini anlat</h3><textarea data-r="metin" maxlength="' + METIN_SINIR + '" aria-label="Anlatılacak metin"></textarea><p class="not" data-r="metinSay" aria-live="polite"></p>' +
           '<div class="satir"><button type="button" class="dugme" data-r="metinDugme">Tahtada anlat</button><button type="button" class="dugme ikincil" data-r="ornekDugme">Örneği geri yükle</button></div>' +
-          '<p class="not">Her cümle ayrı bir adım olur. Formüller tahtada alt ve üst simgelerle yazılır, seste adlarıyla okunur: NaCl → “sodyum klorür”.</p></section>' : '') +
+          '<p class="not">Her cümle ayrı bir adım olur; 2–3 sayfalık bir konuyu da yapıştırabilirsin. Başlık satırları yeni tahtada başlar, tahta dolunca silinip yazmaya devam edilir. Formüller tahtada alt ve üst simgelerle yazılır, seste adlarıyla okunur: NaCl → “sodyum klorür”.</p></section>' : '') +
         '<section class="kart"><h3>Tahta ve kalem</h3>' +
           '<div class="alan"><span class="etiket">Tahta</span><div class="secim" data-r="tahtalar"></div></div>' +
           '<div class="alan"><span class="etiket">Kalem</span><div class="secim" data-r="kalemler"></div></div>' +
@@ -1260,10 +1335,11 @@
           '<p class="uyari" data-r="sesNot" hidden></p>' +
           '<button type="button" class="dugme ikincil" data-r="studyoAc">🎙️ Kendi sesinle kaydet</button>' +
         '</section>' +
-        '<section class="kart"><h3>Cümle ekle</h3>' +
-          '<div class="alan"><label>Tahtaya yazılıp seslendirilecek cümle<input type="text" data-r="cumle" placeholder="Örn. Bu tepkime sınavlarda sık çıkar." maxlength="240" autocomplete="off" style="margin-top:6px"></label></div>' +
+        '<section class="kart"><h3>Cümle ya da metin ekle</h3>' +
+          '<div class="alan"><label>Tahtaya yazılıp seslendirilecek metin<textarea data-r="cumle" class="kisa" rows="4" maxlength="' + METIN_SINIR + '" placeholder="Bir cümle yaz ya da 2–3 sayfalık bir konuyu buraya yapıştır." style="margin-top:6px"></textarea></label>' +
+          '<p class="not" data-r="cumleSay" aria-live="polite"></p></div>' +
           '<button type="button" class="dugme" data-r="cumleDugme">Ekle ve seslendir</button>' +
-          '<p class="not">Cümle, şu anki adımdan hemen sonra gelir. Formülleri düz yazabilirsin: AgCl, Pb2+, SO42−.</p>' +
+          '<p class="not">Metin, şu anki adımdan hemen sonra gelir. Uzun metin cümle cümle yazılır ve okunur; tahta dolunca silinip devam edilir, başlık satırları yeni tahtada başlar. Formülleri düz yazabilirsin: AgCl, Pb2+, SO42−.</p>' +
           '<ul class="ozel-liste" data-r="ozelListe"></ul>' +
         '</section>' +
       '</aside></div></div>' +
@@ -1350,13 +1426,18 @@
     if (r.kapat) r.kapat.addEventListener('click', function () { self.kapat(); });
     Array.prototype.forEach.call(this.kok.querySelectorAll('.sd-sekmeler [data-ders]'), function (b) { b.addEventListener('click', function () { self.yukle(b.getAttribute('data-ders')); }); });
     r.cumleDugme.addEventListener('click', function () { self.cumleEkle(); });
-    r.cumle.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); self.cumleEkle(); } });
-    r.ozelListe.addEventListener('click', function (e) { var b = e.target.closest('[data-sil]'); if (b) self.cumleSil(+b.getAttribute('data-sil')); });
+    r.cumle.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); self.cumleEkle(); } });
+    var sayZaman = {};
+    var sayac = function (ad) { clearTimeout(sayZaman[ad]); sayZaman[ad] = setTimeout(function () { self.metinSay(ad); }, 180); };
+    r.cumle.addEventListener('input', function () { sayac('cumle'); });
+    this.metinSay('cumle');
+    r.ozelListe.addEventListener('click', function (e) { var b = e.target.closest('[data-sil]'); if (b) self.cumleSil(b.getAttribute('data-sil')); });
     if (r.metin) {
       r.metin.value = depo.al('metin', ORNEK_METIN);
-      r.metin.addEventListener('input', function () { depo.yaz('metin', r.metin.value); });
+      this.metinSay('metin');
+      r.metin.addEventListener('input', function () { depo.yaz('metin', r.metin.value); sayac('metin'); });
       r.metinDugme.addEventListener('click', function () { self.adimListeleri.metin = metindenDers(r.metin.value).adimlar; self.P.adimlar = self.adimListeleri.metin; self.P.i = -1; self.planYap(); self.ozelListeCiz(); self.calis(0); });
-      r.ornekDugme.addEventListener('click', function () { r.metin.value = ORNEK_METIN; depo.yaz('metin', ORNEK_METIN); });
+      r.ornekDugme.addEventListener('click', function () { r.metin.value = ORNEK_METIN; depo.yaz('metin', ORNEK_METIN); self.metinSay('metin'); });
     }
     // ayarlar
     r.tahtalar.addEventListener('click', function (e) { var b = e.target.closest('[data-tahta]'); if (!b) return; ayar.tahta = b.getAttribute('data-tahta'); ayar.kalem = null; ayar.renk = 0; depo.yaz('tahta', ayar.tahta); depo.yaz('kalem', null); depo.yaz('renk', 0); Oynatici.hepsi.forEach(function (o) { o.gorunumUygula(); }); });
@@ -1997,30 +2078,51 @@
     return this;
   };
 
-  /* ---- cümle ekle ---- */
+  /* ---- cümle ya da metin ekle ---- */
+  Oynatici.prototype.metinSay = function (ad) {
+    var alan = this.r[ad], hedef = this.r[ad + 'Say'];
+    if (alan && hedef) hedef.textContent = metinOzeti(alan.value);
+  };
   Oynatici.prototype.ozelListeCiz = function () {
-    var ozel = this.P.adimlar.filter(function (a) { return a.ozel; });
-    this.r.ozelListe.innerHTML = ozel.map(function (a, i) { return '<li><span>' + esc(a.w[0].t) + '</span><button type="button" data-sil="' + i + '" aria-label="Cümleyi kaldır">×</button></li>'; }).join('');
+    var gruplar = [], bul = {};
+    this.P.adimlar.forEach(function (a) {
+      if (a.ozel == null) return;
+      var k = String(a.ozel);
+      if (!bul[k]) { bul[k] = { k: k, n: 0, ilk: a.w[0].t }; gruplar.push(bul[k]); }
+      bul[k].n++;
+    });
+    this.r.ozelListe.innerHTML = gruplar.map(function (g) {
+      var yazi = g.n > 1 ? (g.ilk.length > 70 ? g.ilk.slice(0, 70) + '…' : g.ilk) + ' · ' + g.n + ' adım' : g.ilk;
+      return '<li><span>' + esc(yazi) + '</span><button type="button" data-sil="' + esc(g.k) + '" aria-label="' + (g.n > 1 ? 'Metni kaldır' : 'Cümleyi kaldır') + '">×</button></li>';
+    }).join('');
   };
   Oynatici.prototype.cumleEkle = function () {
     var inp = this.r.cumle, t = inp.value.trim(); if (!t) { inp.focus(); return; }
-    var adim = { oto: 1, ozel: 1, w: [{ c: 'ozel', t: t }], s: konusmaMetni(t) };
+    var parcalar = metniBol(t); if (!parcalar.length) return;
+    var uzun = parcalar.length > 2;
+    var adimlar = metinAdimlari(parcalar, { grup: 'o' + (++ozelSayac), sinif: function () { return uzun ? '' : 'ozel'; } });
+    if (uzun) { adimlar[0].sil = 1; adimlar[0].sahne = null; } // uzun metin temiz tahtada başlar
     var yer = this.P.i >= 0 && this.P.i < this.P.adimlar.length ? this.P.i + 1 : this.P.adimlar.length;
-    this.P.adimlar.splice(yer, 0, adim);
-    (this.P.bolumler || []).forEach(function (b) { if (b.adim >= yer) b.adim++; });
+    Array.prototype.splice.apply(this.P.adimlar, [yer, 0].concat(adimlar));
+    (this.P.bolumler || []).forEach(function (b) { if (b.adim >= yer) b.adim += adimlar.length; });
     this.planYap();
-    inp.value = ''; this.ozelListeCiz(); this.arayuz();
+    inp.value = ''; this.metinSay('cumle'); this.ozelListeCiz(); this.arayuz();
     if (!this.P.calisiyor) this.calis(yer);
   };
-  Oynatici.prototype.cumleSil = function (i) {
-    var ozel = this.P.adimlar.filter(function (a) { return a.ozel; }), hedef = ozel[i], idx = this.P.adimlar.indexOf(hedef), self = this;
-    if (idx < 0) return;
+  Oynatici.prototype.cumleSil = function (grup) {
+    var self = this, A = this.P.adimlar, sil = [];
+    A.forEach(function (a, i) { if (a.ozel != null && String(a.ozel) === String(grup)) sil.push(i); });
+    if (!sil.length) return;
     if (this.P.calisiyor) this.durdur();
-    this.P.adimlar.splice(idx, 1);
-    (this.P.bolumler || []).forEach(function (b) { if (b.adim > idx) b.adim--; });
-    this.planYap();
-    if (this.P.i > idx) this.P.i--; else if (this.P.i >= this.P.adimlar.length) this.P.i = this.P.adimlar.length - 1;
-    this.ozelListeCiz(); this.kur(Math.max(0, this.P.i)).then(function () { self.arayuz(); });
+    for (var k = sil.length - 1; k >= 0; k--) {
+      var idx = sil[k];
+      A.splice(idx, 1);
+      (this.P.bolumler || []).forEach(function (b) { if (b.adim > idx) b.adim--; });
+      if (this.P.i > idx) this.P.i--;
+    }
+    if (this.P.i >= A.length) this.P.i = A.length - 1;
+    this.planYap(); this.ozelListeCiz();
+    this.kur(Math.max(0, this.P.i)).then(function () { self.arayuz(); });
   };
 
   /* ---- kayıt stüdyosu ---- */

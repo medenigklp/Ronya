@@ -23,8 +23,11 @@ Sesler, Cloudflare'de çalışan küçük bir ses servisi üzerinden gelir (`ses
 Kurulum özeti:
 
 1. Google Cloud'da bir proje aç, faturalandırmayı bağla, **Cloud Text-to-Speech API**'yi etkinleştir, yalnız bu API'ye kısıtlı bir API anahtarı oluştur.
-2. Cloudflare'de bir Worker oluştur, `ses-servisi.js`'in tamamını yapıştırıp yayımla.
-3. Worker ayarlarına `GOOGLE_TTS_KEY` adında gizli bir değişken ekle, değeri API anahtarı olsun.
-4. Worker adresini buraya yaz: `{"adres": "https://sesli-ders.<hesap>.workers.dev"}`. kimyamed için aynı adres `konu/sesli/bulut.json` dosyasına yazılır.
+2. Cloudflare'de "sesler" adında bir KV deposu aç.
+3. Cloudflare'de bir Worker oluştur, `ses-servisi.js`'in tamamını yapıştırıp yayımla.
+4. Worker ayarlarında KV deposunu `SESLER_KV` adıyla bağla; `GOOGLE_TTS_KEY` adında gizli bir değişken ekle, değeri API anahtarı olsun.
+5. Worker adresini buraya yaz: `{"adres": "https://sesli-ders.<hesap>.workers.dev"}`. kimyamed için aynı adres `konu/sesli/bulut.json` dosyasına yazılır.
 
-Ücret: Google her ay doğal seslerde 1 milyon, sade seslerde 4 milyon karakteri ücretsiz verir; sonrası milyon karakter başına 30 ve 4 dolardır. Google Cloud'da bütçe uyarısı kurmak iyi olur.
+Ücret: Google her ay doğal seslerde 1 milyon, sade seslerde 4 milyon karakteri ücretsiz verir; sonrası milyon karakter başına 30 ve 4 dolardır. Servis Google'a günde en çok 30.000 (doğal) ve 120.000 (sade) karakter gönderir; bu sınırlar ücretsiz kotanın içinde kalır. Sınır dolunca siteler o gün cihaz sesine döner. Sınırı `ses-servisi.js` içindeki `GUNLUK_SINIR` değiştirir.
+
+Karşılıklı anlatımda Elif Hoca bir kadın sesiyle, Kerem Hoca bir erkek sesiyle konuşur; iki ses de Ayarlar'dan seçilir.

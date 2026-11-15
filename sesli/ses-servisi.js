@@ -6,17 +6,24 @@
    Kurulum (bir kez):
    1) Cloudflare → Workers & Pages → Create → Worker → adı "sesli-ders" → Deploy
    2) Edit code → bu dosyanın tamamını yapıştır → Deploy
-   3) Worker → Settings → Variables and Secrets → Add
+   3) Storage & Databases → KV → Create → adı "sesler"
+   4) Worker → Settings → Bindings → Add → KV namespace
+        Variable name: SESLER_KV   KV namespace: sesler
+   5) Worker → Settings → Variables and Secrets → Add
         Type: Secret   Name: GOOGLE_TTS_KEY   Value: Google Cloud API anahtarı
-   4) Worker adresini (https://sesli-ders.<hesap>.workers.dev) sitenin sesli/bulut.json dosyasına yaz.
+   6) Worker adresini (https://sesli-ders.<hesap>.workers.dev) sitenin sesli/bulut.json dosyasına yaz.
 
    Koruma: yalnız aşağıdaki sitelerden gelen istekler, yalnız listedeki Türkçe sesler,
    istek başına en çok 1400 karakter. Aynı cümle aynı sesle bir kez üretilir, sonra önbellekten gelir.
+   Günlük sınır: Google'a gönderilen karakter günde GUNLUK_SINIR'ı geçmez. Varsayılan değerler
+   Google'ın aylık ücretsiz kotası içinde kalır; sınır dolunca siteler o gün cihaz sesine döner.
    ============================================================ */
 
 const IZINLI_SITELER = ['https://medenigklp.github.io'];
 const AZAMI_KARAKTER = 1400;
 const DAKIKADA_ISTEK = 120; // aynı adresten dakikada en çok istek (okul ağlarında birçok öğrenci tek adresten gelir)
+// Günde Google'a gönderilecek en çok karakter. Ücretsiz kota: doğal seslerde ayda 1 milyon, sade seslerde 4 milyon.
+const GUNLUK_SINIR = { dogal: 30000, sade: 120000 };
 
 const KADIN = 'Achernar Aoede Autonoe Callirrhoe Despina Erinome Gacrux Kore Laomedeia Leda Pulcherrima Sulafat Vindemiatrix Zephyr';
 const ERKEK = 'Achird Algenib Algieba Alnilam Charon Enceladus Fenrir Iapetus Orus Puck Rasalgethi Sadachbia Sadaltager Schedar Umbriel Zubenelgenubi';
@@ -38,14 +45,16 @@ export default {
       return new Response(null, { headers: { ...cors, 'Access-Control-Allow-Methods': 'GET', 'Access-Control-Max-Age': '86400' } });
     }
     if (url.pathname === '/' || url.pathname === '') {
-      const hazir = env.GOOGLE_TTS_KEY ? 'hazır' : 'GOOGLE_TTS_KEY eksik';
-      return yazi('Sesli ders ses servisi çalışıyor (' + hazir + ').', 200, cors);
+      const eksik = [!env.GOOGLE_TTS_KEY && 'GOOGLE_TTS_KEY', !env.SESLER_KV && 'SESLER_KV'].filter(Boolean);
+      if (eksik.length) return yazi('Sesli ders ses servisi çalışıyor, ama ayar eksik: ' + eksik.join(', ') + '.', 200, cors);
+      const gun = bugun(), d = await kullanim(env, gun, 'dogal'), sd = await kullanim(env, gun, 'sade');
+      return yazi('Sesli ders ses servisi çalışıyor (hazır). Bugün doğal seslerde ' + d + '/' + GUNLUK_SINIR.dogal + ', sade seslerde ' + sd + '/' + GUNLUK_SINIR.sade + ' karakter kullanıldı.', 200, cors);
     }
     if (url.pathname !== '/ses' || istek.method !== 'GET') return yazi('Bulunamadı', 404, cors);
 
     const gonderen = koken || istek.headers.get('Referer') || '';
     if (!IZINLI_SITELER.some((o) => gonderen.startsWith(o))) return yazi('Bu servis yalnızca izinli sitelerden kullanılabilir.', 403, cors);
-    if (!env.GOOGLE_TTS_KEY) return yazi('Servis ayarı eksik: GOOGLE_TTS_KEY.', 500, cors);
+    if (!env.GOOGLE_TTS_KEY || !env.SESLER_KV) return yazi('Servis ayarı eksik: ' + (!env.GOOGLE_TTS_KEY ? 'GOOGLE_TTS_KEY' : 'SESLER_KV') + '.', 500, cors);
 
     const metin = (url.searchParams.get('m') || '').replace(/\s+/g, ' ').trim();
     const ses = url.searchParams.get('ses') || '';
@@ -55,7 +64,7 @@ export default {
     const anahtar = new Request('https://onbellek.sesli-ders/' + ses + '/' + (await ozet(metin)));
     const onbellek = caches.default;
     let yanit = await onbellek.match(anahtar);
-    if (!yanit && env.SESLER_KV) {
+    if (!yanit) {
       const kv = await env.SESLER_KV.get(anahtar.url, 'arrayBuffer');
       if (kv) yanit = sesYaniti(kv);
     }
@@ -63,6 +72,8 @@ export default {
     if (!yanit) {
       const ip = istek.headers.get('CF-Connecting-IP') || 'bilinmiyor';
       if (asiriMi(ip)) return yazi('Çok fazla istek; biraz sonra yeniden dene.', 429, { ...cors, 'Retry-After': '30' });
+      const tur = ses.indexOf('Chirp3') >= 0 ? 'dogal' : 'sade', gun = bugun();
+      if ((await kullanim(env, gun, tur)) + metin.length > GUNLUK_SINIR[tur]) return yazi('Bugünkü ses kotası doldu; yarın yeniden açılır.', 429, { ...cors, 'X-Kota': 'doldu' });
       const g = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize?key=' + encodeURIComponent(env.GOOGLE_TTS_KEY), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -83,7 +94,8 @@ export default {
       for (let i = 0; i < ikili.length; i++) bayt[i] = ikili.charCodeAt(i);
       yanit = sesYaniti(bayt.buffer);
       ctx.waitUntil(onbellek.put(anahtar, yanit.clone()));
-      if (env.SESLER_KV) ctx.waitUntil(env.SESLER_KV.put(anahtar.url, bayt.buffer, { expirationTtl: 60 * 60 * 24 * 365 }));
+      ctx.waitUntil(env.SESLER_KV.put(anahtar.url, bayt.buffer, { expirationTtl: 60 * 60 * 24 * 365 }));
+      ctx.waitUntil(kullanimEkle(env, gun, tur, metin.length));
     }
 
     const basliklar = new Headers(yanit.headers);
@@ -101,6 +113,23 @@ function yazi(metin, durum, basliklar) {
 async function ozet(s) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+// Günlük kullanım KV'de tutulur; yazma sayısını az tutmak için birkaç istek birikince yazılır
+const bekleyen = new Map();
+function bugun() { return new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10); } // Türkiye saati
+async function kullanim(env, gun, tur) {
+  const k = 'kullanim:' + gun + ':' + tur, b = bekleyen.get(k);
+  const v = parseInt((await env.SESLER_KV.get(k)) || '0', 10) || 0;
+  return v + (b ? b.n : 0);
+}
+async function kullanimEkle(env, gun, tur, n) {
+  const k = 'kullanim:' + gun + ':' + tur, simdi = Date.now();
+  const b = bekleyen.get(k) || { n: 0, t: simdi };
+  b.n += n; bekleyen.set(k, b);
+  if (b.n < 1500 && simdi - b.t < 20000) return;
+  const eklenecek = b.n; bekleyen.delete(k);
+  const v = parseInt((await env.SESLER_KV.get(k)) || '0', 10) || 0;
+  await env.SESLER_KV.put(k, String(v + eklenecek), { expirationTtl: 60 * 60 * 24 * 3 });
 }
 function asiriMi(ip) {
   const simdi = Date.now(), k = sayac.get(ip);

@@ -23,6 +23,7 @@
       sub: 'Soru bankası ve 11. sınıf Tema 2 konu anlatımları.',
       items: [
         ['URL:banka.html', 'Konu Anlatımlı Soru Bankası', '9, 10, 11, 12 (Maarif) ve AYT: konu anlatımı, çözümlü örnek, anında kontrollü test.', 'book'],
+        ['sesli', 'Sesli ders', 'Konu anlatımı ve soru çözümü tahtada, sesle; kendi metnini ve sesini ekle.', 'voice'],
         ['kinetik', 'Tepkime hızı', 'Çarpışma teorisi, potansiyel enerji grafiği ve hız hesapları.', 'speed'],
         ['enerji', 'Kimyasal enerji', 'Tepkimelerde enerji değişimi, çözümlü sorularla.', 'flame'],
         ['denge2', 'Kimyasal denge', 'Denge sabiti ve Le Chatelier ilkesi, çözümlü sorularla.', 'eq'],
@@ -92,6 +93,7 @@
   var S = 'fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"';
   var DOT = function (x, y) { return '<circle cx="' + x + '" cy="' + y + '" r=".9" fill="currentColor" stroke="none"/>'; };
   var ICONS = {
+    voice: '<rect x="2.5" y="4" width="13" height="10.5" rx="1.5"/><path d="M5.5 8h7M5.5 11h4.5M6 20l3-5.5 3 5.5"/><path d="M18.5 7.5a3.5 3.5 0 0 1 0 5M21 5.2a7 7 0 0 1 0 9.6"/>',
     speed: '<circle cx="13" cy="13" r="8"/><path d="M13 9v4l2.8 1.8M10.5 2.5h5M1.8 9.5h3M1.3 13h3M1.8 16.5h3"/>',
     flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.3 2.2-5.3 3.6-7.7.5 1.9 1.4 3 2.6 3.6.3-3.1 1.4-5.7 3.3-7.7.6 3.5 4 6 4 11.2 0 4-2.7 6.8-7 6.8z"/>',
     eq: '<path d="M4 9h15l-3.5-3.5M20 15H5l3.5 3.5"/>',

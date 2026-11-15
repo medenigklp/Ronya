@@ -307,6 +307,11 @@
        ekranı Maarif'in 3 kategorisiyle (asit-baz, çözünme-çökelme,
        redoks); videolar herkese görünür (depodaki videos/ klasörü
        GitHub'dan okunur, yerleşik liste yedekte); metan formülü CH4.
+   28) 🔊 Sesli Ders (sesli-ders.js): konu anlatımı ve soru çözümü tahtaya
+       yazılarak, sesle eş zamanlı; beyaz/kareli/kara/yeşil/mavi/akıllı
+       tahta, keçeli kalem/tebeşir/akıllı kalem, yazı karakterleri, kadın ve
+       erkek cihaz sesleri, öğretmenin kendi ses kaydı; çözümlü sorulara
+       "Sesli anlat" düğmesi.
    KURULUM: index.html'de </body> etiketinden hemen önce,
    diğer script'lerin ALTINA şu satırı ekle:
    <script src="ronya-eklenti.js"></script>
@@ -10391,10 +10396,38 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     body.innerHTML = html;
   }
 
+  // ---------- 37. SESLİ DERS — tahtada sesli anlatım (motor: sesli-ders.js) ----------
+  // Çözümlü sorulardaki "Sesli anlat" düğmelerini sesli-ders.js kendisi ekler.
+  var sesliOynatici = null;
+  function setupSesliDers(){
+    if (document.getElementById('s-sesli')) return;
+    var app = document.querySelector('.app');
+    if (!app) return;
+    app.insertAdjacentHTML('beforeend',
+      '<div id="s-sesli" style="display:none"><div class="pw" style="max-width:1280px">' +
+        '<h1 class="ptitle">🔊 Sesli Ders</h1>' +
+        '<p class="psub">Konu anlatımı ve soru çözümü tahtaya yazılarak, sesle birlikte ilerler. Tahtayı, kalemi, yazıyı ve sesi Ayarlar’dan seç; kendi cümleni ya da metnini ekle, istersen kendi sesinle kaydet. Çözümlü sorulardaki “Sesli anlat” düğmeleri de bu tahtayı açar.</p>' +
+        '<div id="sesli-kutu"></div>' +
+      '</div></div>');
+    if (typeof SCREENS !== 'undefined' && SCREENS.indexOf('s-sesli') === -1) SCREENS.push('s-sesli');
+    var mn = document.getElementById('mn');
+    if (mn && !document.getElementById('mn-sesli'))
+      mn.insertAdjacentHTML('beforeend', '<button id="mn-sesli" onclick="nav(\'sesli\')">🔊 Sesli Ders</button>');
+    var tg = document.querySelector('#s-home .tgrid');
+    if (tg && !document.getElementById('tile-sesli'))
+      tg.insertAdjacentHTML('afterbegin', '<div class="tc" id="tile-sesli" onclick="nav(\'sesli\')"><div class="ti">🔊</div><div class="tt">Sesli Ders</div><div class="td">Tahtada sesli konu anlatımı ve soru çözümü.</div></div>');
+  }
+  function sesliEnter(){
+    var kutu = document.getElementById('sesli-kutu');
+    if (!kutu || !window.SesliDers) return;
+    if (!sesliOynatici) sesliOynatici = SesliDers.yerlestir(kutu, { dersler: SesliDers.dersler, metin: true });
+  }
+  function sesliLeave(){ if (window.SesliDers) SesliDers.durdur(); }
+
   // ---------- 36. MENÜ YENİDEN DÜZENLEME (kullanıcı geri bildirimi: "çok karışık") ----------
   var MENU_GROUPS = [
     { key:'temel', title:'\ud83d\udcd6 Temel Ara\u00e7lar', items:[
-      ['quiz','\u2697\ufe0f Element Testi'], ['pt','\ud83d\udd2c Periyodik Tablo'], ['mol','\u2696\ufe0f Mol Hesaplayıcı'],
+      ['sesli','\ud83d\udd0a Sesli Ders'], ['quiz','\u2697\ufe0f Element Testi'], ['pt','\ud83d\udd2c Periyodik Tablo'], ['mol','\u2696\ufe0f Mol Hesaplayıcı'],
       ['eq','\u26a1 Denklem Dengeleyici'], ['ph','\ud83e\uddea pH Hesaplayıcı'], ['flashcard','\ud83d\udcdd Kimya Flashcard'],
       ['gaz','\ud83d\udca8 Gaz Yasaları'], ['lab','\ud83e\uddea Lab Malzemeleri'], ['cozelti','\u2697\ufe0f \u00c7\u00f6zelti Sim\u00fclat\u00f6r\u00fc'],
       ['izotop','\u269b\ufe0f İzotop/\u00c7ap Tanı Motoru'], ['cmp','\u2696\ufe0f Element Karşılaştır']
@@ -10510,6 +10543,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     try { setupKin(); } catch (e) { /* sessiz */ }
     try { setupEnerji(); } catch (e) { /* sessiz */ }
     try { setupVideoLib(); } catch (e) { /* sessiz */ }
+    try { setupSesliDers(); } catch (e) { /* sessiz */ }
     try { setupDenge2(); } catch (e) { /* sessiz */ }
     try { setupAsitBaz2(); } catch (e) { /* sessiz */ }
     try { setupCozunurluk(); } catch (e) { /* sessiz */ }
@@ -10539,6 +10573,7 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
             if (id === 'kinetik') kinEnter(); else kinLeave();
             if (id === 'set') setEnter();
             if (id === 'fizkim') fkEnter();
+            if (id === 'sesli') sesliEnter(); else sesliLeave();
           } catch (e) {}
         };
       }

@@ -68,6 +68,42 @@
     return btoa(s);
   }
 
+  /* ================= doğal sesler: Google Cloud Text-to-Speech, sitenin ses servisi üzerinden =================
+     Ses servisi (sesli/ses-servisi.js, Cloudflare Worker) API anahtarını saklar; adresi sesli/bulut.json'da yazar. */
+  var BULUT_SESLER = (function () {
+    var l = [];
+    'Achernar Aoede Autonoe Callirrhoe Despina Erinome Gacrux Kore Laomedeia Leda Pulcherrima Sulafat Vindemiatrix Zephyr'.split(' ').forEach(function (a) { l.push({ id: 'tr-TR-Chirp3-HD-' + a, ad: a, cins: 'k', grup: 'dogal' }); });
+    'Achird Algenib Algieba Alnilam Charon Enceladus Fenrir Iapetus Orus Puck Rasalgethi Sadachbia Sadaltager Schedar Umbriel Zubenelgenubi'.split(' ').forEach(function (a) { l.push({ id: 'tr-TR-Chirp3-HD-' + a, ad: a, cins: 'e', grup: 'dogal' }); });
+    [['A', 'k'], ['B', 'e'], ['C', 'k'], ['D', 'k'], ['E', 'e']].forEach(function (x) { l.push({ id: 'tr-TR-Wavenet-' + x[0], ad: 'WaveNet ' + x[0], cins: x[1], grup: 'sade' }); });
+    return l;
+  })();
+  var Bulut = {
+    adres: null, bellek: {}, sira: [],
+    hazir: function () { return !!this.adres; },
+    ses: function () {
+      var id = ayar.bulutSes || (ayar.cins === 'e' ? 'tr-TR-Chirp3-HD-Charon' : 'tr-TR-Chirp3-HD-Kore');
+      return BULUT_SESLER.filter(function (v) { return v.id === id; })[0] || BULUT_SESLER[7];
+    },
+    al: function (metin) {
+      metin = String(metin || '').replace(/\s+/g, ' ').trim();
+      if (!this.adres) return Promise.reject(new Error('ses servisi yok'));
+      if (!metin || metin.length > 1400) return Promise.reject(new Error('metin uygun değil'));
+      var self = this, u = this.adres.replace(/\/+$/, '') + '/ses?ses=' + encodeURIComponent(this.ses().id) + '&m=' + encodeURIComponent(metin);
+      if (this.bellek[u]) return this.bellek[u];
+      var p = fetch(u, { mode: 'cors', credentials: 'omit' })
+        .then(function (r) { if (!r.ok) throw new Error('ses servisi ' + r.status); return r.blob(); })
+        .then(function (b) { if (!b.size) throw new Error('boş ses'); return { url: URL.createObjectURL(b), bulut: true }; });
+      p.catch(function () { delete self.bellek[u]; var k = self.sira.indexOf(u); if (k >= 0) self.sira.splice(k, 1); });
+      this.bellek[u] = p; this.sira.push(u);
+      while (this.sira.length > 40) {
+        var eski = this.sira.shift(), ep = this.bellek[eski]; delete this.bellek[eski];
+        if (ep) ep.then(function (k) { setTimeout(function () { URL.revokeObjectURL(k.url); }, 60000); }, function () {});
+      }
+      return p;
+    }
+  };
+  function kaynakNe() { var k = ayar.kaynak || (Bulut.hazir() ? 'bulut' : 'cihaz'); return k === 'bulut' && !Bulut.hazir() ? 'cihaz' : k; }
+
   /* ================= kayıt deposu (tarayıcıda) ve yayımlanmış kayıtlar ================= */
   var Kayitlar = {
     db: null,
@@ -102,8 +138,11 @@
     yukle: function (taban) {
       var self = this;
       if (this.soz) return this.soz;
+      if (window.SESLI_DERS_BULUT) Bulut.adres = window.SESLI_DERS_BULUT;
       if (!window.fetch || /^(file|blob|data):/.test(location.protocol)) return (this.soz = Promise.resolve());
-      this.soz = fetch(taban + 'liste.json', { cache: 'no-cache' })
+      var bulutSoz = Bulut.adres ? Promise.resolve() : fetch(taban + 'bulut.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j && typeof j.adres === 'string' && /^https:\/\//.test(j.adres)) Bulut.adres = j.adres; }).catch(function () {});
+      var listeSoz = fetch(taban + 'liste.json', { cache: 'no-cache' })
         .then(function (r) { if (!r.ok) throw new Error('liste yok'); return r.json(); })
         .then(function (l) {
           var adlar = Array.isArray(l) ? l : (l.paketler || []);
@@ -111,6 +150,7 @@
         })
         .then(function (paketler) { (paketler || []).forEach(function (p) { if (p && p.kayitlar) Object.keys(p.kayitlar).forEach(function (h) { self.harita[h] = p.kayitlar[h]; }); }); })
         .catch(function () {});
+      this.soz = Promise.all([listeSoz, bulutSoz]);
       return this.soz;
     },
     al: function (h) { return this.harita[h] || null; }
@@ -232,8 +272,9 @@
     var toks = metin.split(/\s+/).filter(Boolean);
     var onceFormul = false;
     var okunus = toks.map(function (tok, i) {
-      if (tok === '→' || tok === '->' || tok === '⟶') { var r = onceFormul ? 'verir,' : 'yani'; onceFormul = false; return { s: r }; }
-      if (tok === '⇌' || tok === '<=>' || tok === '⇄') { onceFormul = false; return { s: 'dengede,' }; }
+      var sembolOnu = /^(sembol|işaret|ok)/i.test(toks[i + 1] || '');
+      if (tok === '→' || tok === '->' || tok === '⟶') { var r = sembolOnu ? 'tek yönlü ok' : onceFormul ? 'verir,' : 'yani'; onceFormul = false; return { s: r }; }
+      if (tok === '⇌' || tok === '<=>' || tok === '⇄') { onceFormul = false; return { s: sembolOnu ? 'çift yönlü ok' : 'dengede,' }; }
       if (tok === '+') return { s: 'artı' };
       if (tok === '=') return { s: 'eşittir' };
       if (tok === '·' || tok === '•' || tok === '|') return { s: ',' };
@@ -486,6 +527,207 @@
     var cozum = satirlaraBol(hedef);
     return parcalardanDers({ id: 'ry-' + ozet(soru.join('|') + cozum.join('|')), baslik: baslik || 'Soru', soru: soru, cozum: cozum });
   }
+  /* ================= konu anlatımından ders ================= */
+  // Sayfadaki konu anlatımı (başlık, paragraf, liste, not kutusu, tablo, şekil, çözümlü örnek) tahta adımlarına çevrilir.
+  var ATLA_ETIKET = /^(SCRIPT|STYLE|BUTTON|NAV|DETAILS|SUMMARY|INPUT|SELECT|TEXTAREA|FORM|AUDIO|VIDEO|IFRAME|OBJECT|NOSCRIPT|TEMPLATE|LINK|META|HR)$/;
+  var ATLA_SINIF = /(^|\s)(soru|test|icindekiler|sayac|sd-anlat|sd-arac|ks|ks-kart|ks-liste|ks-alt|ks-baslik|ks-not|sekmeler|sonraki|crumb|kaz|hero|sat|cozum-btn|ltabs)(\s|$)/;
+  var NOT_SINIF = /(^|\s)(kart|card|not|ozet-kutu|ipucu|dikkat|uyari|bilgi|kutu|kural|tuzak|ek-not|gunluk)(\s|$)/;
+  var BLOK_ETIKET = /^(P|DIV|UL|OL|LI|TABLE|FIGURE|SECTION|ARTICLE|BLOCKQUOTE|H[1-6]|HEADER|FOOTER|ASIDE|DL|DT|DD|PRE|HR|DETAILS|MAIN|SVG|IMG|CANVAS)$/;
+  function gorunmez(n) { return !!(n.hidden || (n.style && n.style.display === 'none') || (n.getAttribute && n.getAttribute('aria-hidden') === 'true')); }
+  function sinifi(n) { return typeof n.className === 'string' ? n.className : ''; }
+  function yaziMetni(n) { return (n && n.textContent || '').replace(/\s+/g, ' ').trim(); }
+  function blokVarMi(n) { for (var c = n.firstElementChild; c; c = c.nextElementSibling) if (BLOK_ETIKET.test(c.tagName.toUpperCase())) return true; return false; }
+  function gorunurUzunluk(html) { return String(html).replace(/<[^>]*>/g, '').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim().length; }
+  function dugmesizKopya(n) { var k = n.cloneNode(true); Array.prototype.forEach.call(k.querySelectorAll('.sd-anlat,.sd-arac,.rozet,.onbilgi,.kazanim'), function (x) { x.remove(); }); return k; }
+  function basliksizMetin(n) { return yaziMetni(dugmesizKopya(n)); }
+  // HTML'i cümlelere böl; açık kalan satır içi etiketler her parçada kapatılıp yeniden açılır
+  function cumleBol(html) {
+    var parcalar = String(html).split(/(<[^>]+>)/), sonuc = [], cur = '', acik = [], TEK = /^(br|img|hr|wbr|input|col|source)$/i;
+    parcalar.forEach(function (p) {
+      if (!p) return;
+      if (p.charAt(0) === '<') {
+        var m = p.match(/^<\s*(\/)?\s*([a-zA-Z][a-zA-Z0-9-]*)/);
+        if (m) {
+          var ad = m[2].toLowerCase();
+          if (m[1]) { for (var q = acik.length - 1; q >= 0; q--) if (acik[q].ad === ad) { acik.splice(q, 1); break; } }
+          else if (!TEK.test(ad) && !/\/\s*>$/.test(p)) acik.push({ ad: ad, etiket: p });
+        }
+        cur += p; return;
+      }
+      var re = /([.!?…]+["”’»)]*)(\s+)(?=[A-ZÇĞİÖŞÜ0-9"“«(])/g, son = 0, m2;
+      while ((m2 = re.exec(p))) {
+        cur += p.slice(son, m2.index + m2[1].length);
+        sonuc.push(cur + acik.slice().reverse().map(function (t) { return '</' + t.ad + '>'; }).join(''));
+        cur = acik.map(function (t) { return t.etiket; }).join('');
+        son = m2.index + m2[1].length + m2[2].length;
+      }
+      cur += p.slice(son);
+    });
+    if (gorunurUzunluk(cur)) sonuc.push(cur);
+    return sonuc;
+  }
+  // Paragrafı tahta adımlarına böl: kısa cümleler bir araya gelir, uzunlar ayrı yazılır
+  function paragrafParcalari(html) {
+    var out = [], cur = '';
+    cumleBol(html).forEach(function (c) {
+      if (!cur) { cur = c; return; }
+      var a = gorunurUzunluk(cur), b = gorunurUzunluk(c);
+      if ((a < 90 && a + b < 230) || b < 18) cur += ' ' + c; else { out.push(cur); cur = c; }
+    });
+    if (cur && gorunurUzunluk(cur)) out.push(cur);
+    return out;
+  }
+  function tabloOkunus(t) {
+    var satirlar = Array.prototype.slice.call(t.querySelectorAll('tr')), metin = [];
+    if (satirlar.length && satirlar[0].querySelector('th') && !satirlar[0].querySelector('td')) satirlar.shift();
+    satirlar.forEach(function (tr) {
+      var h = Array.prototype.map.call(tr.children, function (c) { return yaziMetni(c); }).filter(Boolean);
+      if (h.length) metin.push(h[0] + (h.length > 1 ? ': ' + h.slice(1).join(', ') : '') + '.');
+    });
+    var s = metin.join(' ');
+    if (s.length > 900) s = s.slice(0, s.lastIndexOf('.', 900) + 1) + ' Tablonun devamını tahtadan inceleyelim.';
+    return s;
+  }
+  function IcerikYapici() { this.adimlar = []; this.not = false; this.notIlk = false; }
+  IcerikYapici.prototype.ekle = function (html, sinif, s) {
+    html = String(html || '').replace(/<span class="(?:rozet|onbilgi|kazanim)[^"]*">[\s\S]*?<\/span>/g, '').trim();
+    var gorselVar = /<(svg|img|table)[\s>]/i.test(html);
+    if (!gorunurUzunluk(html) && !gorselVar) return;
+    var konusma = s != null ? s : htmlKonusma(html);
+    if (!konusma) konusma = gorselVar ? (/<table/i.test(html) ? 'Tabloya bakalım.' : 'Şekle bakalım.') : '';
+    if (!konusma) return;
+    var c = sinif || '';
+    if (this.not) {
+      var k = this.notIlk ? 'q' : 'qd'; this.notIlk = false;
+      if (c === 'alt' || c === 'label') html = '<b>' + html + '</b>';
+      c = /^(li|li2|lid)$/.test(c) ? k + ' ' + c : k;
+    }
+    this.adimlar.push({ h: [{ c: c, html: html }], s: konusma });
+  };
+  IcerikYapici.prototype.paragraf = function (html, sinif) {
+    var self = this;
+    String(html).split(/<br\s*\/?>/i).forEach(function (satir) {
+      if (gorunurUzunluk(satir)) paragrafParcalari(satir.trim()).forEach(function (p, i) { self.ekle(p, i && /^li/.test(sinif || '') ? 'lid' : (sinif || '')); });
+    });
+  };
+  IcerikYapici.prototype.cocuklar = function (n) { var self = this; Array.prototype.slice.call(n.childNodes).forEach(function (c) { self.dugum(c); }); };
+  IcerikYapici.prototype.dugum = function (n) {
+    if (n.nodeType === 3) { var t = n.nodeValue.replace(/\s+/g, ' ').trim(); if (t) this.paragraf(esc(t)); return; }
+    if (n.nodeType !== 1) return;
+    var ust = n.tagName.toUpperCase(), cls = sinifi(n), oc = n.getAttribute('onclick') || '';
+    if (ATLA_ETIKET.test(ust) || gorunmez(n) || ATLA_SINIF.test(cls) || /molToggle\(/.test(oc)) return;
+    if (/^H[1-6]$/.test(ust) || /(^|\s)(slbl|baslik|alt-baslik)(\s|$)/.test(cls)) { var bh = dugmesizKopya(n).innerHTML; if (gorunurUzunluk(bh)) this.ekle(bh, 'alt'); return; }
+    if (ust === 'TABLE') { this.ekle(n.outerHTML, '', 'Tabloya bakalım. ' + konusmaMetni(tabloOkunus(n))); return; }
+    if (ust === 'SVG' || ust === 'IMG' || ust === 'CANVAS') { this.gorsel(n); return; }
+    if (ust === 'FIGURE') { this.sekil(n); return; }
+    if (ust === 'UL' || ust === 'OL') { this.liste(n, 'li'); return; }
+    if (/(^|\s)ornek(\s|$)/.test(cls) && n.querySelector('.cozum')) { this.ornek(n); return; }
+    if (/(^|\s)(blokform|denklem)(\s|$)/.test(cls)) { this.ekle(n.innerHTML, 'eq'); return; }
+    if ((NOT_SINIF.test(cls) || ust === 'BLOCKQUOTE') && !this.not) { this.notKutusu(n); return; }
+    if (/(^|\s)(tablo-kap|tablo-sar)(\s|$)/.test(cls)) { var tb = n.querySelector('table'); if (tb) { this.dugum(tb); return; } }
+    if (blokVarMi(n)) { this.cocuklar(n); return; }
+    this.paragraf(n.innerHTML);
+  };
+  IcerikYapici.prototype.gorsel = function (n) {
+    var html;
+    if (n.tagName.toUpperCase() === 'CANVAS') { try { if (!n.width || !n.height) return; html = '<img src="' + n.toDataURL('image/png') + '" alt="">'; } catch (e) { return; } }
+    else html = n.outerHTML;
+    this.ekle(html, 'sekil', 'Şekle bakalım.');
+  };
+  IcerikYapici.prototype.sekil = function (f) {
+    var cap = f.querySelector('figcaption'), capT = cap ? yaziMetni(cap) : '', html = '';
+    Array.prototype.forEach.call(f.childNodes, function (c) {
+      if (c === cap || c.nodeType !== 1) return;
+      if (c.tagName.toUpperCase() === 'CANVAS') { try { html += '<img src="' + c.toDataURL('image/png') + '" alt="">'; } catch (e) {} }
+      else html += c.outerHTML;
+    });
+    if (capT) html += '<div class="altyazi-sekil">' + esc(capT) + '</div>';
+    this.ekle(html, 'sekil', 'Şekle bakalım.' + (capT ? ' ' + konusmaMetni(capT) : ''));
+  };
+  IcerikYapici.prototype.liste = function (n, sinif) {
+    var self = this, sira = 0, numarali = n.tagName.toUpperCase() === 'OL';
+    Array.prototype.forEach.call(n.children, function (li) {
+      if (li.tagName.toUpperCase() !== 'LI' || gorunmez(li) || ATLA_SINIF.test(sinifi(li))) return;
+      sira++;
+      var satir = '', bloklar = [];
+      Array.prototype.forEach.call(li.childNodes, function (c) {
+        if (c.nodeType === 1 && BLOK_ETIKET.test(c.tagName.toUpperCase())) bloklar.push(c);
+        else if (c.nodeType === 3) satir += esc(c.nodeValue);
+        else if (c.nodeType === 1 && !ATLA_ETIKET.test(c.tagName.toUpperCase())) satir += c.outerHTML;
+      });
+      if (gorunurUzunluk(satir)) self.paragraf((numarali ? sira + '. ' : '') + satir.trim(), numarali ? 'lid' : sinif);
+      bloklar.forEach(function (b) { if (/^(UL|OL)$/.test(b.tagName.toUpperCase())) self.liste(b, 'li2'); else self.dugum(b); });
+    });
+  };
+  IcerikYapici.prototype.notKutusu = function (n) {
+    this.not = true; this.notIlk = true;
+    var ilk = n.firstChild; while (ilk && ilk.nodeType === 3 && !ilk.nodeValue.trim()) ilk = ilk.nextSibling;
+    if (ilk && ilk.nodeType === 1 && /^(B|STRONG)$/.test(ilk.tagName.toUpperCase()) && !blokVarMi(n)) {
+      this.ekle('<b>' + ilk.innerHTML + '</b>', '');
+      var kalan = ''; for (var c = ilk.nextSibling; c; c = c.nextSibling) kalan += c.nodeType === 3 ? esc(c.nodeValue) : (c.nodeType === 1 ? c.outerHTML : '');
+      this.paragraf(kalan);
+    } else this.cocuklar(n);
+    this.not = false; this.notIlk = false;
+  };
+  IcerikYapici.prototype.ornek = function (n) {
+    var self = this, et = n.querySelector('.etiket'), metin = n.querySelector('.metin'), coz = n.querySelector('.cozum'), ilk = true;
+    this.ekle(esc(et ? yaziMetni(et) : 'Örnek'), 'label');
+    if (metin) satirlaraBol(metin).forEach(function (h) { self.ekle(h, ilk ? 'q' : 'qd'); ilk = false; });
+    if (coz) { this.ekle('Çözüm', 'label', 'Çözüme bakalım.'); satirlaraBol(coz).forEach(function (h) { self.paragraf(h); }); }
+  };
+  // bolumler: [{ ad, dugumler: [düğüm...] }] → bölümlü ders
+  function icerikDers(o) {
+    var adimlar = [], bolumler = [];
+    (o.bolumler || []).forEach(function (b) {
+      var y = new IcerikYapici();
+      b.dugumler.forEach(function (n) { y.dugum(n); });
+      if (y.adimlar.length < (o.enAz || 1)) return;
+      bolumler.push({ ad: b.ad, adim: adimlar.length, el: b.el || null });
+      var bs = konusmaMetni(b.ad); if (!/[.!?:]$/.test(bs)) bs += '.';
+      adimlar.push({ sil: 1, sahne: null, h: [{ c: 'title', html: esc(b.ad) }], s: bs });
+      adimlar.push.apply(adimlar, y.adimlar);
+    });
+    if (!adimlar.length) return null;
+    return { id: o.id || ('ic-' + ozet(o.baslik + adimlar.length)), baslik: o.baslik, adimlar: adimlar, bolumler: bolumler, dugme: 'Anlatımı başlat' };
+  }
+  // Kapsayıcının çocuklarını başlıklara (H3 ya da H2) ve başlıklı kartlara göre bölümlere ayır
+  function bolumlereAyir(kok, baslik, opt) {
+    opt = opt || {};
+    var etiket = opt.etiket || 'H3', bolumler = [], cur = { ad: baslik, dugumler: [], el: null };
+    var kapat = function () { if (cur.dugumler.length) bolumler.push(cur); };
+    Array.prototype.forEach.call(kok.childNodes, function (c) {
+      if (c.nodeType === 3) { if (c.nodeValue.trim()) cur.dugumler.push(c); return; }
+      if (c.nodeType !== 1 || gorunmez(c) || /(^|\s)(sd-anlat|sd-arac)(\s|$)/.test(sinifi(c))) return;
+      var ust = c.tagName.toUpperCase();
+      if (ust === etiket) { kapat(); cur = { ad: opt.ad ? opt.ad(c) : basliksizMetin(c), dugumler: [], el: c }; return; }
+      if (opt.kart && /(^|\s)card(\s|$)/.test(sinifi(c))) {
+        if (c.querySelector('[onclick^="molToggle("]')) return;
+        var lbl = null; for (var x = c.firstElementChild; x; x = x.nextElementSibling) if (/(^|\s)slbl(\s|$)/.test(sinifi(x))) { lbl = x; break; }
+        if (lbl) {
+          kapat();
+          cur = { ad: basliksizMetin(lbl), dugumler: Array.prototype.filter.call(c.childNodes, function (y) { return y !== lbl; }), el: c };
+          kapat(); cur = { ad: baslik, dugumler: [], el: null };
+          return;
+        }
+      }
+      cur.dugumler.push(c);
+    });
+    kapat();
+    return bolumler;
+  }
+  // banka verisindeki konu nesnesi { ad, anlatim, ornek } → ders (örnekler bölümlerine yerleşir)
+  function konuVerisindenDers(k, onEk) {
+    var html = k.anlatim || '', ornek = k.ornek || [], parca = html.split(/(?=<h3[\s>])/), no = 0;
+    var kutu = function (x) { no++; return '<div class="ornek"><div class="etiket">Çözümlü örnek ' + no + '</div><div class="metin">' + x.s + '</div><div class="cozum">' + x.c + '</div></div>'; };
+    var bolumlu = ornek.some(function (x) { return typeof x.b === 'number'; }), ilkVar = !/^\s*<h3/.test(parca[0]);
+    if (bolumlu) {
+      html = parca.map(function (p, i) { var bi = ilkVar ? i - 1 : i; return p + ornek.filter(function (x) { return x.b === bi; }).map(kutu).join(''); }).join('');
+      html += ornek.filter(function (x) { return typeof x.b !== 'number'; }).map(kutu).join('');
+    } else if (ornek.length) html += '<h3>Çözümlü örnekler</h3>' + ornek.map(kutu).join('');
+    var d = document.createElement('article'); d.innerHTML = html;
+    return icerikDers({ id: 'rb-' + (k.id || ozet(k.ad)), baslik: (onEk || '') + k.ad, bolumler: bolumlereAyir(d, k.ad) });
+  }
+
   /* ================= tahta, kalem ve yazı seçenekleri ================= */
   var TAHTALAR = {
     beyaz: { ad: 'Beyaz tahta', kalem: 'marker', zemin: '#FFFFFF', cerceve: 'metal', koyu: false, izgara: false },
@@ -529,7 +771,7 @@
   ];
   var ayar = {
     tahta: depo.al('tahta', 'beyaz'), kalem: depo.al('kalem', null), renk: depo.al('renk', 0), yazi: depo.al('yazi', 'caveat'),
-    cins: depo.al('cins', 'k'), sesAdi: depo.al('ses', ''), kaynak: depo.al('kaynak', 'cihaz'),
+    cins: depo.al('cins', 'k'), sesAdi: depo.al('ses', ''), kaynak: depo.al('kaynak', null), bulutSes: depo.al('bulutSes', ''),
     tarz: Math.min(3, depo.al('tarz', 0)), hiz: depo.al('hiz', 1), ogretmen: depo.al('ogretmen', true)
   };
   if (!TAHTALAR[ayar.tahta]) ayar.tahta = 'beyaz';
@@ -588,7 +830,7 @@
       this.oranFn = null;
       if (kayit && kayit.url) {
         return new Promise(function (bitir) {
-          var a = self.ortak(), bitti = false, zaman, oran;
+          var a = self.ortak(), bitti = false, zaman, oran, oh = kayit.bulut ? hiz : Math.max(0.5, Math.min(2, ayar.hiz));
           self.ses = a;
           var son = function (n) {
             if (bitti) return; bitti = true; clearTimeout(zaman);
@@ -596,14 +838,16 @@
             a.onended = a.onerror = a.onloadedmetadata = null;
             bitir(n);
           };
-          a.onloadedmetadata = function () { olay.basla && olay.basla((isFinite(a.duration) ? a.duration : kayit.sure || 3) * 1000, false); };
+          var surele = function (sn) { clearTimeout(zaman); zaman = setTimeout(function () { son('zaman'); }, sn * 1000); };
+          a.onloadedmetadata = function () { var d = isFinite(a.duration) ? a.duration : (kayit.sure || 3); olay.basla && olay.basla(d / oh * 1000, false); surele(d / oh + 10); };
           oran = function () { var d = isFinite(a.duration) && a.duration > 0 ? a.duration : (kayit.sure || 3); return Math.min(1, a.currentTime / d); };
           self.oranFn = oran;
           a.onended = function () { son('bitti'); };
           a.onerror = function () { son('hata'); };
           a.src = kayit.url;
+          try { a.defaultPlaybackRate = oh; a.playbackRate = oh; } catch (e) {}
           var p = a.play(); if (p && p.catch) p.catch(function () { son('hata'); });
-          zaman = setTimeout(function () { son('zaman'); }, ((kayit.sure || 30) + 8) * 1000);
+          surele(kayit.sure ? kayit.sure / oh + 10 : 45);
           self.kayitBitir = function () { son('iptal'); };
         });
       }
@@ -785,6 +1029,13 @@
     '@container (max-width:639px){.b-q,.b-qd{font-size:.68em}}',
     '.b-q b,.b-qd b{font-weight:700}.b-q sub,.b-q sup,.b-qd sub,.b-qd sup{font-size:.72em}',
     '.vurgu{color:var(--k-kirmizi)}',
+    '.b-alt{font-weight:700;color:var(--k-mavi);margin-top:.28em}',
+    '.b-li,.b-lid{position:relative;padding-left:1.05em}.b-li2{position:relative;padding-left:2em}',
+    '.b-li::before{content:"•";position:absolute;left:.2em;color:var(--k-turuncu)}.b-li2::before{content:"–";position:absolute;left:1.05em;color:var(--k-turuncu)}',
+    '.b-q.b-li,.b-qd.b-li,.b-q.b-lid,.b-qd.b-lid{padding-left:2.5em}.b-q.b-li2,.b-qd.b-li2{padding-left:3.3em}',
+    '.b-q.b-li::before,.b-qd.b-li::before{left:1.55em;color:#E04E00}.b-q.b-li2::before,.b-qd.b-li2::before{left:2.4em;color:#E04E00}',
+    '.b-sekil{text-align:center}.b-sekil .altyazi-sekil{font-family:var(--ui);font-size:.5em;color:var(--k-gri);margin-top:.2em;text-shadow:none}',
+    '.koyu .b-sekil .altyazi-sekil{color:#E9EEF2}',
     '.w.ciz::after{content:"";position:absolute;left:-6%;right:-6%;top:50%;height:.09em;border-radius:.05em;background:var(--k-kirmizi);transform:rotate(-14deg) scaleX(0);transform-origin:left center;animation:ciz .45s .05s forwards}',
     '.w.ciz{opacity:.55}',
     '.w.halka::before{content:"";position:absolute;inset:-.16em -.32em -.1em;border:.075em solid var(--k-turuncu);border-radius:50%;transform:rotate(-4deg) scale(.6);opacity:0;animation:halka .5s forwards}',
@@ -830,6 +1081,8 @@
     '.sd-altyazi{min-height:3.4em;background:var(--kart);border:1px solid var(--cizgi);border-radius:12px;padding:10px 14px;font-size:15.5px;line-height:1.55}',
     '.sd-altyazi .k{border-radius:4px;transition:background-color .12s,color .12s}.sd-altyazi .k.su{background:var(--turuncu-y);color:var(--turuncu-k);box-shadow:0 0 0 2px var(--turuncu-y)}',
     '.sd-altyazi .bos{color:var(--gri)}',
+    '.sd-bolum{display:flex;align-items:center;gap:8px;min-width:0}.sd-bolum label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gri);white-space:nowrap}',
+    '.sd-bolum select{flex:1;min-width:0;width:auto;padding:7px 10px;font-size:14.5px;border-radius:10px}',
     '.sd-oynatici{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
     '.yv{width:42px;height:42px;border-radius:50%;border:1px solid var(--cizgi);background:var(--kart);display:grid;place-items:center;color:var(--murekkep);padding:0}',
     '.yv svg{width:18px;height:18px}.yv.ana{width:54px;height:54px;border:0;background:var(--turuncu);color:#fff}.yv.ana svg{width:22px;height:22px}.yv:disabled{opacity:.4;cursor:default}',
@@ -934,6 +1187,7 @@
           '<div class="sd-ogretmen kadin" data-r="ogretmen">' + OGRETMEN_SVG + '</div>' +
           '<div class="sd-perde" data-r="perde"><div class="sd-perde-ic"><button type="button" data-r="perdeDugme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="rgba(255,255,255,.22)"/><path d="M9.5 7.5 L17 12 L9.5 16.5 Z" fill="#fff"/></svg><span data-r="perdeYazi">Dersi başlat</span></button><small data-r="perdeAlt">Ses açıkken başlat. Tahtaya yazılanlar sesle birlikte ilerler.</small></div></div>' +
         '</div><div class="sd-raf" data-r="raf" aria-hidden="true"></div></div>' +
+        '<div class="sd-bolum" data-r="bolumKutu" hidden><label for="sd-bolum-sec">Bölüm</label><select id="sd-bolum-sec" data-r="bolumSec" aria-label="Bölüm seç"></select></div>' +
         '<div class="sd-altyazi" data-r="altyazi"><span class="bos">Altyazı burada görünür: konuşulan kelime renklenir.</span></div>' +
         '<div class="sd-oynatici">' +
           '<button type="button" class="yv" data-r="geri" aria-label="Önceki adım">' + ikon('geri') + '</button>' +
@@ -955,9 +1209,9 @@
           '<div class="alan"><label>Yazı karakteri<select data-r="yaziSec" style="margin-top:6px"></select></label></div>' +
         '</section>' +
         '<section class="kart"><h3>Ses ve anlatım</h3>' +
-          '<div class="alan"><span class="etiket">Ses kaynağı</span><div class="secim" data-r="kaynaklar"><button type="button" data-kaynak="cihaz">Cihaz sesi</button><button type="button" data-kaynak="kayit">Öğretmen kaydı</button></div><p class="not" data-r="kaynakNot"></p></div>' +
+          '<div class="alan"><span class="etiket">Ses kaynağı</span><div class="secim" data-r="kaynaklar"><button type="button" data-kaynak="bulut" hidden>Doğal sesler</button><button type="button" data-kaynak="cihaz">Cihaz sesi</button><button type="button" data-kaynak="kayit">Öğretmen kaydı</button></div><p class="not" data-r="kaynakNot"></p></div>' +
           '<div class="alan"><span class="etiket">Ses</span><div class="secim" data-r="cinsler"><button type="button" data-cins="k">Kadın</button><button type="button" data-cins="e">Erkek</button></div></div>' +
-          '<div class="alan"><label>Cihazdaki Türkçe sesler<select data-r="sesSec" style="margin-top:6px"></select></label></div>' +
+          '<div class="alan"><label><span data-r="sesEtiket">Cihazdaki Türkçe sesler</span><select data-r="sesSec" style="margin-top:6px"></select></label></div>' +
           '<div class="alan"><span class="etiket">Anlatım tarzı</span><div class="secim" data-r="tarzlar"></div></div>' +
           '<div class="alan"><label>Hız</label><div class="satir"><input type="range" data-r="hiz" min="0.7" max="1.4" step="0.05" aria-label="Hız"><output data-r="hizDeger">1,00×</output></div></div>' +
           '<label class="anahtar"><input type="checkbox" data-r="ogrGoster"> Öğretmen figürünü göster</label>' +
@@ -1030,7 +1284,8 @@
     this.gorunumUygula();
     this.sesListesi();
     var klasor = this.opt.kayitKlasoru != null ? this.opt.kayitKlasoru : (window.SESLI_DERS_KAYIT_KLASORU || (BETIK_DIZIN ? BETIK_DIZIN + 'sesli/' : false));
-    if (klasor) Yayin.yukle(klasor).then(function () { self.kayitDurumu(); });
+    if (klasor) Yayin.yukle(klasor).then(function () { self.sesListesi(); self.kayitDurumu(); self.bulutHazirla(); });
+    else if (window.SESLI_DERS_BULUT) { Bulut.adres = window.SESLI_DERS_BULUT; setTimeout(function () { self.sesListesi(); }, 0); }
   }
   Oynatici.hepsi = [];
   Oynatici.prototype.temaKoy = function (t) {
@@ -1041,6 +1296,7 @@
     var self = this, r = this.r;
     r.oynat.addEventListener('click', function () { self.oynatDuraklat(); });
     r.perdeDugme.addEventListener('click', function () { self.calis(self.P.i >= self.P.adimlar.length ? 0 : Math.max(0, self.P.i)); });
+    r.bolumSec.addEventListener('change', function () { var B = self.P.bolumler, b = B && B[+r.bolumSec.value]; if (b) self.calis(b.adim); });
     r.ileri.addEventListener('click', function () { self.calis(Math.min(self.P.adimlar.length - 1, self.P.i + 1)); });
     r.geri.addEventListener('click', function () { self.calis(Math.max(0, self.P.i - 1)); });
     r.bastan.addEventListener('click', function () { self.calis(0); });
@@ -1065,10 +1321,17 @@
     r.kalemler.addEventListener('click', function (e) { var b = e.target.closest('[data-kalem]'); if (!b) return; ayar.kalem = b.getAttribute('data-kalem'); ayar.renk = 0; depo.yaz('kalem', ayar.kalem); depo.yaz('renk', 0); Oynatici.hepsi.forEach(function (o) { o.gorunumUygula(); }); });
     r.renkler.addEventListener('click', function (e) { var b = e.target.closest('[data-renk]'); if (!b) return; ayar.renk = +b.getAttribute('data-renk'); depo.yaz('renk', ayar.renk); Oynatici.hepsi.forEach(function (o) { o.gorunumUygula(); }); });
     r.yaziSec.addEventListener('change', function () { ayar.yazi = r.yaziSec.value; depo.yaz('yazi', ayar.yazi); Oynatici.hepsi.forEach(function (o) { o.gorunumUygula(); }); });
-    r.kaynaklar.addEventListener('click', function (e) { var b = e.target.closest('[data-kaynak]'); if (!b) return; ayar.kaynak = b.getAttribute('data-kaynak'); depo.yaz('kaynak', ayar.kaynak); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); o.kayitDurumu(); }); });
-    r.cinsler.addEventListener('click', function (e) { var b = e.target.closest('[data-cins]'); if (!b) return; ayar.cins = b.getAttribute('data-cins'); ayar.sesAdi = ''; depo.yaz('cins', ayar.cins); depo.yaz('ses', ''); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); o.gorunumUygula(); }); });
+    r.kaynaklar.addEventListener('click', function (e) { var b = e.target.closest('[data-kaynak]'); if (!b) return; ayar.kaynak = b.getAttribute('data-kaynak'); depo.yaz('kaynak', ayar.kaynak); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); o.kayitDurumu(); o.bulutHazirla(); }); });
+    r.cinsler.addEventListener('click', function (e) { var b = e.target.closest('[data-cins]'); if (!b) return; ayar.cins = b.getAttribute('data-cins'); ayar.sesAdi = ''; ayar.bulutSes = ''; depo.yaz('cins', ayar.cins); depo.yaz('ses', ''); depo.yaz('bulutSes', ''); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); o.gorunumUygula(); }); });
     r.sesSec.addEventListener('focus', function () { if (!Ses.tr.length) self.sesListesi(); });
     r.sesSec.addEventListener('change', function () {
+      if (kaynakNe() === 'bulut') {
+        var bv = BULUT_SESLER.filter(function (x) { return x.id === r.sesSec.value; })[0];
+        ayar.bulutSes = bv ? bv.id : ''; depo.yaz('bulutSes', ayar.bulutSes);
+        if (bv) { ayar.cins = bv.cins; depo.yaz('cins', ayar.cins); }
+        Oynatici.hepsi.forEach(function (o) { o.sesListesi(); o.gorunumUygula(); o.bulutHazirla(); });
+        return;
+      }
       ayar.sesAdi = r.sesSec.value; depo.yaz('ses', ayar.sesAdi);
       var v = Ses.tr.filter(function (x) { return x.voiceURI === ayar.sesAdi; })[0];
       if (v && Ses.cinsi(v) !== '?') { ayar.cins = Ses.cinsi(v); depo.yaz('cins', ayar.cins); }
@@ -1156,10 +1419,23 @@
     r.tarzlar.innerHTML = TARZLAR.map(function (x, i) { return '<button type="button" data-tarz="' + i + '" aria-pressed="' + (i === ayar.tarz) + '">' + x.ad + '</button>'; }).join('');
     r.hiz.value = ayar.hiz; r.hizDeger.textContent = Number(ayar.hiz).toFixed(2).replace('.', ',') + '×';
     Array.prototype.forEach.call(r.cinsler.querySelectorAll('[data-cins]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-cins') === ayar.cins)); });
-    Array.prototype.forEach.call(r.kaynaklar.querySelectorAll('[data-kaynak]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-kaynak') === ayar.kaynak)); });
+    var ek = kaynakNe(); Array.prototype.forEach.call(r.kaynaklar.querySelectorAll('[data-kaynak]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-kaynak') === ek)); });
   };
   Oynatici.prototype.sesListesi = function () {
-    var r = this.r;
+    var r = this.r, kaynak = kaynakNe();
+    var bd = r.kaynaklar.querySelector('[data-kaynak="bulut"]'); if (bd) bd.hidden = !Bulut.hazir();
+    Array.prototype.forEach.call(r.kaynaklar.querySelectorAll('[data-kaynak]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-kaynak') === kaynak)); });
+    if (kaynak === 'bulut') {
+      var sv = Bulut.ses(), bop = function (v) { return '<option value="' + v.id + '">' + esc(v.ad) + '</option>'; };
+      r.sesEtiket.textContent = 'Doğal sesler (Google)';
+      r.sesSec.innerHTML = '<optgroup label="Kadın sesleri">' + BULUT_SESLER.filter(function (v) { return v.cins === 'k' && v.grup === 'dogal'; }).map(bop).join('') + '</optgroup>' +
+        '<optgroup label="Erkek sesleri">' + BULUT_SESLER.filter(function (v) { return v.cins === 'e' && v.grup === 'dogal'; }).map(bop).join('') + '</optgroup>' +
+        '<optgroup label="Sade sesler">' + BULUT_SESLER.filter(function (v) { return v.grup !== 'dogal'; }).map(function (v) { return '<option value="' + v.id + '">' + esc(v.ad + (v.cins === 'k' ? ' · kadın' : ' · erkek')) + '</option>'; }).join('') + '</optgroup>';
+      r.sesSec.value = sv.id; r.sesSec.disabled = false;
+      r.sesNot.hidden = !this.bulutUyari; r.sesNot.textContent = this.bulutUyari || '';
+      return;
+    }
+    r.sesEtiket.textContent = 'Cihazdaki Türkçe sesler';
     Ses.yukle();
     var gruplar = { k: [], e: [], '?': [] };
     Ses.tr.forEach(function (v) { gruplar[Ses.cinsi(v)].push(v); });
@@ -1172,7 +1448,15 @@
     var s = Ses.sec();
     r.sesNot.textContent = s.not || ''; r.sesNot.hidden = !s.not;
     r.sesSec.disabled = !Ses.tr.length;
-    Array.prototype.forEach.call(r.kaynaklar.querySelectorAll('[data-kaynak]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-kaynak') === ayar.kaynak)); });
+  };
+  // Bulut sesinde ilk cümle önceden istenir; başlatınca beklemeden çalar
+  Oynatici.prototype.bulutHazirla = function () {
+    var a = this.P.adimlar && this.P.adimlar[Math.max(0, this.P.i)];
+    if (a && kaynakNe() === 'bulut') Bulut.al(a.s).catch(function () {});
+  };
+  Oynatici.prototype.bulutUyar = function () {
+    this.bulutUyari = 'Doğal seslere şu an ulaşılamadı; cümleler cihaz sesiyle okunuyor.';
+    this.r.sesNot.textContent = this.bulutUyari; this.r.sesNot.hidden = false;
   };
 
   /* ---- öğretmen ---- */
@@ -1202,7 +1486,7 @@
   };
   Oynatici.prototype.blok = function (b, oto) {
     var el = document.createElement('div');
-    el.className = 'blok' + (b.c ? ' b-' + b.c : '');
+    el.className = 'blok' + (b.c ? ' ' + String(b.c).split(/\s+/).filter(Boolean).map(function (x) { return 'b-' + x; }).join(' ') : '');
     if (b.html != null) { el.innerHTML = b.html; stilTemizle(el); kelimele(el); return el; }
     el.innerHTML = sozcukler(b.t).map(function (x, i) {
       return (i && !x.bitisik ? ' ' : '') + '<span class="w"' + (x.k ? ' data-k="' + x.k + '"' : '') + '>' + (oto ? otomatikHTML(x.t) : isaretHTML(x.t)) + '</span>';
@@ -1456,7 +1740,7 @@
     Promise.all(adimlar.map(function (a) { var h = ozet(a.s); return Kayitlar.al('k:' + h).then(function (v) { return !!(v && v.veri) || !!Yayin.al(h); }); })).then(function (var_) {
       var n = var_.filter(Boolean).length;
       self.kayitVar = {}; adimlar.forEach(function (a, i) { if (var_[i]) self.kayitVar[ozet(a.s)] = 1; });
-      r.kaynakNot.textContent = ayar.kaynak === 'kayit'
+      r.kaynakNot.textContent = kaynakNe() === 'bulut' ? 'Cümleler Google’ın doğal Türkçe sesleriyle okunur. Bir cümle ilk kez seslendirilirken kısa bir bekleme olabilir.' : kaynakNe() === 'kayit'
         ? (n ? 'Bu derste ' + adimlar.length + ' adımın ' + n + '’i öğretmen kaydıyla oynar; kalanlar cihaz sesiyle.' : 'Bu ders için henüz öğretmen kaydı yok; “Kendi sesinle kaydet” ile ekleyebilirsin.')
         : (n ? 'Bu dersin ' + n + ' adımı için öğretmen kaydı var.' : '');
     });
@@ -1464,9 +1748,12 @@
 
   /* ---- oynatma ---- */
   Oynatici.prototype.kur = function (n) {
-    var self = this, zincir = Promise.resolve();
+    var self = this, zincir = Promise.resolve(), A = this.P.adimlar, bas = 0;
+    n = Math.min(n, A.length);
+    for (var j = n - 1; j > 0; j--) if (A[j].sil) { bas = j; break; }
     this.temizle(); this.sahneGizle();
-    for (var k = 0; k < n; k++) (function (a) {
+    if (bas > 0 && !('sahne' in A[bas])) for (var sj = bas - 1; sj >= 0; sj--) if ('sahne' in A[sj]) { this.sahneGoster(A[sj].sahne); break; }
+    for (var k = bas; k < n; k++) (function (a) {
       zincir = zincir.then(function () {
         if (a.sil) self.temizle();
         if ('sahne' in a) self.sahneGoster(a.sahne);
@@ -1511,7 +1798,10 @@
   };
   Oynatici.prototype.adimCalistir = function (a, jeton) {
     var self = this;
-    var kayitSoz = ayar.kaynak === 'kayit' ? this.kayitBul(a.s) : Promise.resolve(null);
+    var kaynak = kaynakNe(), kayitSoz;
+    if (kaynak === 'kayit') kayitSoz = this.kayitBul(a.s).then(function (k) { return k || (Bulut.hazir() ? Bulut.al(a.s).catch(function () { return null; }) : null); });
+    else if (kaynak === 'bulut') kayitSoz = Bulut.al(a.s).catch(function () { self.bulutUyar(); return null; });
+    else kayitSoz = Promise.resolve(null);
     var hazir = a.sil ? this.sil(false) : Promise.resolve();
     return Promise.all([hazir, kayitSoz]).then(function (sonuc) {
       if (jeton !== self.P.jeton) return;
@@ -1535,7 +1825,8 @@
       var sonraki = function () {
         if (jeton !== self.P.jeton) return;
         if (i >= self.P.adimlar.length) { self.P.calisiyor = false; self.P.i = self.P.adimlar.length; self.arayuz(); self.bitti(); return; }
-        self.P.i = i; self.arayuz();
+        self.P.i = i; self.arayuz(); self.bolumIzle();
+        var sonA = self.P.adimlar[i + 1]; if (sonA && kaynakNe() === 'bulut') Bulut.al(sonA.s).catch(function () {});
         return self.adimCalistir(self.P.adimlar[i], jeton).then(function () {
           if (jeton !== self.P.jeton) return;
           i++;
@@ -1567,7 +1858,14 @@
     r.oynat.innerHTML = ikon(P.calisiyor ? 'dur' : 'oynat');
     r.geri.disabled = P.i <= 0; r.ileri.disabled = P.i >= n - 1;
   };
-  Oynatici.prototype.yukle = function (id) {
+  Oynatici.prototype.bolumIzle = function () {
+    var B = this.P.bolumler, i = this.P.i, sec = 0;
+    if (!B || B.length < 2) return;
+    for (var k = 0; k < B.length; k++) if (B[k].adim <= i) sec = k;
+    if (this.r.bolumSec.value !== String(sec)) this.r.bolumSec.value = String(sec);
+  };
+  Oynatici.prototype.yukle = function (id, opt) {
+    opt = opt || {};
     this.durdur();
     var ders = typeof id === 'object' ? id : null;
     if (ders) id = ders.id || 'ders';
@@ -1579,15 +1877,20 @@
     this.P.ders = ders || this.dersler[id] || null;
     this.P.adimlar = this.adimListeleri[id]; this.P.i = -1;
     if (this.r.baslik) this.r.baslik.textContent = (ders && ders.baslik) || 'Sesli anlatım';
-    var self = this;
-    this.kur(1).then(function () { self.arayuz(); });
-    this.r.perdeYazi.textContent = id === 'metin' ? 'Metni anlat' : /^(km-|d)/.test(id) || id === 'soru' ? 'Çözümü başlat' : 'Dersi başlat';
+    var self = this, B = this.P.bolumler = this.P.ders && this.P.ders.bolumler ? this.P.ders.bolumler.map(function (b) { return { ad: b.ad, adim: b.adim, el: b.el }; }) : null, bas = 0;
+    this.r.bolumKutu.hidden = !(B && B.length > 1);
+    this.r.bolumSec.innerHTML = B && B.length > 1 ? B.map(function (b, k) { return '<option value="' + k + '">' + esc((k + 1) + '. ' + b.ad) + '</option>'; }).join('') : '';
+    if (B && opt.bolum != null && B[opt.bolum]) bas = B[opt.bolum].adim;
+    if (opt.adim != null) bas = Math.max(0, Math.min(this.P.adimlar.length - 1, opt.adim));
+    if (bas > 0) this.P.i = bas;
+    this.kur(bas + 1).then(function () { self.arayuz(); self.bolumIzle(); });
+    this.r.perdeYazi.textContent = (ders && ders.dugme) || (id === 'metin' ? 'Metni anlat' : /^(km-|d|ry-)/.test(id) || id === 'soru' ? 'Çözümü başlat' : 'Dersi başlat');
     this.r.perdeAlt.textContent = 'Ses açıkken başlat. Tahtaya yazılanlar sesle birlikte ilerler.';
     this.r.perde.hidden = false;
     this.altyaziBos('Altyazı burada görünür: konuşulan kelime renklenir.');
     Array.prototype.forEach.call(this.kok.querySelectorAll('.sd-sekmeler [data-ders]'), function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-ders') === id)); });
     if (this.r.metinKart) this.r.metinKart.hidden = id !== 'metin';
-    this.ozelListeCiz(); this.arayuz(); this.kayitDurumu();
+    this.ozelListeCiz(); this.arayuz(); this.kayitDurumu(); this.bulutHazirla();
     return this;
   };
 
@@ -1601,6 +1904,7 @@
     var adim = { oto: 1, ozel: 1, w: [{ c: 'ozel', t: t }], s: konusmaMetni(t) };
     var yer = this.P.i >= 0 && this.P.i < this.P.adimlar.length ? this.P.i + 1 : this.P.adimlar.length;
     this.P.adimlar.splice(yer, 0, adim);
+    (this.P.bolumler || []).forEach(function (b) { if (b.adim >= yer) b.adim++; });
     inp.value = ''; this.ozelListeCiz(); this.arayuz();
     if (!this.P.calisiyor) this.calis(yer);
   };
@@ -1609,6 +1913,7 @@
     if (idx < 0) return;
     if (this.P.calisiyor) this.durdur();
     this.P.adimlar.splice(idx, 1);
+    (this.P.bolumler || []).forEach(function (b) { if (b.adim > idx) b.adim--; });
     if (this.P.i > idx) this.P.i--; else if (this.P.i >= this.P.adimlar.length) this.P.i = this.P.adimlar.length - 1;
     this.ozelListeCiz(); this.kur(Math.max(0, this.P.i)).then(function () { self.arayuz(); });
   };
@@ -1733,6 +2038,7 @@
   var pencereOynatici = null;
   function ac(ders, opt) {
     opt = opt || {};
+    if (ders && ders.bolumBas != null && opt.bolum == null) opt.bolum = ders.bolumBas;
     if (!pencereOynatici) {
       var h = document.createElement('div');
       h.setAttribute('data-sesli-ders', 'pencere');
@@ -1745,7 +2051,7 @@
     if (pencereOynatici.host.style.display !== 'block') pencereOynatici.eskiTasma = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
     pencereOynatici.host.style.display = 'block';
-    pencereOynatici.yukle(ders);
+    pencereOynatici.yukle(ders, opt);
     if (!ac.esc) { ac.esc = true; document.addEventListener('keydown', function (e) { if (e.key !== 'Escape' || !pencereOynatici || pencereOynatici.host.style.display !== 'block') return; if (!pencereOynatici.r.studyo.hidden) pencereOynatici.studyoKapat(); else pencereOynatici.kapat(); }); }
     setTimeout(function () { try { pencereOynatici.r.perdeDugme.focus(); } catch (e) {} }, 50);
     return pencereOynatici;
@@ -1760,13 +2066,17 @@
       '.sd-anlat.koyu{color:#fdba74;background:rgba(248,83,0,.14);border-color:rgba(248,83,0,.45)}.sd-anlat.koyu:hover{background:rgba(248,83,0,.26)}' +
       '.sd-anlat.serit{display:flex;width:100%;margin-top:6px;border-radius:10px;padding:8px;font-size:12.5px}' +
       '.sd-anlat.kucuk{margin-top:8px}' +
+      '.sd-arac{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 14px}' +
+      '.sd-anlat.buyuk{font-size:13.5px;letter-spacing:.02em;padding:9px 16px;box-shadow:0 6px 14px -10px rgba(194,65,0,.6)}' +
+      '.sd-anlat.baslikta{margin-left:10px;vertical-align:middle;font:800 11.5px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.03em;text-transform:none;padding:3px 10px}' +
+      '.sd-anlat.yanda{margin-left:8px}' +
       '@media print{.sd-anlat{display:none!important}}';
     document.head.appendChild(st);
   }
-  function dugme(sinif, etiket, fn) {
+  function dugme(sinif, etiket, fn, yazi) {
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'sd-anlat' + (sinif ? ' ' + sinif : '');
-    b.innerHTML = '<span aria-hidden="true">🔊</span> Sesli anlat';
+    b.innerHTML = '<span aria-hidden="true">🔊</span> ' + esc(yazi || 'Sesli anlat');
     b.setAttribute('aria-label', etiket);
     b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); fn(); });
     return b;
@@ -1807,7 +2117,107 @@
     tara();
     if (window.MutationObserver) new MutationObserver(function () { if (!bekliyor) { bekliyor = true; requestAnimationFrame(tara); } }).observe(document.body, { childList: true, subtree: true });
   }
-  function kopruler() { try { kimyamedKopru(); } catch (e) {} try { ronyaKopru(); } catch (e) {} }
+  function bolumBul(ders, el) { var B = ders && ders.bolumler || []; for (var k = 0; k < B.length; k++) if (B[k].el === el) return k; return 0; }
+  function icerikVarMi(dugumler) {
+    return dugumler.some(function (n) {
+      if (n.nodeType !== 1 || gorunmez(n) || ATLA_SINIF.test(sinifi(n)) || ATLA_ETIKET.test(n.tagName.toUpperCase())) return false;
+      return /^(P|UL|OL|FIGURE|TABLE|BLOCKQUOTE|H3|H4|SVG|IMG|CANVAS)$/.test(n.tagName.toUpperCase()) || (n.tagName.toUpperCase() === 'DIV' && yaziMetni(n).length > 25);
+    });
+  }
+  function aracEkle(kap, once, yazi, fn) {
+    var a = document.createElement('div'); a.className = 'sd-arac';
+    a.appendChild(dugme('buyuk', yazi, fn, yazi));
+    if (once) kap.insertBefore(a, once); else kap.appendChild(a);
+    return a;
+  }
+  function hazirlaVeAc(yap, opt) { // büyük sayfalarda dersi kurmak birkaç yüz milisaniye sürebilir
+    setTimeout(function () { var d = yap(); if (d) ac(d, opt); }, 0);
+  }
+  // Ronya soru bankası (banka.html): konu anlatımı, çözümlü örnekler, konu soruları
+  function bankaOrnekDers(o) {
+    var et = o.querySelector('.etiket');
+    return parcalardanDers({ id: 'rbo-' + ozet(yaziMetni(o).slice(0, 400)), baslik: et ? yaziMetni(et) : 'Örnek', soru: satirlaraBol(o.querySelector('.metin') || o), cozum: satirlaraBol(o.querySelector('.cozum') || document.createElement('div')) });
+  }
+  function ksDers(k) {
+    var g = k.querySelector('.ks-goster'), cz = k.querySelector('.ks-cozum');
+    if (g && cz && !yaziMetni(cz)) g.click(); // çözümü sayfada da aç ("Çözümü göster" ile aynı)
+    var no = k.querySelector('.ks-no'), siklar = [];
+    Array.prototype.forEach.call(k.querySelectorAll('.sik'), function (b) { var h = b.querySelector('.h'), t = b.querySelector('.t'); siklar.push('<b>' + esc(h ? yaziMetni(h) : '') + ')</b> ' + (t ? t.innerHTML : b.innerHTML)); });
+    var gb = cz && cz.querySelector('.geri-bildirim'), cozum = [];
+    if (gb) { var bb = gb.querySelector('b'); if (bb) cozum.push('<b>' + esc(yaziMetni(bb).replace(/^Yanlış\.\s*/, '')) + '</b>'); var gc = gb.querySelector('.gc'); if (gc) cozum = cozum.concat(satirlaraBol(gc)); }
+    return parcalardanDers({ id: 'rbs-' + ozet(yaziMetni(k).slice(0, 400)), baslik: no ? yaziMetni(no) : 'Soru', soru: satirlaraBol(k.querySelector('.soru-metin') || k), siklar: siklar, cozum: cozum });
+  }
+  function bankaKopru() {
+    Array.prototype.forEach.call(document.querySelectorAll('article.anlatim'), function (ar) {
+      if (ar.querySelector(':scope > .sd-arac')) return;
+      var bEl = document.querySelector('.rb-h1'), ad = bEl ? yaziMetni(bEl) : document.title;
+      var yap = function () { return icerikDers({ id: 'rb-' + ozet(ad + (location.hash || '').split('/').slice(0, 3).join('/')), baslik: ad, bolumler: bolumlereAyir(ar, ad) }); };
+      aracEkle(ar, ar.firstChild, 'Konuyu sesli anlat', function () { hazirlaVeAc(yap); });
+      Array.prototype.forEach.call(ar.querySelectorAll(':scope > h3'), function (h) {
+        h.appendChild(dugme('baslikta', 'Bu bölümü sesli anlat', function () { hazirlaVeAc(function () { var d = yap(); if (d) d.bolumBas = bolumBul(d, h); return d; }); }));
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.ornek'), function (o) {
+      if (o.querySelector('.sd-anlat') || !o.querySelector('.cozum')) return;
+      var b = dugme('yanda', 'Bu örneği sesli anlat', function () { ac(bankaOrnekDers(o)); });
+      var cb = o.querySelector('.cozum-btn'); if (cb) cb.insertAdjacentElement('afterend', b); else o.appendChild(b);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.ks-kart'), function (k) {
+      if (k.querySelector('.sd-anlat')) return;
+      var g = k.querySelector('.ks-goster'); if (!g) return;
+      g.insertAdjacentElement('afterend', dugme('yanda', 'Bu soruyu sesli çöz', function () { ac(ksDers(k)); }, 'Sesli çözüm'));
+    });
+  }
+  // Ronya ana sayfa ekranlarındaki konu anlatımları (hız, denge, asit-baz, çözünürlük, fonksiyonel gruplar)
+  var RONYA_KONU = '#maarif-content, #mdg-wrap, #mab-wrap, #cozunurluk-body, #fg-theory';
+  function ronyaKonuKopru() {
+    Array.prototype.forEach.call(document.querySelectorAll(RONYA_KONU), function (kap) {
+      if (!kap.firstElementChild || kap.querySelector(':scope > .sd-arac')) return;
+      var adBul = function () {
+        var ekran = kap.closest('[id^="s-"]'), t = ekran && ekran.querySelector('.ptitle'), ad = t ? yaziMetni(t).replace(/^[^A-Za-zÇĞİÖŞÜçğıöşü0-9]+/, '') : 'Konu anlatımı';
+        var alt = kap.parentNode && kap.parentNode.querySelector('.ob.sel2'); if (alt && !/soru/i.test(yaziMetni(alt))) ad += ' · ' + yaziMetni(alt);
+        return ad;
+      };
+      var bolumler = bolumlereAyir(kap, adBul(), { kart: true }).filter(function (b) { return icerikVarMi(b.dugumler); });
+      if (!bolumler.length) return;
+      var yap = function () { var ad = adBul(); return icerikDers({ id: 'rk-' + ozet(kap.id + ad), baslik: ad, bolumler: bolumlereAyir(kap, ad, { kart: true }), enAz: 1 }); };
+      aracEkle(kap, kap.firstChild, 'Konuyu sesli anlat', function () { hazirlaVeAc(yap); });
+      bolumler.forEach(function (b) {
+        if (!b.el) return;
+        var hedef = /(^|\s)card(\s|$)/.test(sinifi(b.el)) ? b.el.querySelector('.slbl') : b.el;
+        if (hedef && !hedef.querySelector('.sd-anlat')) hedef.appendChild(dugme('baslikta', 'Bu bölümü sesli anlat', function () { hazirlaVeAc(function () { var d = yap(); if (d) d.bolumBas = bolumBul(d, b.el); return d; }); }));
+      });
+    });
+  }
+  // kimyamed modül sayfaları: her "Bölüm" başlığına ve sayfa başına konu anlatımı düğmesi
+  function kimyamedKonuKopru() {
+    var main = document.querySelector('main.wrap') || document.querySelector('main');
+    if (!main || !main.querySelector(':scope > h2') || main.querySelector('.sd-arac')) return;
+    var h1 = document.querySelector('h1'), baslik = h1 ? yaziMetni(h1) : document.title;
+    var adFn = function (h) { var k = dugmesizKopya(h), no = k.querySelector('.no'), n = no ? yaziMetni(no) : ''; if (no) no.remove(); return (n ? n + ': ' : '') + yaziMetni(k); };
+    var bolumler = bolumlereAyir(main, baslik, { etiket: 'H2', ad: adFn }).filter(function (b) { return b.el && icerikVarMi(b.dugumler); });
+    if (!bolumler.length) return;
+    dugmeStili();
+    var yap = function () { return icerikDers({ id: 'kmk-' + ozet(location.pathname), baslik: baslik, bolumler: bolumlereAyir(main, baslik, { etiket: 'H2', ad: adFn }).filter(function (b) { return b.el; }), enAz: 2 }); };
+    var hero = main.querySelector('.hero');
+    aracEkle(hero || main, hero ? null : main.firstChild, 'Konuyu baştan sona sesli anlat', function () { hazirlaVeAc(yap); });
+    bolumler.forEach(function (b) {
+      if (!b.el.querySelector('.sd-anlat')) b.el.appendChild(dugme('baslikta', 'Bu bölümü sesli anlat', function () { hazirlaVeAc(function () { var d = yap(); if (d) d.bolumBas = bolumBul(d, b.el); return d; }); }));
+    });
+  }
+  function kopruler() {
+    try { kimyamedKopru(); } catch (e) {}
+    try { ronyaKopru(); } catch (e) {}
+    var izle = function () {
+      if (document.querySelector('article.anlatim, .ornek, .ks-kart, ' + RONYA_KONU)) dugmeStili();
+      try { bankaKopru(); } catch (e) {}
+      try { ronyaKonuKopru(); } catch (e) {}
+    };
+    izle();
+    var bekliyor = false;
+    if (window.MutationObserver && document.body) new MutationObserver(function () { if (!bekliyor) { bekliyor = true; setTimeout(function () { bekliyor = false; izle(); }, 120); } }).observe(document.body, { childList: true, subtree: true });
+    setTimeout(function () { try { kimyamedKonuKopru(); } catch (e) {} }, 250);
+  }
 
   var SesliDers = window.SesliDers = {
     surum: '1.0',
@@ -1824,6 +2234,10 @@
     kapat: function () { if (pencereOynatici) pencereOynatici.kapat(); },
     durdur: function () { Oynatici.hepsi.forEach(function (o) { if (o.P.calisiyor) o.durdur(); }); },
     sorudanDers: sorudanDers,
+    icerikDers: icerikDers,
+    bolumlereAyir: bolumlereAyir,
+    konuVerisindenDers: konuVerisindenDers,
+    paragrafParcalari: paragrafParcalari,
     ronyaDers: ronyaDers,
     satirlaraBol: satirlaraBol,
     parcalardanDers: parcalardanDers,

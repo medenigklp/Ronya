@@ -312,6 +312,11 @@
        tahta, keçeli kalem/tebeşir/akıllı kalem, yazı karakterleri, kadın ve
        erkek cihaz sesleri, öğretmenin kendi ses kaydı; çözümlü sorulara
        "Sesli anlat" düğmesi.
+   29) Sesli Ders her konuda: soru bankasındaki 59 konunun anlatımı bölüm
+       bölüm tahtada anlatılır (konu başında ve her bölüm başlığında düğme,
+       Sesli Ders ekranında sınıf ve konu seçici); hız, denge, asit-baz,
+       çözünürlük ve fonksiyonel grup anlatımlarına da düğme; Google'ın
+       doğal Türkçe sesleri için sesli/bulut.json + sesli/ses-servisi.js.
    KURULUM: index.html'de </body> etiketinden hemen önce,
    diğer script'lerin ALTINA şu satırı ekle:
    <script src="ronya-eklenti.js"></script>
@@ -10407,8 +10412,45 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
       '<div id="s-sesli" style="display:none"><div class="pw" style="max-width:1280px">' +
         '<h1 class="ptitle">🔊 Sesli Ders</h1>' +
         '<p class="psub">Konu anlatımı ve soru çözümü tahtaya yazılarak, sesle birlikte ilerler. Tahtayı, kalemi, yazıyı ve sesi Ayarlar’dan seç; kendi cümleni ya da metnini ekle, istersen kendi sesinle kaydet. Çözümlü sorulardaki “Sesli anlat” düğmeleri de bu tahtayı açar.</p>' +
+        '<div class="card" id="sesli-konu-kart" style="margin-bottom:14px">' +
+          '<div class="slbl">Bir konuyu tahtada dinle</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
+            '<select class="sel inp" id="sesli-sinif" aria-label="Sınıf" style="flex:0 1 190px;min-width:0"><option value="">Sınıf seç</option>' +
+              '<option value="9">9. Sınıf</option><option value="10">10. Sınıf</option><option value="11">11. Sınıf</option><option value="12m">12. Sınıf (Maarif)</option><option value="12e">12. Sınıf · AYT</option></select>' +
+            '<select class="sel inp" id="sesli-konu" aria-label="Konu" disabled style="flex:1 1 260px;min-width:0"><option value="">Önce sınıfı seç</option></select>' +
+            '<button type="button" class="btn bp" id="sesli-getir" disabled>Tahtaya getir</button>' +
+          '</div>' +
+          '<p id="sesli-konu-not" style="font-size:13px;color:var(--tx3);margin:8px 0 0">Konu soru bankasındaki anlatımla birlikte bölüm bölüm anlatılır; aradaki çözümlü örnekler de tahtada çözülür. Bölümü tahtanın altındaki listeden seçebilirsin.</p>' +
+        '</div>' +
         '<div id="sesli-kutu"></div>' +
       '</div></div>');
+    var sinifSec = document.getElementById('sesli-sinif'), konuSec = document.getElementById('sesli-konu'), getir = document.getElementById('sesli-getir'), not = document.getElementById('sesli-konu-not');
+    sinifSec.onchange = function(){
+      var sid = sinifSec.value;
+      konuSec.disabled = true; getir.disabled = true;
+      konuSec.innerHTML = '<option value="">' + (sid ? 'Konular yükleniyor…' : 'Önce sınıfı seç') + '</option>';
+      if (!sid) return;
+      sesliBankaYukle(sid).then(function(v){
+        var h = '<option value="">Konu seç</option>';
+        v.temalar.forEach(function(t){
+          h += '<optgroup label="' + String(t.ad).replace(/"/g, '&quot;') + '">' + t.konular.map(function(k){ return '<option value="' + k.id + '">' + String(k.ad).replace(/</g, '&lt;') + '</option>'; }).join('') + '</optgroup>';
+        });
+        konuSec.innerHTML = h; konuSec.disabled = false;
+      }, function(){ konuSec.innerHTML = '<option value="">Konular yüklenemedi; bağlantını kontrol edip yeniden dene</option>'; });
+    };
+    konuSec.onchange = function(){ getir.disabled = !konuSec.value; };
+    getir.onclick = function(){
+      var v = SESLI_BANKA[sinifSec.value], k = null;
+      if (!v || !window.SesliDers) return;
+      v.temalar.forEach(function(t){ t.konular.forEach(function(x){ if (x.id === konuSec.value) k = x; }); });
+      if (!k) return;
+      sesliEnter();
+      var ders = SesliDers.konuVerisindenDers(k);
+      if (!ders) { not.textContent = 'Bu konunun anlatımı henüz hazır değil.'; return; }
+      sesliOynatici.yukle(ders);
+      not.textContent = k.ad + ': ' + ders.bolumler.length + ' bölüm, ' + ders.adimlar.length + ' adım. Başlatmak için tahtadaki düğmeye bas.';
+      var kutu = document.getElementById('sesli-kutu'); if (kutu && kutu.scrollIntoView) kutu.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
     if (typeof SCREENS !== 'undefined' && SCREENS.indexOf('s-sesli') === -1) SCREENS.push('s-sesli');
     var mn = document.getElementById('mn');
     if (mn && !document.getElementById('mn-sesli'))
@@ -10416,6 +10458,21 @@ window.__t = { parseOrganicName, checkCanonicalName, hcBuildAt, organicMolFormul
     var tg = document.querySelector('#s-home .tgrid');
     if (tg && !document.getElementById('tile-sesli'))
       tg.insertAdjacentHTML('afterbegin', '<div class="tc" id="tile-sesli" onclick="nav(\'sesli\')"><div class="ti">🔊</div><div class="tt">Sesli Ders</div><div class="td">Tahtada sesli konu anlatımı ve soru çözümü.</div></div>');
+  }
+  // Soru bankasındaki konu verisi (banka/s9.js …) gerektiğinde yüklenir
+  var SESLI_BANKA = {}, sesliBankaBekleyen = {};
+  function sesliBankaYukle(sid){
+    if (SESLI_BANKA[sid]) return Promise.resolve(SESLI_BANKA[sid]);
+    if (sesliBankaBekleyen[sid]) return sesliBankaBekleyen[sid];
+    if (!window.RB) window.RB = { ekle: function(v){ SESLI_BANKA[v.sinif] = v; } };
+    sesliBankaBekleyen[sid] = new Promise(function(ok, hata){
+      var el = document.createElement('script');
+      el.src = 'banka/s' + sid + '.js?v=b4';
+      el.onload = function(){ SESLI_BANKA[sid] ? ok(SESLI_BANKA[sid]) : hata(new Error('veri yok')); };
+      el.onerror = function(){ delete sesliBankaBekleyen[sid]; hata(new Error('dosya yok')); };
+      document.head.appendChild(el);
+    });
+    return sesliBankaBekleyen[sid];
   }
   function sesliEnter(){
     var kutu = document.getElementById('sesli-kutu');

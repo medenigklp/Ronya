@@ -28,6 +28,8 @@ Kurulum özeti:
 4. Worker ayarlarında KV deposunu `SESLER_KV` adıyla bağla; `GOOGLE_TTS_KEY` adında gizli bir değişken ekle, değeri API anahtarı olsun.
 5. Worker adresini buraya yaz: `{"adres": "https://sesli-ders.<hesap>.workers.dev"}`. kimyamed için aynı adres `konu/sesli/bulut.json` dosyasına yazılır.
 
-Ücret: Google her ay doğal seslerde 1 milyon, sade seslerde 4 milyon karakteri ücretsiz verir; sonrası milyon karakter başına 30 ve 4 dolardır. Servis Google'a günde en çok 30.000 (doğal) ve 120.000 (sade) karakter gönderir; bu sınırlar ücretsiz kotanın içinde kalır. Sınır dolunca siteler o gün cihaz sesine döner. Sınırı `ses-servisi.js` içindeki `GUNLUK_SINIR` değiştirir.
+Ücret: Google her ay doğal seslerde 1 milyon, sade seslerde 4 milyon karakteri ücretsiz verir; sonrası milyon karakter başına 30 ve 4 dolardır. Servis Google'a günde en çok 30.000 (doğal) ve 120.000 (sade) karakter gönderir; bu sınırlar ücretsiz kotanın içinde kalır. Sınır dolunca siteler o gün cihaz sesine döner.
+
+Ayarlar kodu değiştirmeden Worker'ın **Settings → Variables and Secrets** bölümünden yapılır (Type: Text): `GUNLUK_DOGAL` ve `GUNLUK_SADE` günlük karakter sınırlarını, `IZINLI_SITELER` servisi kullanabilecek siteleri (virgülle ayrılmış adresler) değiştirir. Worker adresi tarayıcıda açılınca servisin hazır olup olmadığı, sürümü ve o günkü kullanım görünür.
 
 Karşılıklı anlatımda Elif Hoca bir kadın sesiyle, Kerem Hoca bir erkek sesiyle konuşur; iki ses de Ayarlar'dan seçilir.

@@ -146,7 +146,7 @@
   function talimatCiz() {
     if (!G || G.bitti) { if (!tal.hidden) tal.hidden = true; tal._h = ''; return; }
     var A = G.A, s;
-    if (!A || G.kart) s = '<div class="gv-t-ust bekle"><i class="gv-adno">' + (Math.max(0, G.adim) + 1) + '</i><div class="gv-t-metin">' + (G.kart ? 'Kartı oku ve devam et.' : 'Bir saniye…') + '</div></div>';
+    if (!A || G.kart) s = '<div class="gv-t-ust bekle' + (G.kart ? '' : ' tamam') + '"><i class="gv-adno">' + (G.kart ? (Math.max(0, G.adim) + 1) : '✓') + '</i><div class="gv-t-metin">' + (G.kart ? 'Kartı oku ve devam et.' : 'Güzel! Şimdi olanları izle…') + '</div></div>';
     else {
       var m = typeof A.metin === 'function' ? A.metin(G) : A.metin;
       if (!m && !A.yap && !A.secenekler) { if (!tal.hidden) tal.hidden = true; return; }
@@ -216,7 +216,7 @@
     g0.nesneler.forEach(function (o) { UC.sahne.remove(o); UC.yoket(o); });
     UC.etiketKaldir(); UC.dokunKaldir(); UC.guncelleKaldir(g0.guncel);
     UC.ok(null); UC.ptSabit(null); UC.kameraAyar(null); UC.oran(null);
-    UC.arkaRaf.visible = true; UC.PISET.visible = true; UC.siseBirak();
+    UC.arkaRaf.visible = true; UC.PISET.visible = false; UC.siseBirak();
     serbest.classList.remove('gv-gorev', 'gv-istasyon');
     tal.hidden = true; tal._h = ''; LA.olcerGoster = false;
     tezgahEl.classList.remove('gv-kobalt');

@@ -479,3 +479,5 @@
 .alet-bar.cok .aekle{padding:0 10px}
 /* iPhone: 16 px altındaki giriş alanlarında sayfa yakınlaşmasın */
 .ara,.ti-grup select,.ti-ayar select,.rapor input,.rapor textarea{font-size:16px}
+.gv-t-ust.bekle.tamam .gv-adno{background:#1FA85C}
+.gv-t-ust.bekle.tamam .gv-t-metin{color:#14663A;font-weight:600}

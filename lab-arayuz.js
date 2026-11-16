@@ -25,7 +25,8 @@
     alevt: '<path d="M12 3c2.5 3 5 5.3 5 9a5 5 0 0 1-10 0c0-2 1-3.4 2-4.6.4 1.4 1.1 2.2 2 2.6.2-2.7.6-4.8 1-7z"/><path d="M8 21h8"/>',
     temiz: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
     oynat: '<path d="M7 4l12 8-12 8z"/>', dur: '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>',
-    kopya: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'
+    kopya: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+    kap: '<path d="M6 4h9M7 4v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V4"/><path d="M7 11h8"/><path d="M19 8v6M16 11h6"/>'
   };
   function ikon(ad) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + IK[ad] + '</svg>'; }
   function tost(m, kirmizi) {
@@ -33,11 +34,16 @@
     clearTimeout(tost.z); tost.z = setTimeout(function () { t.className = 'tost' + (kirmizi ? ' kirmizi' : ''); }, kirmizi ? 4200 : 2400);
   }
 
+  var LAx = {};
   /* ================= DURUM ================= */
   var KAPLAR = [new M.Kap('beher', 'Beher', 'beher', 0.25), new M.Kap('erlen', 'Erlenmeyer', 'erlen', 0.25), new M.Kap('tup', 'Deney tüpü', 'tup', 0.025)];
   var aktif = 0, gunluk = [], t0 = Date.now(), olaylarK = [[], [], []], rozet = [0, 0, 0], kullanilan = {};
-  var anim = [], kabarcik = [[], [], []], pul = [[], [], []], hedefT = [null, null, null];
-  var KAT_AD = { tumu: 'Tümü', asit: 'Asitler', baz: 'Bazlar', tuz: 'Tuzlar', metal: 'Metaller', gosterge: 'Göstergeler', diger: 'Diğer', ev: 'Evde bulunanlar' };
+  var anim = [], kabarcik = [[], [], []], pul = [[], [], []], hedefT = [null, null, null], tutT = [null, null, null];
+  function cz() { return window.LabArayuz && window.LabArayuz.cizici; }
+  function diziEkle() { olaylarK.push([]); rozet.push(0); kabarcik.push([]); pul.push([]); hedefT.push(null); tutT.push(null); }
+  function diziSil(i) { [olaylarK, rozet, kabarcik, pul, hedefT, tutT].forEach(function (d) { d.splice(i, 1); }); }
+  function diziSifirla() { [olaylarK, rozet, kabarcik, pul, hedefT, tutT].forEach(function (d) { d.length = 0; }); KAPLAR.forEach(function () { diziEkle(); }); }
+  var KAT_AD = { tumu: 'Tümü', asit: 'Asitler', baz: 'Bazlar', tuz: 'Tuzlar', metal: 'Elementler', gosterge: 'Göstergeler', diger: 'Diğer', ev: 'Evde bulunanlar' };
   var dolapKat = 'tumu', dolapAra = '';
 
   /* ================= İSKELET ================= */
@@ -60,6 +66,7 @@
     '<button class="ab" data-is="gaz">' + ikon('gaz') + 'Gaz testi</button>' +
     '<button class="ab" data-is="alev">' + ikon('alevt') + 'Alev testi</button>' +
     '<button class="ab" data-is="bosalt">' + ikon('bosalt') + 'Boşalt</button>' +
+    '<button class="ab" data-is="malzeme" hidden>' + ikon('kap') + 'Kaplar</button>' +
     '</div></div>' +
     '<div class="kart gozlem-kart" style="margin-top:12px"><div class="panel-bas"><h2>Gözlemler</h2><span class="kucuk" id="lb-gk1"></span></div><div class="gozlem-liste" id="lb-gozlem1"></div></div>' +
     '<div class="kart" style="margin-top:12px"><div class="panel-bas"><h2>Kapta neler var?</h2><span class="kucuk" id="lb-ick"></span></div><div class="icerik" id="lb-icerik"></div></div>' +
@@ -105,7 +112,7 @@
     $$('.mod').forEach(function (s) { s.classList.toggle('on', s.id === 'm-' + m); });
     if (m === 'titrasyon') { tiBoyut(); tiCiz(); grafikCiz(); }
     if (m === 'rapor') raporCiz();
-    if (m === 'serbest') boyut();
+    if (m === 'serbest') { boyut(); if (cz()) cz().boyut(); }
     try { history.replaceState(null, '', m === 'serbest' ? location.pathname + location.search : '#' + m); } catch (e) {}
   }
   $$('.lab-sekme button').forEach(function (b) { b.addEventListener('click', function () { modAc(b.getAttribute('data-mod')); }); });
@@ -496,7 +503,9 @@
     kapSec(i);
   });
   function kapSec(i) {
+    if (!(i >= 0 && i < KAPLAR.length)) return;
     aktif = i; rozet[i] = 0;
+    if (LAx.olay) LAx.olay('sec', { i: i });
     gozlemCiz(); olcumCiz(); icerikCiz(); dugmeDurum();
     var k = KAPLAR[i];
     seritYaz(null, '<b>' + h(k.ad) + '</b> seçili' + (k.V > 1e-6 ? ' · ' + Y.tr(k.V * 1000, 1) + ' mL' : ' · boş'));
@@ -508,7 +517,7 @@
     var parl = Math.max(0, Math.min(1, Math.log(Math.max(kap, 1e-3) / 0.05) / Math.log(40 / 0.05)));
     var amp = 'background:' + (parl > 0.02 ? 'rgba(255,' + Math.round(170 + 70 * parl) + ',40,' + (0.35 + 0.65 * parl) + ');box-shadow:0 0 ' + Math.round(14 * parl) + 'px rgba(255,190,40,' + parl + ')' : '#ddd');
     return '<div class="olc"><small>pH</small><strong>' + (pH === null ? '–' : Y.tr(pH, 2)) + '</strong><div class="phbar"><i style="left:' + (pH === null ? -10 : Math.max(0, Math.min(100, pH / 14 * 100))) + '%"></i></div></div>' +
-      '<div class="olc"><small>Sıcaklık</small><strong>' + Y.tr(k.T, 1) + '<span class="birim">°C</span></strong></div>' +
+      '<div class="olc' + (tit ? '' : ' tik') + '"' + (tit ? '' : ' data-is="sicaklik" role="button" tabindex="0" title="Sıcaklığı ayarla"') + '><small>Sıcaklık' + (!tit && tutT[aktif] !== null && KAPLAR[aktif] === k ? ' → ' + tutT[aktif] + ' °C' : '') + '</small><strong>' + Y.tr(k.T, 1) + '<span class="birim">°C</span></strong></div>' +
       '<div class="olc"><small>' + (tit ? 'Eklenen' : 'Hacim') + '</small><strong>' + (tit ? Y.tr(ti.v, 2) : Y.tr(k.V * 1000, k.V < 0.0095 ? 2 : 1)) + '<span class="birim">mL</span></strong></div>' +
       '<div class="olc"><small><span class="ampul" style="' + amp + '"></span>İletkenlik</small><strong>' + (k.V > 1e-6 ? Y.tr(kap, kap < 10 ? 2 : (kap < 100 ? 1 : 0)) : '–') + '<span class="birim">mS/cm</span></strong></div>';
   }
@@ -519,6 +528,7 @@
     $('[data-is="sogut"]').classList.toggle('on', k.sogut);
     $('[data-is="isit"]').lastChild.textContent = k.isit ? 'Isıtılıyor' : 'Isıt';
     $('[data-is="sogut"]').lastChild.textContent = k.sogut ? 'Soğutuluyor' : 'Soğut';
+    var mb = $('[data-is="malzeme"]'); if (mb && cz()) mb.hidden = !!LAx.kilit;
   }
   function seritYaz(renk, metin) {
     var s = $('#lb-serit');
@@ -619,7 +629,12 @@
   }
   $('#lb-cip').addEventListener('click', function (e) { var b = e.target.closest('[data-kat]'); if (!b) return; dolapKat = b.getAttribute('data-kat'); dolapCiz(); });
   $('#lb-ara').addEventListener('input', function () { dolapAra = this.value; dolapCiz(); });
-  $('#lb-liste').addEventListener('click', function (e) { var b = e.target.closest('[data-kim]'); if (b) miktarAc(b.getAttribute('data-kim')); });
+  $('#lb-liste').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-kim]'); if (!b) return;
+    var id = b.getAttribute('data-kim');
+    if (cz() && mod === 'serbest' && !LAx.siseKapali) { dolapKapat(); cz().siseAl(id); if (window.matchMedia('(max-width:979px)').matches) { var tz = $('#m-serbest .tezgah'); if (tz && tz.getBoundingClientRect().top < 0) tz.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }
+    else miktarAc(id);
+  });
   function dolapAc() { $('#lb-dolap').classList.add('acik'); ortAc(true); }
   function dolapKapat() { $('#lb-dolap').classList.remove('acik'); if (!$('#lb-pen').classList.contains('acik')) ortAc(false); }
   function ortAc(a) { $('#lb-ort').classList.toggle('acik', a); }
@@ -649,6 +664,7 @@
   }
   function aktarAc() {
     var a = KAPLAR[aktif];
+    if (KAPLAR.length < 2) { tost('Aktarmak için tezgâhta ikinci bir kap olmalı.'); return; }
     if (!(a.V > 1e-6)) { tost('Kap boş; aktarılacak sıvı yok.'); return; }
     penHedef = aktif === 0 ? 1 : 0;
     var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>' + h(a.ad) + ' kabından aktar</h3><div class="alt">Kapta ' + Y.tr(a.V * 1000, 1) + ' mL sıvı var.</div>' +
@@ -661,6 +677,7 @@
       penKapat();
       var hedef = penHedef, kaynak = aktif;
       anim.push({ i: hedef, tur: 'sivi', renk: karis(M.renk(a).sivi, M.renk(a).bulRenk, M.renk(a).bulanik), t0: simdi(), sure: 900 });
+      if (KAPLAR[hedef].kirik) { tost(KAPLAR[hedef].ad + ' kırık. Önce temizle.', true); return; }
       setTimeout(function () { var L = M.aktar(KAPLAR[kaynak], KAPLAR[hedef], oran); gunlukIs(KAPLAR[kaynak].ad + ' → ' + KAPLAR[hedef].ad + ' aktarıldı'); if (hedef !== aktif) kapSec(hedef); olaylariIsle(hedef, L); }, 450);
     });
   }
@@ -676,22 +693,169 @@
     if (hb) { penHedef = +hb.getAttribute('data-hedef'); $$('[data-hedef]', this).forEach(function (b) { b.classList.toggle('on', b === hb); }); return; }
     if (penTik) penTik(e);
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { penKapat(); dolapKapat(); } });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { penKapat(); dolapKapat(); }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute && e.target.getAttribute('data-is') === 'sicaklik') { e.preventDefault(); sicaklikAc(); }
+  });
 
   function gunlukIs(m) { gunluk.push({ t: (Date.now() - t0) / 1000, kap: '', yap: m }); }
   function ekleAnim(i, id, mik, sessiz) {
     var K = M.KIMI[id], k = KAPLAR[i];
+    if (!k || !K) return;
+    if (k.kirik) { tost(k.ad + ' kırık. Önce etiketindeki Temizle’ye dokun.', true); return; }
     kullanilan[id] = 1;
     var tur = K.tur === 'metal' ? 'metal' : (K.tur === 'kati' ? 'kati' : (mik <= 0.00026 ? 'damla' : 'sivi'));
-    anim.push({ i: i, tur: tur, renk: stokRenk(K), renkHex: K.tur === 'metal' ? M.METAL[K.metal].renk : '#fff', t0: simdi(), sure: tur === 'sivi' ? 900 : 800 });
+    anim.push({ i: i, tur: tur, renk: stokRenk(K), renkHex: K.tur === 'metal' ? M.METAL[K.metal].renk : '#fff', metal: K.metal, t0: simdi(), sure: tur === 'sivi' ? 900 : 800 });
     if (i !== aktif && !sessiz) kapSec(i);
     setTimeout(function () {
       var miktarAd = K.tur === 'metal' || K.tur === 'kati' ? Y.tr(mik, mik < 1 ? 2 : 1) + ' g' : (mik <= 0.00026 ? Math.round(mik / 0.00005) + ' damla' : Y.tr(mik * 1000, mik < 0.001 ? 2 : 0) + ' mL');
       gunlukIs(k.ad + ' kabına ' + miktarAd + ' ' + K.ad + (K.f ? ' (' + Y.alt(K.f) + ')' : '') + ' eklendi');
+      if (KAPLAR.indexOf(k) < 0 || k.kirik) return;
       var L = M.ekle(k, id, mik);
       olaylariIsle(i, L);
       olcumCiz(); icerikCiz();
+      patlamaKontrol(k, K, mik);
+      if (LAx.olay) LAx.olay('ekle', { i: KAPLAR.indexOf(k), id: id, mik: mik });
     }, tur === 'sivi' ? 480 : 380);
+  }
+  /* ---- Sürekli döküm (3D tezgâh) ---- */
+  var dokum = null;
+  function dokumBasla(i) {
+    if (!KAPLAR[i]) return;
+    dokum = { i: i, gor: {}, olay: 0 };
+    if (i !== aktif) kapSec(i);
+    if (LAx.olay) LAx.olay('dokumBasla', { i: i });
+  }
+  function dokumOlay(i, L) {
+    if (!L || !L.length) return;
+    var yeni = L.filter(function (o) {
+      if (!dokum || dokum.i !== i) return true;
+      if (dokum.gor[o.baslik]) return false;
+      dokum.gor[o.baslik] = 1; return true;
+    });
+    if (yeni.length) { if (dokum) dokum.olay += yeni.filter(function (o) { return o.tur !== 'bilgi'; }).length; olaylariIsle(i, yeni); }
+  }
+  function dokSessiz(i, id, miktar) {
+    var k = KAPLAR[i], K = M.KIMI[id];
+    if (!k || !K || !(miktar > 0)) return;
+    if (k.kirik) return;
+    kullanilan[id] = 1;
+    dokumOlay(i, M.ekle(k, id, miktar, { sessiz: true }));
+    if (LAx.olay) LAx.olay('dok', { i: i, id: id, mik: miktar });
+  }
+  function aktarSessiz(a, b, oran) {
+    var A = KAPLAR[a], B = KAPLAR[b];
+    if (!A || !B || B.kirik || !(A.V > 1e-7) || !(oran > 0)) return;
+    dokumOlay(b, M.aktar(A, B, Math.min(1, oran), { sessiz: true }));
+    if (LAx.olay) LAx.olay('aktar', { a: a, b: b });
+  }
+  function dokumBitti(i, miktar, id, kaynak) {
+    var k = KAPLAR[i], olay = dokum ? dokum.olay : 0;
+    dokum = null;
+    if (!k || !(miktar > 0)) return;
+    var ad;
+    if (id) {
+      var K = M.KIMI[id];
+      ad = K.tur === 'kati' ? Y.tr(miktar, 1) + ' g' : (K.tur === 'gosterge' && K.gos !== 'lah' ? Math.round(miktar / 0.00005) + ' damla' : Y.tr(miktar * 1000, miktar < 0.01 ? 1 : 0) + ' mL');
+      gunlukIs(k.ad + ' kabına ' + ad + ' ' + K.ad + (K.f ? ' (' + Y.alt(K.f) + ')' : '') + ' eklendi');
+      if (!olay) seritYaz(null, '<b>' + h(k.ad) + '</b> kabına ' + h(ad) + ' ' + h(K.ad) + ' eklendi' + (k.r ? ' · pH ' + Y.tr(Math.max(-1, Math.min(15, k.r.pH)), 1) : ''));
+    } else if (kaynak >= 0 && KAPLAR[kaynak]) {
+      ad = Y.tr(miktar * 1000, miktar < 0.01 ? 1 : 0) + ' mL';
+      gunlukIs(KAPLAR[kaynak].ad + ' → ' + k.ad + ' ' + ad + ' aktarıldı');
+      if (!olay) seritYaz(null, KAPLAR[kaynak].ad + ' → <b>' + h(k.ad) + '</b>: ' + h(ad) + ' aktarıldı');
+    }
+    olcumCiz(); icerikCiz();
+    if (LAx.olay) LAx.olay('dokumBitti', { i: i, id: id, kaynak: kaynak, mik: miktar });
+  }
+  /* ---- Büyük alkali metal parçası: patlama ---- */
+  function patlamaKontrol(k, K, mik) {
+    if (!K.metal || k.kirik || !(k.V > 0.002)) return;
+    if (!((K.metal === 'Na' && mik >= 0.5) || (K.metal === 'K' && mik >= 0.25))) return;
+    setTimeout(function () { var i = KAPLAR.indexOf(k); if (i >= 0 && k.metal.some(function (p) { return p.m === K.metal; })) patlat(i, K.metal); }, 1100);
+  }
+  function patlat(i, m) {
+    var k = KAPLAR[i];
+    if (!k || k.kirik) return;
+    var R0 = M.renk(k);
+    k.dokulenRenk = karis(R0.sivi, R0.bulRenk, R0.bulanik);
+    k.bosalt(); k.kirik = true; kabarcik[i] = []; hedefT[i] = null; tutT[i] = null;
+    olaylariIsle(i, [{ tur: 'tehlike', baslik: 'Patlama! ' + k.ad + ' kırıldı', gozlem: (m === 'K' ? 'Potasyum' : 'Sodyum') + ' parçası çok büyüktü. Tepkime çok hızlı ısındı, çıkan hidrojen gazı tutuştu ve patladı.', net: '2' + m + ' + 2H₂O → 2' + m + 'OH + H₂', aciklama: 'Alkali metallerin suyla tepkimesi ekzotermiktir. Küçük parçada ısı dağılır; büyük parçada metal erir, hidrojen ile havanın karışımı tutuşur ve patlar. Okulda yalnızca pirinç tanesi kadar parça, koruyucu ekran arkasında kullanılır.', konu: 'Aktif metaller · laboratuvar güvenliği' }]);
+    gunlukIs(k.ad + ' patladı ve kırıldı');
+    olcumCiz(); icerikCiz();
+    if (!cz()) setTimeout(function () { k.kirik = false; }, 1500);
+    if (LAx.olay) LAx.olay('patlama', { i: i });
+  }
+  function kirikTemizle(i) {
+    var k = KAPLAR[i];
+    if (!k) return;
+    k.bosalt(); k.kirik = false; olaylarK[i].length = 0; kabarcik[i] = [];
+    kapSec(i); tost('Kırık cam toplandı; ' + k.ad + ' yenisiyle değiştirildi.');
+  }
+  /* ---- Kaplar: ekle / kaldır ---- */
+  var KAP_TIP = { beher: ['Beher', 0.25], erlen: ['Erlenmeyer', 0.25], tup: ['Deney tüpü', 0.025] };
+  function kapEkle(tip) {
+    if (KAPLAR.length >= 4) { tost('Tezgâhta en fazla 4 kap olabilir.'); return; }
+    var T0 = KAP_TIP[tip], say = KAPLAR.filter(function (k) { return k.tip === tip; }).length;
+    var ad = T0[0] + (say ? ' ' + (say + 1) : '');
+    while (KAPLAR.some(function (k) { return k.ad === ad; })) { say++; ad = T0[0] + ' ' + (say + 1); }
+    var k = new M.Kap(tip + Date.now() % 100000, ad, tip, T0[1]);
+    KAPLAR.push(k); diziEkle();
+    if (cz()) cz().senkron();
+    kapSec(KAPLAR.length - 1); gunlukIs(ad + ' tezgâha kondu');
+  }
+  function kapKaldir(i) {
+    if (KAPLAR.length <= 1 || !KAPLAR[i]) return;
+    var ad = KAPLAR[i].ad;
+    KAPLAR.splice(i, 1); diziSil(i);
+    if (cz()) cz().senkron();
+    kapSec(Math.min(aktif >= i && aktif > 0 ? aktif - 1 : aktif, KAPLAR.length - 1));
+    gunlukIs(ad + ' tezgâhtan kaldırıldı');
+  }
+  function kapKur(L) {
+    KAPLAR.length = 0;
+    L.forEach(function (d) {
+      var T0 = KAP_TIP[d.tip], k = new M.Kap(d.id || d.tip, d.ad || T0[0], d.tip, d.kapasite || T0[1]);
+      ['duzenek', 'yerX', 'yerZ', 'gizli'].forEach(function (a) { if (d[a] !== undefined) k[a] = d[a]; });
+      KAPLAR.push(k);
+    });
+    diziSifirla(); aktif = 0; dokum = null;
+    if (cz()) cz().senkron();
+    kapSec(0);
+  }
+  function standartKaplar() { kapKur([{ tip: 'beher', id: 'beher' }, { tip: 'erlen', id: 'erlen' }, { tip: 'tup', id: 'tup' }]); }
+  function malzemeAc() {
+    var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>Kaplar</h3><div class="alt">Tezgâhta ' + KAPLAR.length + ' kap var (en fazla 4).</div>' +
+      '<div class="etiket">Tezgâha ekle</div><div class="miktarlar">' +
+      '<button data-yeni="beher"' + (KAPLAR.length >= 4 ? ' disabled' : '') + '>Beher<small>250 mL</small></button>' +
+      '<button data-yeni="erlen"' + (KAPLAR.length >= 4 ? ' disabled' : '') + '>Erlenmeyer<small>250 mL</small></button>' +
+      '<button data-yeni="tup"' + (KAPLAR.length >= 4 ? ' disabled' : '') + '>Deney tüpü<small>25 mL</small></button></div>' +
+      '<div class="etiket">Seçili kap: ' + h(KAPLAR[aktif].ad) + '</div><div class="miktarlar">' +
+      '<button data-kaldir="1"' + (KAPLAR.length <= 1 ? ' disabled' : '') + '>Tezgâhtan kaldır</button>' +
+      '<button data-sifirla="1">Tezgâhı baştan kur<small>beher, erlen, tüp</small></button></div>';
+    penAc(s, function (e) {
+      var b = e.target.closest('[data-yeni],[data-kaldir],[data-sifirla]');
+      if (!b || b.disabled) return;
+      penKapat();
+      if (b.hasAttribute('data-yeni')) kapEkle(b.getAttribute('data-yeni'));
+      else if (b.hasAttribute('data-kaldir')) kapKaldir(aktif);
+      else { standartKaplar(); tost('Tezgâh baştan kuruldu.'); }
+    });
+  }
+  /* ---- Sıcaklık ayarı (termostat) ---- */
+  function sicaklikAc() {
+    var k = KAPLAR[aktif], d = tutT[aktif] !== null ? tutT[aktif] : Math.round(Math.max(40, Math.min(90, k.T + 20)) / 5) * 5;
+    var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>Sıcaklık ayarı</h3><div class="alt">' + h(k.ad) + ' şu an ' + Y.tr(k.T, 1) + ' °C</div>' +
+      '<div class="sic-ayar"><input type="range" id="lb-sic" min="0" max="100" step="5" value="' + d + '" aria-label="Hedef sıcaklık"><output id="lb-sicd">' + d + ' °C</output></div>' +
+      '<p class="not">Ocak ya da buz banyosu kabı bu sıcaklığa getirip orada tutar.</p>' +
+      '<div class="miktarlar"><button data-sicak="ayar">Ayarla</button><button data-sicak="kapat">Kapat</button></div>';
+    penAc(s, function (e) {
+      var b = e.target.closest('[data-sicak]'); if (!b) return;
+      penKapat();
+      if (b.getAttribute('data-sicak') === 'kapat') { tutT[aktif] = null; k.isit = false; k.sogut = false; tost('Sıcaklık ayarı kapatıldı.'); }
+      else { tutT[aktif] = +$('#lb-sic').value; tost(k.ad + ' ' + tutT[aktif] + ' °C’ye getiriliyor.'); gunlukIs(k.ad + ' ' + tutT[aktif] + ' °C’de tutuluyor'); }
+      dugmeDurum(); olcumCiz();
+    });
+    $('#lb-sic').addEventListener('input', function () { $('#lb-sicd').textContent = this.value + ' °C'; });
   }
 
   /* ================= ARAÇLAR ================= */
@@ -702,14 +866,17 @@
     if (is === 'dolap') { if (window.matchMedia('(min-width:980px)').matches) $('#lb-ara').focus(); else dolapAc(); }
     else if (is === 'dolapkapat') dolapKapat();
     else if (is === 'kar') { if (!(k.V > 1e-6)) return tost('Kap boş.'); k.karistir = 2.5; gunlukIs(k.ad + ' karıştırıldı'); }
-    else if (is === 'isit') { k.isit = !k.isit; if (k.isit) k.sogut = false; hedefT[aktif] = null; dugmeDurum(); gunlukIs(k.ad + (k.isit ? ' ısıtılmaya başlandı' : ' ısıtma kapatıldı')); }
-    else if (is === 'sogut') { k.sogut = !k.sogut; if (k.sogut) k.isit = false; dugmeDurum(); gunlukIs(k.ad + (k.sogut ? ' buz banyosuna kondu' : ' buz banyosundan çıkarıldı')); }
+    else if (is === 'malzeme') malzemeAc();
+    else if (is === 'sicaklik') sicaklikAc();
+    else if (k.kirik && /^(kar|isit|sogut|aktar|gaz|alev)$/.test(is)) tost(k.ad + ' kırık. Önce etiketindeki Temizle’ye dokun.', true);
+    else if (is === 'isit') { k.isit = !k.isit; if (k.isit) k.sogut = false; hedefT[aktif] = null; tutT[aktif] = null; dugmeDurum(); gunlukIs(k.ad + (k.isit ? ' ısıtılmaya başlandı' : ' ısıtma kapatıldı')); }
+    else if (is === 'sogut') { k.sogut = !k.sogut; if (k.sogut) k.isit = false; tutT[aktif] = null; dugmeDurum(); gunlukIs(k.ad + (k.sogut ? ' buz banyosuna kondu' : ' buz banyosundan çıkarıldı')); }
     else if (is === 'aktar') aktarAc();
-    else if (is === 'bosalt') { k.bosalt(); kabarcik[aktif] = []; olaylarK[aktif] = []; hedefT[aktif] = null; gunlukIs(k.ad + ' boşaltıldı'); kapSec(aktif); tost(k.ad + ' boşaltıldı ve yıkandı.'); }
+    else if (is === 'bosalt') { if (k.kirik) { kirikTemizle(aktif); return; } k.bosalt(); kabarcik[aktif] = []; olaylarK[aktif].length = 0; hedefT[aktif] = null; tutT[aktif] = null; gunlukIs(k.ad + ' boşaltıldı'); kapSec(aktif); tost(k.ad + ' boşaltıldı ve yıkandı.'); }
     else if (is === 'gaz') testGoster(M.gazTesti(k), 'gaz');
     else if (is === 'alev') testGoster(M.alevTesti(k), 'alev');
     else if (is === 'rkopya') raporKopya();
-    else if (is === 'rtemiz') { gunluk = []; olaylarK = [[], [], []]; t0 = Date.now(); raporCiz(); gozlemCiz(); tost('Günlük temizlendi.'); }
+    else if (is === 'rtemiz') { gunluk = []; olaylarK.forEach(function (x) { x.length = 0; }); t0 = Date.now(); raporCiz(); gozlemCiz(); tost('Günlük temizlendi.'); }
   });
   function testGoster(T, tur, sessiz) {
     var k = KAPLAR[aktif], o;
@@ -813,7 +980,8 @@
   $('#lb-deneyler').addEventListener('click', function (e) { var b = e.target.closest('[data-dn]'); if (b) deneyBaslat(b.getAttribute('data-dn')); });
   function deneyBaslat(id) {
     deneyAktif = DENEY.filter(function (d) { return d.id === id; })[0]; deneyAdim = 0;
-    KAPLAR.forEach(function (k, i) { k.bosalt(); kabarcik[i] = []; olaylarK[i] = []; hedefT[i] = null; });
+    if (LAx.gorevBitir) LAx.gorevBitir(true);
+    standartKaplar();
     gunlukIs('Hazır deney: ' + deneyAktif.ad);
     if (!$('#lb-rad').value) $('#lb-rad').value = deneyAktif.ad;
     modAc('serbest'); adimCiz(); kapSec(0);
@@ -1043,8 +1211,15 @@
     var adet = 0;
     while (birikim >= 0.1 && adet < 3) {
       birikim -= 0.1; adet++;
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < KAPLAR.length; i++) {
         var k = KAPLAR[i];
+        if (tutT[i] !== null && !k.kirik) {
+          var hT = tutT[i];
+          if (k.T < hT - 0.6) { k.isit = true; k.sogut = false; }
+          else if (k.T > hT + 0.6) { k.isit = false; k.sogut = k.T > hT + 2.5; }
+          else { k.isit = false; k.sogut = false; }
+          if (i === aktif && (k.isit !== $('[data-is="isit"]').classList.contains('on') || k.sogut !== $('[data-is="sogut"]').classList.contains('on'))) dugmeDurum();
+        }
         if (!(k.V > 1e-6) && !k.metal.length && Math.abs(k.T - 25) < 0.2) continue;
         if (hedefT[i] !== null && k.T >= hedefT[i]) { k.isit = false; hedefT[i] = null; if (i === aktif) dugmeDurum(); tost(k.ad + ' ' + Y.tr(k.T, 0) + ' °C oldu; ısıtma durdu.'); }
         var L = M.adim(k, 0.1);
@@ -1055,7 +1230,7 @@
     }
     if (birikim > 0.3) birikim = 0;
     var t = su / 1000;
-    if (mod === 'serbest') tezgahCiz(t, dt);
+    if (mod === 'serbest') { if (cz()) cz().ciz(t, dt); else tezgahCiz(t, dt); }
     else if (mod === 'titrasyon') tiCiz(t);
     if (++olcSay % 12 === 0) {
       if (mod === 'serbest') {
@@ -1073,5 +1248,23 @@
   var hs = (location.hash || '').replace('#', '');
   if (/^(titrasyon|hazir|rapor)$/.test(hs)) modAc(hs);
   requestAnimationFrame(dongu);
-  window.LabArayuz = { KAPLAR: KAPLAR, ti: ti, deneyBaslat: deneyBaslat, ekle: ekleAnim, modAc: modAc, kapSec: kapSec };
+  LAx.KAPLAR = KAPLAR; LAx.ti = ti; LAx.deneyBaslat = deneyBaslat; LAx.ekle = ekleAnim; LAx.modAc = modAc; LAx.kapSec = kapSec;
+  LAx.miktarAc = miktarAc; LAx.stokRenk = stokRenk; LAx.anim = anim; LAx.rozet = rozet;
+  LAx.dokumBasla = dokumBasla; LAx.dokSessiz = dokSessiz; LAx.aktarSessiz = aktarSessiz; LAx.dokumBitti = dokumBitti;
+  LAx.kirikTemizle = kirikTemizle; LAx.patlat = patlat; LAx.kapEkle = kapEkle; LAx.kapKaldir = kapKaldir; LAx.kapKur = kapKur; LAx.standartKaplar = standartKaplar;
+  LAx.olaylar = function (i) { return olaylarK[i] || []; }; LAx.olaylariIsle = olaylariIsle; LAx.seritYaz = seritYaz; LAx.tost = tost;
+  LAx.olcumCiz = olcumCiz; LAx.icerikCiz = icerikCiz; LAx.gozlemCiz = gozlemCiz; LAx.dugmeDurum = dugmeDurum; LAx.testGoster = testGoster; LAx.gunlukIs = gunlukIs;
+  LAx.deneyKapat = function () { deneyAktif = null; adimCiz(); };
+  LAx.penAc = penAc; LAx.penKapat = penKapat; LAx.dolapKapat = dolapKapat; LAx.h = h; LAx.ikon = ikon; LAx.$ = $;
+  Object.defineProperty(LAx, 'aktif', { get: function () { return aktif; } });
+  Object.defineProperty(LAx, 'mod', { get: function () { return mod; } });
+  var ilkSise = true;
+  LAx.siseDegisti = function (id) { if (!LAx.uc || LAx.gorevAktif) return; if (id && ilkSise) LAx.uc.ok({ sise: true }); else LAx.uc.ok(null); };
+  var _db = LAx.dokumBasla; LAx.dokumBasla = function (i) { if (ilkSise && !LAx.gorevAktif && LAx.uc) { ilkSise = false; LAx.uc.ok(null); } _db(i); };
+  LAx.uc3dHazir = function () {
+    kok.classList.add('uc3d');
+    dugmeDurum();
+    seritYaz(null, '<b>Kimyasal ekle</b>’ye dokun, şişeyi bir kabın üstüne sürükle. Saf su için pişete, kabı dökmek için kabı başka bir kabın üstüne sürükle.');
+  };
+  window.LabArayuz = LAx;
 })();

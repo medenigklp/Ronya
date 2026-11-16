@@ -62,7 +62,7 @@
     { id: 'rk-deney', title: 'Sanal deney', color: 'potasyum',
       sub: 'Değişkenleri değiştir, sonucu anında gör.',
       items: [
-        ['URL:laboratuvar.html', 'Sanal laboratuvar', 'Kimyasalları karıştır: pH, çökelme, gaz çıkışı, titrasyon ve 20’den fazla hazır deney.', 'flask'],
+        ['URL:laboratuvar.html', 'Sanal laboratuvar', '3D tezgâh: şişeyi sürükleyip dök. Adım adım görevler, alev testi, atom kurma, titrasyon ve 20’den fazla hazır deney.', 'flask'],
         ['URL:simulasyonlar.html', 'Kimya simülasyonları', 'Asit-baz, atom modelleri, katılar ve daha fazlası.', 'sim'],
         ['URL:gaz-lab.html', 'Gaz laboratuvarı', 'Piston düzenekleri, kinetik teori, Graham difüzyonu.', 'gaslab'],
         ['URL:denge.html', 'Denge kinetiği', 'Le Chatelier etkilerini derişim-zaman grafiğinde izle.', 'eq'],

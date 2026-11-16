@@ -229,8 +229,9 @@
     { id: 'fe_toz', ad: 'Demir tozu', f: 'Fe', kat: 'metal', tur: 'metal', metal: 'Fe', sek: 9, toz: 1, ghs: ['GHS02'], miktar: [0.25, 0.5, 1], not: 'Toz hâlde daha hızlı tepkime verir.' },
     { id: 'cu', ad: 'Bakır tel', f: 'Cu', kat: 'metal', tur: 'metal', metal: 'Cu', sek: 2, ghs: [], miktar: [0.25, 0.5, 1], not: 'Hidrojenden az aktif: seyreltik HCl ile tepkime vermez.' },
     { id: 'al', ad: 'Alüminyum folyo', f: 'Al', kat: 'metal', tur: 'metal', metal: 'Al', sek: 4, ghs: [], miktar: [0.1, 0.25, 0.5], not: 'Yüzeyindeki oksit tabakası yüzünden tepkimeye geç başlar. Amfoterdir.' },
-    { id: 'na', ad: 'Sodyum', f: 'Na', kat: 'metal', tur: 'metal', metal: 'Na', sek: 1, ghs: ['GHS02', 'GHS05'], miktar: [0.02, 0.05, 0.1], not: 'Gazyağı içinde saklanır; suyla şiddetli tepkime verir.', uyari: 'Gerçekte yalnızca pirinç tanesi kadar parça, öğretmen gözetiminde kullanılır.' },
-    { id: 'k', ad: 'Potasyum', f: 'K', kat: 'metal', tur: 'metal', metal: 'K', sek: 1, ghs: ['GHS02', 'GHS05'], miktar: [0.02, 0.05], not: 'Sodyumdan da aktif; suyla leylak renkli alevle tepkime verir.', uyari: 'Okul laboratuvarında kullanılmaz; yalnızca gösteri amaçlı.' },
+    { id: 'na', ad: 'Sodyum', f: 'Na', kat: 'metal', tur: 'metal', metal: 'Na', sek: 1, ghs: ['GHS02', 'GHS05'], miktar: [0.02, 0.05, 0.1, 1], not: 'Gazyağı içinde saklanır; suyla şiddetli tepkime verir.', uyari: 'Gerçekte yalnızca pirinç tanesi kadar parça, öğretmen gözetiminde kullanılır. Büyük parça patlar.' },
+    { id: 'li', ad: 'Lityum', f: 'Li', kat: 'metal', tur: 'metal', metal: 'Li', sek: 1, ghs: ['GHS02', 'GHS05'], miktar: [0.02, 0.05, 0.1], not: 'Alkali metallerin en az aktifidir; suyla yavaş ve sakin tepkime verir.', uyari: 'Yağ içinde saklanır; elle tutulmaz.' },
+    { id: 'k', ad: 'Potasyum', f: 'K', kat: 'metal', tur: 'metal', metal: 'K', sek: 1, ghs: ['GHS02', 'GHS05'], miktar: [0.02, 0.05, 1], not: 'Sodyumdan da aktif; suyla leylak renkli alevle tepkime verir.', uyari: 'Okul laboratuvarında kullanılmaz; yalnızca gösteri amaçlı.' },
     { id: 'ca', ad: 'Kalsiyum', f: 'Ca', kat: 'metal', tur: 'metal', metal: 'Ca', sek: 1.6, ghs: ['GHS02'], miktar: [0.1, 0.25], not: 'Suyla tepkime verir; çözelti bulanıklaşır (Ca(OH)₂).' },
     /* Diğer */
     { id: 'su', ad: 'Saf su', f: 'H2O', kat: 'diger', tur: 'sivi', bil: {}, ghs: [], renk: '#EAF4FA', su: 1, not: 'Damıtılmış su.' },
@@ -744,11 +745,11 @@
   function pHYaz(p) { return p === null || p === undefined ? '–' : tr(p, 2); }
 
   /* Kimyasal ekle. miktar: sıvıda L, katı ve metalde g */
-  function ekle(kap, id, miktar) {
-    var K = KIMI[id], olaylar = [];
+  function ekle(kap, id, miktar, secenek) {
+    var K = KIMI[id], olaylar = [], sessiz = !!(secenek && secenek.sessiz);
     if (!K || !(miktar > 0)) return olaylar;
     var once = ozet(kap), k, x, T0 = kap.T;
-    kap.eklenen.push(id);
+    if (kap.eklenen.indexOf(id) < 0) kap.eklenen.push(id);
     if (K.tur === 'metal') {
       var Md = METAL[K.metal], mol = miktar / Md.MA;
       kap.metal.push({ m: K.metal, n: mol, n0: mol, sek: K.sek, yas: 0, toz: !!K.toz, kim: id, x: Math.random(), aci: Math.random() * 6.28, kap: false });
@@ -798,6 +799,7 @@
     if (once.V < 2e-6 && kap.V > 2e-6) once.bosKap = true;
     var sonra = ozet(kap);
     olaylar = olaylar.concat(olayBul(kap, once, sonra, { tur: 'ekle', K: K, Vonce: Vonce, T0: T0 }));
+    if (sessiz) return olaylar.filter(function (e) { return e.tur !== 'bilgi' || /asidik|bazik|Tampon/.test(e.baslik); });
     if (kap.V > 2e-6) olaylar = olaylar.concat(adim(kap, 0.05));
     if (!olaylar.length) olaylar.push(degisimYok(kap, K, once, ozet(kap)));
     return olaylar;
@@ -814,8 +816,8 @@
     return olay('yok', M.ad + ': gözle görülür bir tepkime yok', 'Metal kabın dibinde değişmeden duruyor.', { aciklama: ack, konu: '12. sınıf · Metallerin aktifliği' });
   }
   /* Bir kaptan diğerine aktar. oran: 0–1 */
-  function aktar(a, b, oran) {
-    var olaylar = [];
+  function aktar(a, b, oran, secenek) {
+    var olaylar = [], sessiz = !!(secenek && secenek.sessiz);
     if (!(a.V > 2e-6) || oran <= 0) return olaylar;
     var v = a.V * oran, bos = b.kapasite - b.V;
     if (v > bos) { oran = bos / a.V; v = bos; olaylar.push(olay('uyari', 'Kap doldu', 'Hedef kap dolduğu için sıvının bir kısmı aktarılamadı.', { seviye: 'uyari' })); }
@@ -840,6 +842,7 @@
     b.askida = 1;
     if (once.V < 2e-6) once.bosKap = true;
     olaylar = olaylar.concat(olayBul(b, once, ozet(b), { tur: 'aktar', kaynak: a, Vonce: Vonce, T0: T0 }));
+    if (sessiz) return olaylar;
     olaylar = olaylar.concat(adim(b, 0.05));
     if (!olaylar.length) olaylar.push(once.bosKap ? olay('bilgi', 'Aktarıldı', tr(v * 1000, 1) + ' mL sıvı ' + b.ad.toLowerCase() + ' kabına aktarıldı.') : olay('yok', 'Gözle görülür bir tepkime yok', 'Karışımda renk değişimi, çökelek ya da gaz çıkışı gözlenmedi.'));
     return olaylar;

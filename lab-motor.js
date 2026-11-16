@@ -776,10 +776,12 @@
         olaylar.push(olay('tehlike', 'Sıçrama tehlikesi!', 'Derişik asidin üzerine sulu çözelti döktün. Su, asidin yüzeyinde aniden kaynar ve asit sıçrar.',
           { seviye: 'tehlike', aciklama: 'Doğrusu: asit, suya yavaş yavaş ve karıştırarak eklenir. “Asit suya, su asite asla.”', konu: 'Laboratuvar güvenliği' }));
       }
-      if (K.bil) for (k in K.bil) { var nn = K.bil[k] * v; topla(kap.n, k, nn); if (!kap.kay[k]) kap.kay[k] = {}; topla(kap.kay[k], id, nn); }
+      /* kullanıcı farklı derişim seçtiyse (secenek.derisim, mol/L) çözünenler orantılı ölçeklenir */
+      var fd = (secenek && secenek.derisim > 0 && K.M > 0 && !K.dil) ? secenek.derisim / K.M : 1;
+      if (K.bil) for (k in K.bil) { var nn = K.bil[k] * v * fd; topla(kap.n, k, nn); if (!kap.kay[k]) kap.kay[k] = {}; topla(kap.kay[k], id, nn); }
       if (K.gos) topla(kap.gos, K.gos, v * K.birim);
       if (K.dil) { kap.dilN += K.bil.SO4 ? K.bil.SO4 * v : (K.bil.Cl ? K.bil.Cl * v : (K.bil.NO3 || 0) * v); kap.dilH = K.dil.H; kap.dilC = K.dil.C; }
-      H0 += stokEntalpi(K) * v;
+      H0 += stokEntalpi(K) * v * fd;
       var C0 = 4184 * kap.V + 40, Ce = 4184 * v;
       kap.T = (C0 * kap.T + Ce * 25) / (C0 + Ce);
       kap.V += v;
@@ -1497,11 +1499,13 @@
   }
 
   /* Titrasyon için hızlı ekleme (olay üretmez) */
-  function damla(kap, id, v) {
+  function damla(kap, id, v, derisim) {
     var K = KIMI[id];
     if (!K || !(v > 0)) return;
-    var H0 = kap.H + stokEntalpi(K) * v, k;
-    for (k in K.bil) { var nn = K.bil[k] * v; topla(kap.n, k, nn); if (!kap.kay[k]) kap.kay[k] = {}; topla(kap.kay[k], id, nn); }
+    if (kap.eklenen.indexOf(id) < 0) kap.eklenen.push(id);
+    var fd = (derisim > 0 && K.M > 0 && !K.dil) ? derisim / K.M : 1;
+    var H0 = kap.H + stokEntalpi(K) * v * fd, k;
+    for (k in K.bil) { var nn = K.bil[k] * v * fd; topla(kap.n, k, nn); if (!kap.kay[k]) kap.kay[k] = {}; topla(kap.kay[k], id, nn); }
     if (K.gos) topla(kap.gos, K.gos, v * K.birim);
     var C0 = 4184 * kap.V + 40, Ce = 4184 * v;
     kap.T = (C0 * kap.T + Ce * 25) / (C0 + Ce);

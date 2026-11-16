@@ -89,12 +89,103 @@
   function kap(i) { return LA.KAPLAR[i]; }
   function karistir(L) { var a = L.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
+  /* ================= TALİMAT KARTI: her adımda ne yapılacağı + tek dokunuşluk düğme ================= */
+  var tal = document.createElement('div'); tal.className = 'gv-talimat'; tal.hidden = true; tal.setAttribute('aria-live', 'polite');
+  tezgahEl.parentNode.insertBefore(tal, tezgahEl.nextSibling);
+  var EYLEM = [];
+  function okHesap() { var A = G && G.A; return A && A.ok ? (typeof A.ok === 'function' ? A.ok(G) : A.ok) : null; }
+  function kimAd(id) { var K = M.KIMI[id]; return K ? (K.f ? Y.alt(K.f) : K.ad) : id; }
+  function varsayilanMik(id, i) {
+    var K = M.KIMI[id], k = kap(i);
+    if (!K) return 0;
+    if (K.tur === 'metal') return K.miktar[Math.min(1, K.miktar.length - 1)];
+    if (K.tur === 'gosterge') return K.gos === 'lah' ? 0.005 : 0.00015;
+    if (K.tur === 'kati') return K.ek ? 0.5 : 1;
+    return k && k.tip === 'tup' ? 0.003 : 0.01;
+  }
+  /* şişedeki maddeyi i. kaba doğrudan ekler (döküm animasyonuyla) */
+  function dok(i, id, mik) { UC.siseBirak(); if (!kap(i)) return; LA.ekle(i, id, mik || varsayilanMik(id, i)); }
+  /* sırayla birkaç kaba ekleme: her biri kendi kabında, arada kısa bekleme */
+  function sirayla(L, ms) { var g0 = G; G.mesgulBit = simdi() + L.length * (ms || 1100) + 300; L.forEach(function (f, j) { setTimeout(function () { if (G && G === g0) f(); }, j * (ms || 1100)); }); }
+  function mikYaz(id, mik) { var K = M.KIMI[id]; if (!K) return ''; if (K.tur === 'metal' || K.tur === 'kati') return Y.tr(mik, mik < 1 ? 2 : 0).replace(/,?0+$/, '') + ' g'; if (K.tur === 'gosterge' && K.gos !== 'lah') return Math.round(mik / 0.00005) + ' damla'; return Y.tr(mik * 1000, mik < 0.001 ? 1 : 0) + ' mL'; }
+  function kapKadraj(V, solX) { V.tekKadraj = true; if (LA.gozluk) UC.kameraAyar(null); else UC.kameraAyar(new T.Vector3(solX || -0.5, 0.6, 0.45), 1.8, new T.Vector3(0.16, 0.36, 1)); }
+  function dugmeleriAyikla(m) {
+    var L = [], re = /<button\b([^>]*)>([\s\S]*?)<\/button>/g, x;
+    while ((x = re.exec(m))) {
+      var at = x[1], gva = /data-gva="([^"]*)"/.exec(at), gvh = /data-gvh="([^"]*)"/.exec(at);
+      L.push({ gva: gva && gva[1], gvh: gvh && gvh[1], etiket: x[2].replace(/<[^>]+>/g, ''), kirmizi: /gv-kirmizi/.test(at) });
+    }
+    return { metin: m.replace(re, '').replace(/\s+$/, ''), L: L };
+  }
+  function adimEylemleri(A, ayik) {
+    var E = [];
+    if (A.secenekler) return (typeof A.secenekler === 'function' ? A.secenekler(G) : A.secenekler).map(function (s) { return { etiket: s.etiket, yap: s.yap, ikinci: true, secim: true }; });
+    if (A.yap) E.push({ etiket: typeof A.dugme === 'function' ? A.dugme(G) : (A.dugme || 'Bu adımı yap'), yap: function () { A.yap(G); } });
+    var hd = okHesap();
+    ayik.L.forEach(function (b) {
+      if (b.gvh) { E.push({ etiket: b.etiket, tut: b.gvh }); return; }
+      if (!b.gva) return;
+      if (b.gva.indexOf('sise:') === 0) {
+        var id = b.gva.slice(5);
+        if (!A.yap) E.push({ etiket: (A.dugme && typeof A.dugme !== 'function' ? A.dugme : kimAd(id) + ' ekle'), yap: function () { UC.siseAl(id); var h2 = okHesap(); if (h2 && h2.kap !== undefined) dok(h2.kap, id, A.miktar); else mesaj('Şimdi şişeyi seçtiğin kabın üstüne sürükle.'); } });
+        E.push({ etiket: 'Şişeyi al, kendin dök', yap: function () { UC.siseAl(id); }, ikinci: true, elle: true });
+        return;
+      }
+      E.push({ etiket: b.etiket, yap: function () { if (G.D.eylem) G.D.eylem(b.gva); }, kirmizi: b.kirmizi });
+    });
+    if (!E.some(function (e) { return !e.ikinci; }) && hd) {
+      var etk = typeof A.dugme === 'function' ? A.dugme(G) : A.dugme;
+      if (hd.nesne) { var d = UC.dokunBul ? UC.dokunBul(hd.nesne) : null; if (d) E.unshift({ etiket: etk || ('Dokun: ' + (UC.etiketBul && UC.etiketBul(hd.nesne) || 'sıradaki nesne')), yap: function () { d.fn(d.nesne); } }); }
+      else if (hd.kap !== undefined && kap(hd.kap)) {
+        if (UC.sise.id) { var sid = UC.sise.id; E.unshift({ etiket: etk || (kimAd(sid) + ' → ' + kap(hd.kap).ad), yap: function () { dok(hd.kap, sid, A.miktar); } }); }
+        else E.unshift({ etiket: etk || (kap(hd.kap).ad + ' kabını seç'), yap: function () { LA.kapSec(hd.kap); } });
+      }
+    }
+    return E;
+  }
+  function talimatCiz() {
+    if (!G || G.bitti) { if (!tal.hidden) tal.hidden = true; tal._h = ''; return; }
+    var A = G.A, s;
+    if (!A || G.kart) s = '<div class="gv-t-ust bekle"><i class="gv-adno">' + (Math.max(0, G.adim) + 1) + '</i><div class="gv-t-metin">' + (G.kart ? 'Kartı oku ve devam et.' : 'Bir saniye…') + '</div></div>';
+    else {
+      var m = typeof A.metin === 'function' ? A.metin(G) : A.metin;
+      if (!m && !A.yap && !A.secenekler) { if (!tal.hidden) tal.hidden = true; return; }
+      var ay = dugmeleriAyikla(m || ''), E = G.mesgulBit && simdi() < G.mesgulBit ? [{ etiket: 'Ekleniyor…', yap: null }] : adimEylemleri(A, ay);
+      EYLEM = E;
+      s = '<div class="gv-t-ust"><i class="gv-adno">' + (G.adim + 1) + '</i><div class="gv-t-metin">' + (ay.metin || '') + '</div></div>';
+      var elle = E.filter(function (e) { return e.elle; }), ilk = -1;
+      E.forEach(function (e, j) { if (ilk < 0 && !e.ikinci && !e.elle) ilk = j; });
+      function dugHtml(e, j, sinif) { return e.tut ? '<button type="button" class="' + sinif + ' gv-tut" data-gvh="' + e.tut + '">' + h(e.etiket) + '</button>' : '<button type="button" class="' + sinif + (e.kirmizi ? ' kirmizi' : '') + '"' + (e.yap ? ' data-gvy="' + j + '"' : ' disabled') + '>' + h(e.etiket) + '</button>'; }
+      if (ilk >= 0) s += '<div class="gv-t-dug">' + dugHtml(E[ilk], ilk, 'gv-yap') + '</div>';
+      var ek = ''; E.forEach(function (e, j) { if (j !== ilk && !e.elle) ek += dugHtml(e, j, 'gv-yap2'); });
+      if (ek) s += '<div class="gv-t-ek">' + ek + '</div>';
+      var ana = ilk >= 0 ? [E[ilk]] : [];
+      if (elle.length) s += '<div class="gv-t-not">' + E.map(function (e, j) { return e.elle ? '<button type="button" class="gv-link" data-gvy="' + j + '">' + h(e.etiket) + '</button>' : ''; }).join('') + '</div>';
+      else if (ana.length && okHesap()) s += '<div class="gv-t-not">Sahnede yeşil okun gösterdiği yere dokunarak da yapabilirsin.</div>';
+    }
+    if (tal._h !== s) { tal.innerHTML = s; tal._h = s; }
+    tal.hidden = false;
+  }
+  tal.addEventListener('click', function (e) {
+    if (!G || G.kart) return;
+    var b = e.target.closest('[data-gvy]');
+    if (b) { var E = EYLEM[+b.getAttribute('data-gvy')]; if (E && E.yap) { E.yap(); UC.kirli(); tal._h = ''; } return; }
+    var a = e.target.closest('[data-gva]');
+    if (a && G.D.eylem) { G.D.eylem(a.getAttribute('data-gva')); UC.kirli(); }
+  });
+  (function () {
+    var tut = null;
+    tal.addEventListener('pointerdown', function (e) { var b = e.target.closest('[data-gvh]'); if (!b || !G) return; e.preventDefault(); tut = b.getAttribute('data-gvh'); b.classList.add('basili'); if (G.D.tut) G.D.tut(tut, true); });
+    function birak() { if (tut && G && G.D.tut) G.D.tut(tut, false); tut = null; $$b('.basili').forEach(function (x) { x.classList.remove('basili'); }); }
+    function $$b(s) { return Array.prototype.slice.call(tal.querySelectorAll(s)); }
+    document.addEventListener('pointerup', birak); document.addEventListener('pointercancel', birak);
+    tal.addEventListener('contextmenu', function (e) { if (e.target.closest('[data-gvh]')) e.preventDefault(); });
+  })();
+
   LA.gorevIpucu = function () {
     if (!G || G.kart || G.bitti) return null;
     if (G.mesaj && simdi() < G.mesajBit) return G.mesaj;
-    if (!G.A) return null;
-    var m = typeof G.A.metin === 'function' ? G.A.metin(G) : G.A.metin;
-    return m ? '<i class="gv-adno">' + (G.adim + 1) + '</i> ' + m : null;
+    return null;
   };
   LA.gorevBitir = function () { if (G) bitir(); };
   LA.olay = function (tur, veri) { if (G && G.D.olay) G.D.olay(tur, veri); };
@@ -127,6 +218,7 @@
     UC.ok(null); UC.ptSabit(null); UC.kameraAyar(null); UC.oran(null);
     UC.arkaRaf.visible = true; UC.PISET.visible = true; UC.siseBirak();
     serbest.classList.remove('gv-gorev', 'gv-istasyon');
+    tal.hidden = true; tal._h = ''; LA.olcerGoster = false;
     tezgahEl.classList.remove('gv-kobalt');
     LA.kilit = false; LA.gorevAktif = false; LA.gorevSiseDugmesiz = false; LA.olcerGizli = false;
     UC.sahip = 'serbest';
@@ -153,9 +245,11 @@
     basCiz(); UC.kirli();
   }
   function kontrol() {
+    talimatCiz();
     if (!G || !G.A || G.kart) { if (G && (G.kart || !G.A)) UC.ok(null); return; }
     var A = G.A, hd = A.ok ? (typeof A.ok === 'function' ? A.ok(G) : A.ok) : null;
     if (hd !== G.okSon) { UC.ok(hd); G.okSon = hd; }
+    if (hd && hd.kap !== undefined && UC.sise.id && LA.aktif !== hd.kap && kap(hd.kap) && !(G.sonGecis && simdi() - G.sonGecis < 900)) { G.sonGecis = simdi(); LA.kapSec(hd.kap, true); }
     if (A.kosul && A.kosul(G)) adimBitti();
   }
   function adimBitti() {
@@ -169,7 +263,7 @@
     G.bitti = true; UC.ok(null);
     var y = G.soru ? (G.dogru === G.soru ? 3 : (G.dogru >= G.soru / 2 ? 2 : 1)) : 3, d = depoOku();
     d[G.D.id] = { yildiz: Math.max(y, (d[G.D.id] && d[G.D.id].yildiz) || 0) }; depoYaz(d);
-    basCiz();
+    basCiz(); talimatCiz();
     LA.gunlukIs('Görev tamamlandı: ' + G.D.ad + ' (' + y + ' yıldız)');
     kartGoster({ tur: 'bitis', yildiz: y, baslik: G.D.ad, ozet: G.D.ozetSon }, null);
   }
@@ -259,7 +353,7 @@
   function siseVar(id) { return UC.sise.id === id; }
   function istasyon(ac) { serbest.classList.toggle('gv-istasyon', !!ac); }
   function gozlukAdimi() {
-    return { metin: 'Önce <b>koruyucu gözlüğünü</b> tak: gözlüğe dokun.', atla: function () { return LA.gozluk; }, ok: function () { return G.v.gozlukG ? okNesne(G.v.gozlukG, 0.32, 0.8) : null; }, kosul: function () { return LA.gozluk; } };
+    return { metin: 'Önce <b>koruyucu gözlüğünü</b> tak.', dugme: '🥽 Gözlüğü tak', atla: function () { return LA.gozluk; }, ok: function () { return G.v.gozlukG ? okNesne(G.v.gozlukG, 0.32, 0.8) : null; }, kosul: function () { return LA.gozluk; } };
   }
   function gozlukKoy(x, z) {
     if (LA.gozluk) return;
@@ -279,7 +373,7 @@
       var hedef = UC.kamera.position.clone().lerp(new T.Vector3(0, 1, 0.3), 0.75);
       UC.dokunKaldir(g);
       ge.gizli = true;
-      tasi(g, hedef, null, 0.6, 0.2, function () { g.visible = false; LA.gozluk = true; tezgahEl.classList.add('gv-gozluk'); mesaj('Gözlük takıldı. Güvenlik önce!'); });
+      tasi(g, hedef, null, 0.6, 0.2, function () { g.visible = false; LA.gozluk = true; tezgahEl.classList.add('gv-gozluk'); mesaj('Gözlük takıldı. Güvenlik önce!'); if (G && G.v.tekKadraj) UC.kameraAyar(null); });
     });
   }
 
@@ -483,31 +577,32 @@
     };
     D.bitir = function () { tezgahEl.classList.remove('gv-kobalt'); };
     /* adımlar */
-    function dongu(ad) { return function () { if (V.oze === 'dinlen') return okNesne(oze, 0.22, 0.7); if (V.yuk && V.yuk.ad === ad) return okNesne(alevN, 0.15, 0.55); if (V.kirli && V.kirli.length) return okNesne(hclG, 0.55, 0.7); return okNesne(CAM[ad].g, 0.18, 0.75); }; }
+    function dongu(ad) { return function () { if (V.oze === 'dinlen') return okNesne(oze, 0.22, 0.7); if (V.yuk && V.yuk.ad === ad) return okNesne(alevHedef, 0.15, 0.55); if (V.kirli && V.kirli.length) return okNesne(hclG, 0.55, 0.7); return okNesne(CAM[ad].g, 0.18, 0.75); }; }
     function sonraki(L) { for (var i = 0; i < L.length; i++) if (!V.test[L[i]]) return L[i]; return L[0]; }
+    function donguDugme(ad) { return function () { if (V.oze === 'dinlen') return 'Tel özeyi al'; if (V.yuk && V.yuk.ad === ad) return '🔥 Teli alevin içine tut'; if (V.kirli && V.kirli.length) return 'Teli HCl’de temizle'; return 'Teli ' + CAM[ad].ad + ' örneğine batır'; }; }
     var DIGER = ['K', 'Ca', 'Sr', 'Ba', 'Cu'];
     D.adim = [
       gozlukAdimi(),
-      { metin: '<b>Gaz vanasını</b> aç.', ok: okNesne(vanaG, 0.55, 0.8), kosul: function () { return V.gaz; } },
-      { metin: '<b>Çakmağa</b> dokun, beki yak.', ok: okNesne(cak, 0.2, 0.8), kosul: function () { return V.alev !== 'yok'; },
+      { metin: '<b>Gaz vanasını</b> aç.', dugme: 'Gaz vanasını aç', ok: okNesne(vanaG, 0.55, 0.8), kosul: function () { return V.gaz; } },
+      { metin: '<b>Çakmakla</b> beki yak.', dugme: '🔥 Çakmakla yak', ok: okNesne(cak, 0.2, 0.8), kosul: function () { return V.alev !== 'yok'; },
         kart: { tur: 'kesif', baslik: 'Sarı alev', metin: 'Hava deliği kapalıyken gaz tam yanmaz. Alevdeki küçük is (karbon) tanecikleri ısınıp ışık saçar; alev sarı, titrek ve isli olur.' } },
       { tahmin: { soru: 'Hava deliğini açarsan alev nasıl değişir?', secenekler: ['Daha sarı ve büyük olur', 'Mavi ve daha sıcak olur', 'Söner'] },
-        metin: 'Bekin altındaki <b>hava deliği bileziğini</b> çevirip aç.', ok: okNesne(bek.bilezik, 0.18, 0.6), kosul: function () { return V.alev === 'mavi'; },
+        metin: 'Bekin altındaki <b>hava deliği bileziğini</b> çevirip aç.', dugme: 'Hava deliğini aç', ok: okNesne(bek.bilezik, 0.18, 0.6), kosul: function () { return V.alev === 'mavi'; },
         kart: function () { return { tur: 'kesif', baslik: 'Mavi alev', metin: 'Hava deliği açılınca gaza daha çok oksijen karışır ve yanma tamamlanır. Alev mavi, daha sıcak ve neredeyse görünmez olur. Mavi alev metallerin renklerini gizlemez; alev testi için uygundur.', tahminId: 3, tahminDogru: 1 }; } },
-      { metin: '<b>Tel özeyi</b> al ve <b>seyreltik HCl</b>’ye batırıp temizle.', ok: function () { return V.oze === 'dinlen' ? okNesne(oze, 0.22, 0.7) : okNesne(hclG, 0.55, 0.7); }, kosul: function () { return V.temizlendi >= 1; } },
-      { metin: 'Teli <b>LiCl</b> örneğine batır, sonra <b>alevin içine</b> tut.', ok: dongu('Li'), kosul: function () { return !!V.test.Li; }, gecikme: 2600,
-        kart: { tur: 'kesif', baslik: 'Lityum: koyu kırmızı alev', metin: 'Alevde ısınan atomların elektronları daha yüksek enerji düzeylerine çıkar. Eski düzeylerine dönerken her element kendine özgü renkte ışık yayar. Lityumun rengi koyu kırmızıdır; duvardaki tabloda lityum yanıyor.' } },
-      { metin: 'Teli HCl’de temizle, sonra <b>NaCl</b>’yi alevde dene.', ok: dongu('Na'), kosul: function () { return !!V.test.Na; }, gecikme: 2600,
+      { metin: '<b>Tel özeyi</b> al ve <b>seyreltik HCl</b>’ye batırıp temizle.', dugme: function () { return V.oze === 'dinlen' ? 'Tel özeyi al' : 'Teli HCl’de temizle'; }, ok: function () { return V.oze === 'dinlen' ? okNesne(oze, 0.22, 0.7) : okNesne(hclG, 0.55, 0.7); }, kosul: function () { return V.temizlendi >= 1; } },
+      { metin: 'Teli <b>LiCl</b> örneğine batır, sonra <b>alevin içine</b> tut.', dugme: donguDugme('Li'), ok: dongu('Li'), kosul: function () { return !!V.test.Li; }, gecikme: 2600,
+        kart: { tur: 'kesif', baslik: 'Lityum: koyu kırmızı alev', metin: 'Alevde ısınan atomların elektronları daha yüksek enerji düzeylerine çıkar. Eski düzeylerine dönerken her element kendine özgü renkte ışık yayar. Lityumun rengi koyu kırmızıdır.' } },
+      { metin: 'Teli HCl’de temizle, sonra <b>NaCl</b>’yi alevde dene.', dugme: donguDugme('Na'), ok: dongu('Na'), kosul: function () { return !!V.test.Na; }, gecikme: 2600,
         kart: { tur: 'soru', soru: 'Sodyumun sarı alevi neden dikkat ister?', secenekler: ['Çok parlaktır; az sodyum bile başka renkleri bastırır', 'Alevi söndürür', 'Hiçbir zaman görünmez'], dogru: 0, aciklama: 'Sodyumun sarı ışığı çok güçlüdür. Tel iyi temizlenmezse sodyum bulaşığı diğer renkleri örter.' } },
       { metin: function () { var n = DIGER.filter(function (x) { return V.test[x]; }).length; return 'Diğer örneklerden <b>en az üçünü</b> dene: KCl, CaCl₂, SrCl₂, BaCl₂, CuCl₂. Her seferinde önce teli temizle. (' + n + '/3)'; },
-        ok: function () { return dongu(V.yuk ? V.yuk.ad : sonraki(DIGER))(); }, kosul: function () { return DIGER.filter(function (x) { return V.test[x]; }).length >= 3; }, gecikme: 2600,
+        ok: function () { return dongu(V.yuk ? V.yuk.ad : sonraki(DIGER))(); }, dugme: function () { return donguDugme(V.yuk ? V.yuk.ad : sonraki(DIGER))(); }, kosul: function () { return DIGER.filter(function (x) { return V.test[x]; }).length >= 3; }, gecikme: 2600,
         kart: { tur: 'kesif', baslik: 'Her metalin parmak izi', metin: 'Lityum koyu kırmızı, kalsiyum tuğla kırmızısı, stronsiyum parlak kırmızı, baryum açık yeşil, bakır mavi-yeşil, potasyum leylak renk verir. Bu renkler havai fişeklerin renkleridir.' } },
-      { metin: 'Bu örnekte potasyuma biraz sodyum bulaşmış: <b>KCl + NaCl</b>’yi alevde dene.', ok: dongu('KNa'), kosul: function () { return !!V.test.KNa; }, gecikme: 2600,
+      { metin: 'Bu örnekte potasyuma biraz sodyum bulaşmış: <b>KCl + NaCl</b>’yi alevde dene.', dugme: donguDugme('KNa'), ok: dongu('KNa'), kosul: function () { return !!V.test.KNa; }, gecikme: 2600,
         kart: { tur: 'kesif', baslik: 'Sarı, leylağı örttü', metin: 'Potasyumun soluk leylak rengi, sodyumun parlak sarısının arkasında kayboldu. Peki potasyumu nasıl görebiliriz?' } },
       { basla: function () { kob.visible = true; }, metin: function () { return V.kobaltBak ? 'Kobalt camından bakıyorsun. Şimdi <b>KCl + NaCl</b>’yi yeniden dene.' : '<b>Kobalt camına</b> dokun; alevi mavi camın arkasından izle.'; },
-        ok: function () { return V.kobaltBak ? dongu('KNa')() : okNesne(kob, 0.62, 0.7); }, kosul: function () { return !!V.test.KNaK; }, gecikme: 2600,
+        ok: function () { return V.kobaltBak ? dongu('KNa')() : okNesne(kob, 0.62, 0.7); }, dugme: function () { return V.kobaltBak ? donguDugme('KNa')() : '🔵 Kobalt camından bak'; }, kosul: function () { return !!V.test.KNaK; }, gecikme: 2600,
         kart: { tur: 'soru', soru: 'Kobalt camı neden kullanılır?', secenekler: ['Sodyumun sarı ışığını süzer, potasyumun rengini gösterir', 'Alevi daha sıcak yapar', 'Teli temizler'], dogru: 0, aciklama: 'Mavi kobalt camı sarı ışığı geçirmez; sodyum bulaşığının arkasındaki potasyumun leylak (mor) rengi görünür.' } },
-      { basla: function () { if (V.kobaltBak) kobaltDokun(); }, metin: 'Son adım: <b>bilinmeyen X</b> örneğini test et.', ok: dongu('X'), kosul: function () { return !!V.test.X; }, gecikme: 2600,
+      { basla: function () { if (V.kobaltBak) kobaltDokun(); }, metin: 'Son adım: <b>bilinmeyen X</b> örneğini test et.', dugme: donguDugme('X'), ok: dongu('X'), kosul: function () { return !!V.test.X; }, gecikme: 2600,
         kart: function () { var sec = karistir(['Li', 'K', 'Ca', 'Sr', 'Ba'].filter(function (x) { return x !== V.X; })).slice(0, 3).concat([V.X]); sec = karistir(sec); return { tur: 'soru', soru: 'X örneği hangi metal iyonunu içeriyor?', secenekler: sec.map(function (x) { return IYAD[x] + ' (' + KAT[x].ad + ')'; }), dogru: sec.indexOf(V.X), aciklama: 'X örneği alevi ' + KAT[V.X].alevAd + ' renge boyadı: ' + IYAD[V.X] + ' iyonu.', ipucu: 'Gözlem tablosundaki renklerle karşılaştır.' }; } }
     ];
     D.ozetSon = ['Hava deliği açık bek mavi, sıcak ve temiz bir alev verir.', 'Metal iyonları alevi kendine özgü renklere boyar; bu renkler elementlerin tanınmasını sağlar.', 'Tel her denemeden önce HCl ile temizlenir; sodyum bulaşığı renkleri örter.', 'Kobalt camı sodyumun sarı ışığını süzer.'];
@@ -518,28 +613,30 @@
     var D = GI.belirti, V = G.v;
     LA.kapKur([{ tip: 'beher', ad: 'Beher', duzenek: 'yok' }, { tip: 'erlen', ad: 'Erlenmeyer', duzenek: 'yok' }, { tip: 'tup', ad: 'Deney tüpü', duzenek: 'yok' }, { tip: 'beher', ad: 'Beher 2', duzenek: 'yok' }]);
     UC.arkaRaf.visible = false; UC.PISET.visible = false;
-    UC.kameraAyar(new T.Vector3(0, 0.62, 0.45), 3.35);
-    gozlukKoy(-2.7, 1.25);
+    kapKadraj(V); LA.olcerGoster = true;
+    gozlukKoy(-1.3, 0.85);
     function m(i, id) { var k = kap(i); return k ? (k.eklenen.indexOf(id) >= 0) : false; }
     function V0(i) { return kap(i) ? kap(i).V : 0; }
     D.eylem = function (a) { if (a.indexOf('sise:') === 0) UC.siseAl(a.slice(5)); };
-    function adimSise(id, ad, hedef, kosul, metin, kart, gecikme) {
-      return { metin: function () { return (siseVar(id) ? 'Şişeyi <b>' + LA.KAPLAR[hedef].ad + '</b> kabının üstüne sürükle.' : metin + ' ' + siseDug(id, ad + ' al')); }, ok: function () { return siseVar(id) ? { kap: hedef } : null; }, kosul: kosul, kart: kart, gecikme: gecikme };
+    function adimSise(id, ad, hedef, kosul, metin, kart, gecikme, miktar) {
+      return { metin: function () { return (siseVar(id) ? 'Şişeyi <b>' + LA.KAPLAR[hedef].ad + '</b> kabının üstüne sürükle.' : metin + ' ' + siseDug(id, ad + ' al')); }, ok: function () { return siseVar(id) ? { kap: hedef } : null; }, kosul: kosul, kart: kart, gecikme: gecikme,
+        dugme: ad + ' ekle (' + mikYaz(id, miktar) + ') → ' + LA.KAPLAR[hedef].ad, yap: function () { dok(hedef, id, miktar); } };
     }
     D.adim = [
       gozlukAdimi(),
-      adimSise('hcl', 'HCl', 0, function () { return V0(0) >= 0.008; }, '<b>Gaz çıkışı:</b> Behere 10 mL hidroklorik asit dök.'),
+      adimSise('hcl', 'HCl', 0, function () { return V0(0) >= 0.008; }, '<b>Gaz çıkışı:</b> Behere 10 mL hidroklorik asit dök.', null, null, 0.01),
       adimSise('mermer', 'Mermer', 0, function () { var k = kap(0); return m(0, 'mermer') && (k.gazHiz.CO2 || 0) > 1e-6; }, 'Şimdi behere <b>mermer</b> (CaCO₃) parçacıkları ekle.',
-        { tur: 'kesif', baslik: 'Gaz çıkışı', metin: 'Kabarcıklar yeni bir maddenin, karbondioksit gazının oluştuğunu gösterir. Gaz çıkışı kimyasal tepkimenin belirtilerinden biridir.', denklem: 'CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂' }, 1800),
-      adimSise('fecl3', 'FeCl₃', 1, function () { return V0(1) >= 0.004; }, '<b>Renk değişimi:</b> Erlene 5 mL demir(III) klorür dök.'),
+        { tur: 'kesif', baslik: 'Gaz çıkışı', metin: 'Kabarcıklar yeni bir maddenin, karbondioksit gazının oluştuğunu gösterir. Gaz çıkışı kimyasal tepkimenin belirtilerinden biridir.', denklem: 'CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂' }, 1800, 1),
+      adimSise('fecl3', 'FeCl₃', 1, function () { return V0(1) >= 0.004; }, '<b>Renk değişimi:</b> Erlene 5 mL demir(III) klorür dök.', null, null, 0.005),
       adimSise('kscn', 'KSCN', 1, function () { return m(1, 'kscn'); }, 'Şimdi erlene birkaç mL <b>potasyum tiyosiyanat</b> ekle.',
-        { tur: 'kesif', baslik: 'Renk değişimi', metin: 'Sarımsı çözelti kan kırmızısına döndü. Yeni bir iyon (FeSCN²⁺) oluştu; renk değişimi de bir tepkime belirtisidir.', denklem: 'Fe³⁺ + SCN⁻ → FeSCN²⁺' }, 1200),
-      adimSise('agno3', 'AgNO₃', 2, function () { return V0(2) >= 0.003; }, '<b>Çökelek:</b> Tüpe 5 mL gümüş nitrat dök.'),
+        { tur: 'kesif', baslik: 'Renk değişimi', metin: 'Sarımsı çözelti kan kırmızısına döndü. Yeni bir iyon (FeSCN²⁺) oluştu; renk değişimi de bir tepkime belirtisidir.', denklem: 'Fe³⁺ + SCN⁻ → FeSCN²⁺' }, 1200, 0.002),
+      adimSise('agno3', 'AgNO₃', 2, function () { return V0(2) >= 0.003; }, '<b>Çökelek:</b> Tüpe 5 mL gümüş nitrat dök.', null, null, 0.005),
       adimSise('nacl', 'NaCl', 2, function () { return m(2, 'nacl'); }, 'Şimdi tüpe biraz <b>sodyum klorür</b> çözeltisi ekle.',
-        { tur: 'kesif', baslik: 'Çökelek oluşumu', metin: 'İki berrak çözelti karışınca beyaz bir katı oluştu ve dibe çöktü. Suda çözünmeyen yeni bir katının (AgCl) oluşması tepkime belirtisidir.', denklem: 'Ag⁺ + Cl⁻ → AgCl(k)' }, 1500),
-      adimSise('naoh', 'NaOH', 3, function () { return V0(3) >= 0.018; }, '<b>Sıcaklık değişimi:</b> Beher 2’ye 20 mL sodyum hidroksit dök.', null),
+        { tur: 'kesif', baslik: 'Çökelek oluşumu', metin: 'İki berrak çözelti karışınca beyaz bir katı oluştu ve dibe çöktü. Suda çözünmeyen yeni bir katının (AgCl) oluşması tepkime belirtisidir.', denklem: 'Ag⁺ + Cl⁻ → AgCl(k)' }, 1500, 0.002),
+      adimSise('naoh', 'NaOH', 3, function () { return V0(3) >= 0.018; }, '<b>Sıcaklık değişimi:</b> Beher 2’ye 20 mL sodyum hidroksit dök.', null, null, 0.02),
       { basla: function () { V.T0 = kap(3).T; LA.kapSec(3); }, metin: function () { return siseVar('hcl') ? 'Şişeyi <b>Beher 2</b> üstüne sürükle ve termometreyi izle.' : 'Şimdi Beher 2’ye 20 mL <b>HCl</b> ekle; termometreyi izle. ' + siseDug('hcl', 'HCl al'); },
         ok: function () { return siseVar('hcl') ? { kap: 3 } : null; }, kosul: function () { return kap(3).T - V.T0 > 3; }, gecikme: 1500,
+        dugme: 'HCl ekle (20 mL) → Beher 2', yap: function () { dok(3, 'hcl', 0.02); },
         kart: function () { return { tur: 'kesif', baslik: 'Sıcaklık değişimi', metin: 'Çözelti ' + Y.tr(kap(3).T - V.T0, 1) + ' °C ısındı. Nötralleşme ısı veren (ekzotermik) bir tepkimedir; sıcaklık değişimi de tepkime belirtisidir.', denklem: 'H⁺ + OH⁻ → H₂O' }; } },
       { basla: function () { UC.siseBirak(); }, metin: 'Gözlemlerini düşün.', kosul: function () { return true; }, gecikme: 200,
         kart: { tur: 'soru', soru: 'Bir tepkime olduğunu en iyi hangisi gösterir?', secenekler: ['Bir şeyin ıslanması', 'Yeni bir madde oluşması', 'Karıştırılması'], dogru: 1, aciklama: 'Kimyasal tepkimede yeni maddeler oluşur. Gaz, renk, çökelek ve sıcaklık değişimi bunun işaretleridir.' } },
@@ -569,10 +666,10 @@
     var EV = [['limon', 'Limon suyu'], ['su', 'Saf su'], ['nahco3', 'Yemek sodası'], ['naocl', 'Çamaşır suyu']];
     LA.kapKur(EV.map(function (e) { return { tip: 'beher', ad: e[1], duzenek: 'yok' }; }));
     EV.forEach(function (e, i) { M.ekle(kap(i), e[0], 0.06, { sessiz: true }); });
-    LA.kapSec(0);
+    LA.kapSec(0, true);
     UC.arkaRaf.visible = false; UC.PISET.visible = false;
-    UC.kameraAyar(new T.Vector3(0, 0.62, 0.45), 3.35);
-    gozlukKoy(-2.7, 1.25);
+    kapKadraj(V);
+    gozlukKoy(-1.3, 0.85);
     V.faz = 1;
     D.eylem = function (a) {
       if (a.indexOf('sise:') === 0) UC.siseAl(a.slice(5));
@@ -583,8 +680,8 @@
       V.faz = 2; UC.siseBirak();
       LA.kapKur([{ tip: 'erlen', ad: 'Erlenmeyer', duzenek: 'fayans', yerX: 0, yerZ: 0.35 }]);
       M.ekle(kap(0), 'hcl01', 0.025, { sessiz: true }); M.ekle(kap(0), 'evrensel', 0.00025, { sessiz: true });
-      LA.kapSec(0);
-      UC.kameraAyar(new T.Vector3(0, 1.05, 0.4), 2.4);
+      LA.kapSec(0, true);
+      UC.kameraAyar(new T.Vector3(0.3, 1.2, 0.4), 1.6, new T.Vector3(0.16, 0.36, 1));
       V.eklenen = 0;
       if (yeniden && V.buret) return;
       var kok = sahneyeEkle(grup(0, 0, 0)), z = 0.35;
@@ -599,7 +696,6 @@
       var derece = UC.tuval(64, 512, function (c, w, hh) { c.clearRect(0, 0, w, hh); c.fillStyle = 'rgba(30,30,30,.85)'; for (var i = 0; i <= 50; i++) { var y = 8 + i * (hh - 16) / 50; c.fillRect(0, y, i % 5 ? 18 : 34, i % 5 ? 2 : 3); } });
       var dr = new T.Mesh(new T.CylinderGeometry(0.052, 0.052, 2.2, 16, 1, true, -0.5, 1.0), new T.MeshBasicMaterial({ map: derece, transparent: true, depthWrite: false })); dr.position.y = 1.5; dr.renderOrder = 5; bG.add(dr);
       var damla = new T.Mesh(new T.SphereGeometry(0.018, 10, 8), new T.MeshPhysicalMaterial({ color: 0xdbe9f3, transparent: true, opacity: 0.85 })); damla.visible = false; kok.add(damla);
-      var pano = denklemPanosu(); pano.position.set(-1.9, 2.75, -1.985); kok.add(pano);
       V.buret = { g: bG, sivi: sivi, damla: damla };
       etiket(bG, 'Büret: NaOH 0,1 M', 1.75, 'gv-pr');
     }
@@ -626,9 +722,11 @@
           return siseVar('evrensel') ? 'Şişeyi her kabın üstüne sürükle; birkaç damla damlat. (' + n + '/4)' : 'Her kaba <b>evrensel gösterge</b> damlat. ' + siseDug('evrensel', 'Göstergeyi al');
         },
         ok: function () { if (!siseVar('evrensel')) return null; for (var i = 0; i < 4; i++) if (!gosVar(i)) return { kap: i }; return null; },
+        dugme: 'Dört kaba da gösterge damlat', yap: function () { sirayla([0, 1, 2, 3].filter(function (i) { return !gosVar(i); }).map(function (i) { return function () { dok(i, 'evrensel', 0.00015); }; }), 1300); },
         kosul: function () { return [0, 1, 2, 3].every(gosVar); }, gecikme: 1600,
-        kart: function () { return { tur: 'kesif', baslik: 'Renkler pH’ı gösteriyor', metin: 'Evrensel gösterge her pH için farklı renk verir. Duvardaki pH ölçeğiyle karşılaştır: kırmızı ve turuncu asidik, yeşil nötr, mavi ve mor bazik. Bir kaba dokununca pH metre o kabın değerini gösterir.', tahminId: 1, tahminDogru: 0 }; } },
-      { basla: function () { UC.siseBirak(); V.goruldu = {}; }, metin: function () { var n = Object.keys(V.goruldu).length; return 'Kaplara tek tek <b>dokun</b>; pH değerlerini oku. (' + n + '/4)'; },
+        kart: function () { return { tur: 'kesif', baslik: 'Renkler pH’ı gösteriyor', metin: 'Evrensel gösterge her pH için farklı renk verir: kırmızı ve turuncu asidik, yeşil nötr, mavi ve mor bazik. Bir kabı seçince pH değeri tezgâhın altındaki ölçümde görünür.', tahminId: 1, tahminDogru: 0 }; } },
+      { basla: function () { UC.siseBirak(); V.goruldu = {}; }, metin: function () { var n = Object.keys(V.goruldu).length; return 'Kapları tek tek aç; rengine ve pH değerine bak. (' + n + '/4)'; },
+        secenekler: function () { return [0, 1, 2, 3].map(function (i) { return { etiket: (V.goruldu[i] ? '✓ ' : '') + kap(i).ad, yap: function () { LA.kapSec(i); } }; }); },
         ok: function () { for (var i = 0; i < 4; i++) if (!V.goruldu[i]) return { kap: i }; return null; }, kosul: function () { V.goruldu[LA.aktif] = 1; return Object.keys(V.goruldu).length >= 4; }, gecikme: 900,
         kart: { tur: 'soru', soru: 'Hangisi en asidik?', secenekler: ['Limon suyu', 'Saf su', 'Yemek sodası', 'Çamaşır suyu'], dogru: 0, aciklama: 'pH değeri en küçük olan limon suyudur. pH ne kadar küçükse ortam o kadar asidiktir.' } },
       { metin: '', kosul: function () { return true; }, gecikme: 100,
@@ -636,7 +734,7 @@
       { basla: function () { buretKur(); }, metin: function () {
           var k = kap(0), ph = k && k.r ? k.r.pH : 1;
           if (ph > 10.3) return 'Fazla kaçtı: çözelti mora döndü, artık bazik. ' + '<button type="button" class="gv-b" data-gva="bas">Baştan başla</button>';
-          return 'Bürette NaOH var. Kırmızı rengi <b>yeşile</b> çevir. Turuncu görünce yavaşla, damla damla ekle. <button type="button" class="gv-b gv-tut" data-gvh="akit">Basılı tut: akıt</button><button type="button" class="gv-b" data-gva="damla">1 damla</button>';
+          return 'Bürette NaOH var. Kırmızı rengi <b>yeşile</b> çevir. Turuncu görünce yavaşla, damla damla ekle. <button type="button" class="gv-b gv-tut" data-gvh="akit">Basılı tut: akıt</button><button type="button" class="gv-b" data-gva="bes">5 mL</button><button type="button" class="gv-b" data-gva="damla">1 damla</button>';
         },
         kosul: function () { var k = kap(0); return V.eklenen > 5 && k && k.r && k.r.pH >= 5.5 && k.r.pH <= 10.3 && !V.akit; }, gecikme: 900,
         kart: function () { var ph = kap(0).r.pH; return { tur: 'kesif', baslik: 'Nötralleşme', metin: 'Yaklaşık ' + Y.tr(V.eklenen, 1) + ' mL NaOH ile asit tamamen nötrleşti; tuz ve su oluştu. Eşdeğerlik noktası yakınında tek bir damla pH’ı 4’ten 10’a sıçratabilir; bu yüzden son damlalar tek tek eklenir. Şu anki pH: ' + Y.tr(ph, 1) + '.', denklem: 'HCl + NaOH → NaCl + H₂O' }; } },
@@ -644,7 +742,7 @@
         kart: { tur: 'soru', soru: 'Nötralleşmede hangi maddeler oluşur?', secenekler: ['Tuz ve su', 'Asit ve baz', 'Gaz ve çökelek'], dogru: 0, aciklama: 'Asit + baz → tuz + su. Burada tuz NaCl’dir.' } }
     ];
     var eskiEylem = D.eylem;
-    D.eylem = function (a) { if (a === 'damla' && kap(0)) { LA.dokSessiz(0, 'naoh01', 0.00005); V.eklenen = (V.eklenen || 0) + 0.05; return; } eskiEylem(a); };
+    D.eylem = function (a) { if (a === 'damla' && kap(0)) { LA.dokSessiz(0, 'naoh01', 0.00005); V.eklenen = (V.eklenen || 0) + 0.05; return; } if (a === 'bes' && kap(0)) { LA.dokSessiz(0, 'naoh01', 0.005); V.eklenen = (V.eklenen || 0) + 5; return; } eskiEylem(a); };
     D.bitir = function () { V.akit = false; };
     D.ozetSon = ['pH < 7 asidik, pH = 7 nötr, pH > 7 baziktir.', 'Evrensel gösterge pH’a göre kırmızıdan mora kadar renk değiştirir.', 'Asit + baz → tuz + su (nötralleşme).'];
   }
@@ -654,13 +752,13 @@
     var D = GI.grup1, V = G.v;
     LA.kapKur([{ tip: 'beher', ad: 'Lityum için', duzenek: 'yok' }, { tip: 'beher', ad: 'Sodyum için', duzenek: 'yok' }, { tip: 'beher', ad: 'Potasyum için', duzenek: 'yok' }]);
     [0, 1, 2].forEach(function (i) { M.ekle(kap(i), 'su', 0.1, { sessiz: true }); M.ekle(kap(i), 'fenol', 0.0001, { sessiz: true }); });
-    LA.kapSec(0);
+    LA.kapSec(0, true);
     UC.arkaRaf.visible = false; UC.PISET.visible = false;
-    UC.kameraAyar(new T.Vector3(0, 0.62, 0.55), 3.05);
-    gozlukKoy(-2.5, 1.3);
+    UC.kameraAyar(new T.Vector3(-0.45, 0.62, 0.3), 1.85, new T.Vector3(0.16, 0.36, 1));
+    gozlukKoy(-1.3, 0.85);
     UC.ptSabit(['Li', 'Na', 'K', 'Rb', 'Cs']);
     /* koruyucu ekran */
-    var ek = sahneyeEkle(grup(-0.95, 0, -1.05)), ekc = new T.Mesh(new T.BoxGeometry(2.4, 1.5, 0.03), new T.MeshPhysicalMaterial({ color: 0xeaf6ff, transparent: true, opacity: 0.18, roughness: 0.02, clearcoat: 1, depthWrite: false }));
+    var ek = sahneyeEkle(grup(-1.05, 0, -0.55)), ekc = new T.Mesh(new T.BoxGeometry(2.4, 1.5, 0.03), new T.MeshPhysicalMaterial({ color: 0xeaf6ff, transparent: true, opacity: 0.18, roughness: 0.02, clearcoat: 1, depthWrite: false }));
     ekc.position.y = 0.8; ekc.renderOrder = 9; ek.add(ekc);
     var cer = new T.Mesh(new T.BoxGeometry(2.44, 0.05, 0.05), UC.MAT.gri); cer.position.y = 1.55; ek.add(cer);
     [-1.2, 1.2].forEach(function (x) { var a = new T.Mesh(new T.BoxGeometry(0.05, 1.6, 0.05), UC.MAT.gri); a.position.set(x, 0.8, 0); ek.add(a); var f = new T.Mesh(new T.BoxGeometry(0.1, 0.04, 0.5), UC.MAT.gri); f.position.set(x, 0.02, 0); ek.add(f); });
@@ -668,19 +766,20 @@
     hedefKutu(ek, 0.8, 1.6, 0.8);
     var etE = etiket(ek, 'Koruyucu ekran', 1.7, 'gv-pr');
     V.ekran = false;
-    dokun(ek, function () { if (V.ekran) return; V.ekran = true; etE.gizli = true; UC.dokunKaldir(ek); tasi(ek, new T.Vector3(0, 0, 1.35), new T.Quaternion(), 0.8, 0.3, null); anim(0.8, function (e) { ek.scale.setScalar(0.55 + 0.45 * e); }); });
+    dokun(ek, function () { if (V.ekran) return; V.ekran = true; etE.gizli = true; UC.dokunKaldir(ek); tasi(ek, new T.Vector3(0, 0, 1.45), new T.Quaternion(), 0.8, 0.3, function () { UC.kameraAyar(null); }); anim(0.8, function (e) { ek.scale.setScalar(0.55 + 0.45 * e); }); });
     D.eylem = function (a) {
       if (a.indexOf('sise:') === 0) UC.siseAl(a.slice(5));
       if (a === 'buyuk') { UC.siseBirak(); LA.ekle(1, 'na', 1); V.buyuk = true; }
     };
     function var0(i, id) { return kap(i) && kap(i).eklenen.indexOf(id) >= 0; }
     function adimMetal(id, ad, i) {
-      return { metin: function () { return siseVar(id) ? 'Metal kavanozunu <b>' + kap(i).ad + '</b> kabının üstüne sürükle ve bırak.' : '<b>' + ad + '</b> parçasını ' + (i + 1) + '. behere at. ' + siseDug(id, ad + ' al'); },
-        ok: function () { return siseVar(id) ? { kap: i } : null; }, kosul: function () { return var0(i, id); }, gecikme: 2500 };
+      return { metin: function () { return siseVar(id) ? 'Metal kavanozunu <b>' + kap(i).ad + '</b> kabının üstüne sürükle ve bırak.' : 'Pirinç tanesi kadar bir <b>' + ad.toLocaleLowerCase('tr') + '</b> parçasını fenolftaleinli suya at. ' + siseDug(id, ad + ' al'); },
+        ok: function () { return siseVar(id) ? { kap: i } : null; }, kosul: function () { return var0(i, id); }, gecikme: 2500,
+        dugme: ad + ' parçasını suya at', yap: function () { dok(i, id, 0.05); } };
     }
     D.adim = [
       gozlukAdimi(),
-      { metin: '<b>Koruyucu ekranı</b> kapların önüne yerleştir: ekrana dokun.', ok: okNesne(ek, 1.0, 1.2), kosul: function () { return V.ekran; } },
+      { metin: '<b>Koruyucu ekranı</b> kabın önüne yerleştir.', dugme: '🛡️ Ekranı yerleştir', ok: okNesne(ek, 1.0, 1.2), kosul: function () { return V.ekran; } },
       (function () { var a = adimMetal('li', 'Lityum', 0); a.tahmin = { soru: 'Hangi metal suyla en şiddetli tepkime verir?', secenekler: ['Lityum', 'Sodyum', 'Potasyum'] }; return a; })(),
       adimMetal('na', 'Sodyum', 1),
       (function () {
@@ -703,9 +802,9 @@
     var C = [['Saf su', [['su', 0.1]]], ['Şekerli su', [['su', 0.1], ['seker', 5]]], ['Sirke', [['sirke', 0.1]]], ['Tuzlu su', [['su', 0.09], ['nacl', 0.01]]]];
     LA.kapKur(C.map(function (c) { return { tip: 'beher', ad: c[0], duzenek: 'yok' }; }));
     C.forEach(function (c, i) { c[1].forEach(function (x) { M.ekle(kap(i), x[0], x[1], { sessiz: true }); }); });
-    LA.kapSec(0);
+    LA.kapSec(0, true);
     UC.arkaRaf.visible = false; UC.PISET.visible = false;
-    UC.kameraAyar(new T.Vector3(0, 0.75, 0.2), 3.35);
+    UC.kameraAyar(new T.Vector3(0, 0.95, -0.3), 1.75, new T.Vector3(0.16, 0.36, 1));
     LA.olcerGizli = true;
     V.dalgin = -1; V.yol = false; V.goruldu = {};
     var kok = sahneyeEkle(grup(0, 0, 0));
@@ -741,8 +840,9 @@
       if (V.yol) return;
       var K = UC.kapBul(i); if (!K) return;
       V.yol = true; V.dalgin = -1; etEl.gizli = true;
-      var ust = new T.Vector3(K.kok.position.x, 1.9, K.kok.position.z), alt = new T.Vector3(K.kok.position.x, 1.0, K.kok.position.z);
-      tasi(el, ust, null, 0.5, 0.1, function () { tasi(el, alt, null, 0.5, 0, function () { V.yol = false; V.dalgin = i; V.goruldu[i] = 1; }); });
+      var hz = K.hedefZ !== undefined ? K.hedefZ : K.kok.position.z, ust = new T.Vector3(0, 1.9, hz), alt = new T.Vector3(0, 1.0, hz);
+      el.position.y = Math.max(el.position.y, 1.9);
+      tasi(el, ust, null, 0.35, 0, function () { tasi(el, alt, null, 0.55, 0, function () { V.yol = false; V.dalgin = i; V.goruldu[i] = 1; }); });
     }
     D.olay = function (tur, veri) { if (tur === 'sec' && G && G.A && !G.kart) daldir(veri.i); };
     D.guncelle = function () {
@@ -754,7 +854,7 @@
       V.parl = parl;
       return V.yol;
     };
-    function adimDal(i, kart) { return { metin: 'Elektrotları <b>' + LA.KAPLAR[i].ad.toLocaleLowerCase('tr') + '</b> kabına daldır: kaba dokun.', ok: function () { return V.yol ? null : { kap: i }; }, kosul: function () { return V.dalgin === i; }, gecikme: 1300, kart: kart }; }
+    function adimDal(i, kart) { return { metin: 'Elektrotları <b>' + LA.KAPLAR[i].ad.toLocaleLowerCase('tr') + '</b> kabına daldır; ampule bak.', dugme: '⚡ Elektrotları daldır: ' + LA.KAPLAR[i].ad, ok: function () { return V.yol ? null : { kap: i }; }, kosul: function () { return V.dalgin === i; }, gecikme: 1300, kart: kart }; }
     D.adim = [
       (function () { var a = adimDal(0, { tur: 'kesif', baslik: 'Saf su iletmiyor', metin: 'Ampul yanmadı. Saf suda iyon neredeyse yoktur; elektrik akımını taşıyacak yüklü tanecik olmadığı için iletmez.' }); a.tahmin = { soru: 'Hangi çözeltide ampul en parlak yanar?', secenekler: ['Saf su', 'Şekerli su', 'Sirke', 'Tuzlu su'] }; return a; })(),
       adimDal(1, { tur: 'kesif', baslik: 'Şeker iyon vermez', metin: 'Ampul yine yanmadı. Şeker suda molekül olarak çözünür, iyonlarına ayrışmaz. Bu yüzden şekerli su elektrolit değildir.' }),
@@ -864,22 +964,22 @@
     };
     D.bitir = function () { if (kartEl.parentNode) kartEl.parentNode.removeChild(kartEl); if (kontrol.parentNode) kontrol.parentNode.removeChild(kontrol); };
     D.adim = [
-      { metin: 'Boş atoma bir <b>proton</b> ekle: kırmızı kaseye dokun.', ok: okNesne(KASE.p, 0.45, 0.9), kosul: function () { return V.p >= 1; }, gecikme: 900,
+      { metin: 'Boş atoma bir <b>proton</b> ekle.', dugme: '＋ Proton ekle', ok: okNesne(KASE.p, 0.45, 0.9), kosul: function () { return V.p >= 1; }, gecikme: 900,
         kart: { tur: 'kesif', baslik: 'Hidrojen!', metin: 'Tek protonlu atom hidrojendir. Elementin kimliğini proton sayısı belirler; buna atom numarası denir.' } },
       { tahmin: { soru: 'İkinci bir proton eklersen ne olur?', secenekler: ['Hâlâ hidrojendir, sadece ağırlaşır', 'Başka bir element olur'] },
-        metin: 'Bir <b>proton</b> daha ekle.', ok: okNesne(KASE.p, 0.45, 0.9), kosul: function () { return V.p >= 2; }, gecikme: 900,
+        metin: 'Bir <b>proton</b> daha ekle.', dugme: '＋ Proton ekle', ok: okNesne(KASE.p, 0.45, 0.9), kosul: function () { return V.p >= 2; }, gecikme: 900,
         kart: { tur: 'kesif', baslik: 'Helyum oldu', metin: 'Proton sayısı 2 olunca element helyuma dönüştü. Proton sayısı değişirse element de değişir.', tahminId: 1, tahminDogru: 1 } },
-      { metin: function () { var y = V.p - V.e; return 'Atomun yükü +' + y + '. Yükü dengelemek için <b>elektron</b> ekle. (' + V.e + '/' + V.p + ')'; }, ok: okNesne(KASE.e, 0.45, 0.9), kosul: function () { return V.p >= 1 && V.e === V.p; }, gecikme: 900,
+      { metin: function () { var y = V.p - V.e; return 'Atomun yükü +' + y + '. Yükü dengelemek için <b>elektron</b> ekle. (' + V.e + '/' + V.p + ')'; }, dugme: '＋ Elektron ekle', ok: okNesne(KASE.e, 0.45, 0.9), kosul: function () { return V.p >= 1 && V.e === V.p; }, gecikme: 900,
         kart: { tur: 'kesif', baslik: 'Nötr atom', metin: 'Elektron sayısı proton sayısına eşit olunca atom yüksüz (nötr) olur. Elektronlar çekirdeğin çevresindeki katmanlarda bulunur; ilk katman en fazla 2 elektron alır.' } },
-      { metin: function () { return '<b>2 nötron</b> ekle; kütle numarasını izle. (' + V.n + '/2)'; }, ok: okNesne(KASE.n, 0.45, 0.9), kosul: function () { return V.n >= 2; }, gecikme: 900,
+      { metin: function () { return '<b>2 nötron</b> ekle; kütle numarasını izle. (' + V.n + '/2)'; }, dugme: '＋ Nötron ekle', ok: okNesne(KASE.n, 0.45, 0.9), kosul: function () { return V.n >= 2; }, gecikme: 900,
         kart: { tur: 'kesif', baslik: 'Kütle numarası', metin: 'Kütle numarası = proton sayısı + nötron sayısı. Nötron eklemek elementi değiştirmez; aynı elementin nötron sayısı farklı atomlarına izotop denir.' } },
       { metin: function () { return 'Şimdi bir <b>karbon</b> atomu kur: 6 proton, 6 nötron, 6 elektron. (p ' + V.p + ' · n ' + V.n + ' · e ' + V.e + ')'; },
-        ok: function () { return okNesne(V.p < 6 ? KASE.p : (V.n < 6 ? KASE.n : KASE.e), 0.45, 0.9); }, kosul: function () { return V.p === 6 && V.n === 6 && V.e === 6; }, gecikme: 900,
+        ok: function () { return okNesne(V.p < 6 ? KASE.p : (V.n < 6 ? KASE.n : KASE.e), 0.45, 0.9); }, dugme: function () { return V.p < 6 ? '＋ Proton ekle' : (V.n < 6 ? '＋ Nötron ekle' : '＋ Elektron ekle'); }, kosul: function () { return V.p === 6 && V.n === 6 && V.e === 6; }, gecikme: 900,
         kart: { tur: 'kesif', baslik: 'Karbon (C)', metin: '6 proton: atom numarası 6. Kütle numarası 6 + 6 = 12. Elektron dizilimi 2, 4: ilk katmanda 2, ikinci katmanda 4 elektron var.' } },
       { metin: '', kosul: function () { return true; }, gecikme: 100,
         kart: { tur: 'soru', soru: 'Nötr bir sodyum atomu (11 proton) 1 elektron kaybederse ne olur?', secenekler: ['+1 yüklü iyon (Na⁺) olur', 'Neon atomuna dönüşür', 'Kütle numarası 1 azalır'], dogru: 0, aciklama: 'Proton sayısı değişmez, element yine sodyumdur. Bir elektron eksik olduğu için +1 yüklü katyon oluşur.' } },
       { metin: function () { return 'Bir <b>oksit iyonu O²⁻</b> kur: 8 proton, 8 nötron, 10 elektron. (p ' + V.p + ' · n ' + V.n + ' · e ' + V.e + ')'; },
-        ok: function () { return okNesne(V.p !== 8 ? KASE.p : (V.n !== 8 ? KASE.n : KASE.e), 0.45, 0.9); }, kosul: function () { return V.p === 8 && V.n === 8 && V.e === 10; }, gecikme: 900,
+        ok: function () { return okNesne(V.p !== 8 ? KASE.p : (V.n !== 8 ? KASE.n : KASE.e), 0.45, 0.9); }, dugme: function () { return V.p !== 8 ? '＋ Proton ekle' : (V.n !== 8 ? '＋ Nötron ekle' : '＋ Elektron ekle'); }, kosul: function () { return V.p === 8 && V.n === 8 && V.e === 10; }, gecikme: 900,
         kart: { tur: 'kesif', baslik: 'Oksit iyonu (O²⁻)', metin: 'Oksijen 2 elektron alınca −2 yüklü anyon oluşur. Dizilimi 2, 8 olur; dış katmanı soy gaz neon gibi dolar.' } }
     ];
     D.ozetSon = ['Proton sayısı (atom numarası) elementin kimliğini belirler.', 'Kütle numarası = proton + nötron.', 'Nötr atomda elektron sayısı proton sayısına eşittir; elektron veren atom katyon, alan atom anyon olur.'];
@@ -1054,17 +1154,17 @@
     };
     D.adim = [
       gozlukAdimi(),
-      { metin: 'Kapta tuz, kum ve demir tozu karışımı var. <b>Mıknatısa</b> dokun ve karışımın üstünde gezdir.', ok: okNesne(mk, 0.3, 0.7), kosul: function () { return V.demir; }, gecikme: 600,
+      { metin: 'Kapta tuz, kum ve demir tozu karışımı var. <b>Mıknatısı</b> karışımın üstünde gezdir.', dugme: '🧲 Mıknatısı gezdir', ok: okNesne(mk, 0.3, 0.7), kosul: function () { return V.demir; }, gecikme: 600,
         kart: { tur: 'kesif', baslik: 'Mıknatısla ayırma', metin: 'Demir tozu mıknatısa yapıştı; tuz ve kum yerinde kaldı. Manyetik özellik farkı kullanılarak demir karışımdan ayrıldı.' } },
-      { metin: 'Kalan tuz–kum karışımını <b>behere</b> boşalt: kaba dokun.', ok: okNesne(kab, 0.25, 0.9), kosul: function () { return V.beher; } },
+      { metin: 'Kalan tuz–kum karışımını <b>behere</b> boşalt.', dugme: 'Karışımı behere boşalt', ok: okNesne(kab, 0.25, 0.9), kosul: function () { return V.beher; } },
       { metin: 'Behere <b>su</b> ekle. <button type="button" class="gv-b" data-gva="su">Su ekle</button>', ok: okNesne(bh, 0.95, 0.7), kosul: function () { return V.su > 0; } },
       { tahmin: { soru: 'Karıştırınca ne olur?', secenekler: ['Tuz da kum da çözünür', 'Yalnız tuz çözünür', 'Hiçbiri çözünmez'] },
         metin: 'Cam bagetle <b>karıştır</b>. <button type="button" class="gv-b" data-gva="kar">Karıştır</button>', ok: okNesne(bh, 0.95, 0.7), kosul: function () { return V.cozundu; }, gecikme: 500,
         kart: { tur: 'kesif', baslik: 'Çözünme farkı', metin: 'Tuz suda çözünüp gözden kayboldu; kum çözünmedi ve dibe çöktü. Bu farkı kullanarak kumu ayırabiliriz.', tahminId: 4, tahminDogru: 1 } },
-      { metin: '<b>Süz:</b> beheri süzgeç kâğıdının üstüne boşalt: behere dokun.', ok: okNesne(bh, 0.95, 0.7), kosul: function () { return V.suzuldu; }, gecikme: 500,
+      { metin: '<b>Süz:</b> beheri süzgeç kâğıdının üstüne boşalt.', dugme: 'Süzgeçten süz', ok: okNesne(bh, 0.95, 0.7), kosul: function () { return V.suzuldu; }, gecikme: 500,
         kart: { tur: 'kesif', baslik: 'Süzme', metin: 'Kum süzgeç kâğıdında kaldı; tuzlu su (süzüntü) kâğıttan geçip erlene aktı. Süzme, sıvı ile içinde çözünmeyen katıyı ayırır.' } },
-      { metin: 'Süzüntüyü <b>buharlaştırma kapsülüne</b> dök: erlene dokun.', ok: okNesne(er, 0.85, 0.7), kosul: function () { return V.dokuldu; } },
-      { metin: 'Altındaki <b>ispirto ocağını</b> yak: ocağa dokun.', ok: okNesne(lam.g, 0.65, 0.7), kosul: function () { return V.buhar; }, gecikme: 600,
+      { metin: 'Süzüntüyü <b>buharlaştırma kapsülüne</b> dök.', dugme: 'Süzüntüyü kapsüle dök', ok: okNesne(er, 0.85, 0.7), kosul: function () { return V.dokuldu; } },
+      { metin: 'Altındaki <b>ispirto ocağını</b> yak; suyun buharlaşmasını izle.', dugme: '🔥 İspirto ocağını yak', ok: okNesne(lam.g, 0.65, 0.7), kosul: function () { return V.buhar; }, gecikme: 600,
         kart: { tur: 'kesif', baslik: 'Buharlaştırma', metin: 'Su buharlaşıp uçtu, kapsülde beyaz tuz kristalleri kaldı. Çözünmüş bir katı, çözücü buharlaştırılarak elde edilir.' } },
       { metin: '', kosul: function () { return true; }, gecikme: 100,
         kart: { tur: 'soru', soru: 'Tuzlu sudan tuzu elde etmek için hangi yöntem kullanılır?', secenekler: ['Buharlaştırma', 'Süzme', 'Mıknatısla ayırma'], dogru: 0, aciklama: 'Tuz suda çözündüğü için süzgeçten geçer; su buharlaştırılınca tuz geride kalır.' } },
@@ -1167,13 +1267,13 @@
     D.bitir = function () { tezgahEl.classList.remove('gv-flas'); };
     D.adim = [
       gozlukAdimi(),
-      { metin: 'Bek yanıyor. <b>Maşaya</b> dokun: magnezyum şeridi aleve sok.', ok: okNesne(masa, 0.2, 0.8), kosul: function () { return V.mg === 'kul'; }, gecikme: 500,
+      { metin: 'Bek yanıyor. <b>Magnezyum şeridi</b> maşayla aleve sok.', dugme: '🔥 Magnezyumu aleve sok', ok: okNesne(masa, 0.2, 0.8), kosul: function () { return V.mg === 'kul'; }, gecikme: 500,
         kart: { tur: 'kesif', baslik: 'Göz kamaştıran ışık', metin: 'Magnezyum havadaki oksijenle göz kamaştırıcı beyaz bir ışıkla yandı ve beyaz magnezyum oksit (MgO) külü oluştu. Gerçekte bu ışığa doğrudan bakılmaz.', denklem: '2Mg + O₂ → 2MgO' } },
-      { metin: 'Külü <b>fenolftaleinli suya</b> at: behere dokun.', ok: okNesne(bA.g, 0.85, 0.8), kosul: function () { return V.kul; }, gecikme: 500,
+      { metin: 'Külü <b>fenolftaleinli suya</b> at.', dugme: 'Külü suya at', ok: okNesne(bA.g, 0.85, 0.8), kosul: function () { return V.kul; }, gecikme: 500,
         kart: { tur: 'kesif', baslik: 'Metal oksit: bazik', metin: 'Su pembeleşti: magnezyum oksit suyla magnezyum hidroksit (baz) oluşturdu. Metal oksitler suda bazik çözelti verir.', denklem: 'MgO + H₂O → Mg(OH)₂' } },
       { tahmin: { soru: 'Kükürt yanınca oluşan gaz suda asit mi, baz mı oluşturur?', secenekler: ['Asit', 'Baz', 'Hiçbiri'] },
-        metin: '<b>Yakma kaşığına</b> dokun: kükürdü aleve tut.', ok: okNesne(kas, 0.2, 0.8), kosul: function () { return V.s === 'elde'; } },
-      { metin: 'Yanan kükürdü <b>evrensel göstergeli suyun</b> üstüne götür: behere dokun.', ok: okNesne(bB.g, 0.85, 0.8), kosul: function () { return V.sAsit; }, gecikme: 500,
+        metin: '<b>Yakma kaşığındaki</b> kükürdü aleve tut.', dugme: '🔥 Kükürdü aleve tut', ok: okNesne(kas, 0.2, 0.8), kosul: function () { return V.s === 'elde'; } },
+      { metin: 'Yanan kükürdü <b>evrensel göstergeli suyun</b> üstüne götür.', dugme: 'Kükürdü suyun üstüne götür', ok: okNesne(bB.g, 0.85, 0.8), kosul: function () { return V.sAsit; }, gecikme: 500,
         kart: { tur: 'kesif', baslik: 'Ametal oksit: asidik', metin: 'Kükürt mavi bir alevle yanıp kükürt dioksit gazı oluşturdu. Gaz suda çözünüp asit verdi; gösterge yeşilden turuncu-kırmızıya döndü. Ametal oksitler suda asidik çözelti verir.', denklem: 'S + O₂ → SO₂ ;  SO₂ + H₂O → H₂SO₃', tahminId: 3, tahminDogru: 0 } },
       { metin: '', kosul: function () { return true; }, gecikme: 100,
         kart: { tur: 'soru', soru: 'Hangisi doğrudur?', secenekler: ['Metal oksitler suda bazik, ametal oksitler asidik çözelti verir', 'Metal oksitler suda asidik çözelti verir', 'Bütün oksitler suda nötrdür'], dogru: 0, aciklama: 'MgO, Na₂O gibi metal oksitler bazik; CO₂, SO₂ gibi ametal oksitler asidik oksitlerdir.' } }
@@ -1286,11 +1386,11 @@
       gozlukAdimi(),
       { metin: '', kosul: function () { return true; }, gecikme: 200,
         kart: { tur: 'soru', soru: 'Saf su elektriği çok az iletir. Elektroliz için suya biraz sodyum sülfat (Na₂SO₄) neden eklenir?', secenekler: ['İyon sayısını artırıp akımın geçmesini sağlamak için', 'Suyu renklendirmek için', 'Suyu soğutmak için'], dogru: 0, aciklama: 'Na₂SO₄ suda iyonlarına ayrışır; bu iyonlar akımı taşır. Kendisi tepkimeye girmez.' } },
-      { metin: function () { return V.akim ? 'Tüplerde gaz toplanıyor. Hacimleri izle. (H₂ ' + Math.round(V.h2) + ' mL · O₂ ' + Math.round(V.o2) + ' mL)' : '<b>Güç kaynağına</b> dokun ve akımı aç.'; }, ok: function () { return V.akim ? null : okNesne(gk, 0.5, 0.8); }, kosul: function () { return V.h2 >= 20; }, gecikme: 400,
+      { metin: function () { return V.akim ? 'Tüplerde gaz toplanıyor. Hacimleri izle. (H₂ ' + Math.round(V.h2) + ' mL · O₂ ' + Math.round(V.o2) + ' mL)' : '<b>Güç kaynağını</b> aç.'; }, dugme: '🔋 Akımı aç', ok: function () { return V.akim ? null : okNesne(gk, 0.5, 0.8); }, kosul: function () { return V.h2 >= 20; }, gecikme: 400,
         kart: { tur: 'kesif', baslik: 'Hacimler 2 : 1', metin: 'Negatif elektrotta (katot) hidrojen, pozitif elektrotta (anot) oksijen toplandı. Hidrojenin hacmi oksijenin iki katı: su molekülünde her oksijen atomuna iki hidrojen atomu düşer.', denklem: '2H₂O → 2H₂ + O₂' } },
-      { metin: 'Hidrojeni test et: <b>yanan kibrite</b> dokun, sol tüpün ağzına tut.', ok: okNesne(kib, 0.15, 0.6), kosul: function () { return V.hTest; }, gecikme: 700,
+      { metin: 'Hidrojeni test et: <b>yanan kibriti</b> sol tüpün ağzına tut.', dugme: '🔥 Kibriti sol tüpe tut', ok: okNesne(kib, 0.15, 0.6), kosul: function () { return V.hTest; }, gecikme: 700,
         kart: { tur: 'kesif', baslik: 'Hidrojen: “pıt” sesi', metin: 'Hidrojen yanıcı bir gazdır. Yanan kibrit yaklaştırılınca küçük bir patlamayla “pıt” sesi çıkararak yandı.' } },
-      { metin: 'Oksijeni test et: <b>kor hâlindeki çubuğa</b> dokun, sağ tüpün ağzına tut.', ok: okNesne(kor, 0.15, 0.6), kosul: function () { return V.oTest; }, gecikme: 700,
+      { metin: 'Oksijeni test et: <b>kor hâlindeki çubuğu</b> sağ tüpün ağzına tut.', dugme: 'Kor çubuğu sağ tüpe tut', ok: okNesne(kor, 0.15, 0.6), kosul: function () { return V.oTest; }, gecikme: 700,
         kart: { tur: 'kesif', baslik: 'Oksijen: kor alevlendi', metin: 'Oksijen yakıcıdır (yanmayı destekler). Kor hâlindeki çubuk oksijenli tüpe tutulunca yeniden alev aldı.' } },
       { metin: '', kosul: function () { return true; }, gecikme: 100,
         kart: { tur: 'soru', soru: 'Suyun elektrolizinde hidrojen ve oksijen hangi hacim oranında toplanır?', secenekler: ['2 : 1', '1 : 1', '1 : 2'], dogru: 0, aciklama: '2H₂O → 2H₂ + O₂: aynı koşulda 2 hacim hidrojene karşılık 1 hacim oksijen oluşur.' } }
@@ -1398,11 +1498,11 @@
       { tahmin: { soru: 'Hidrojen suda çok az çözünür. Sence nasıl toplanır?', secenekler: ['Su dolu kabın içine, suyu iterek', 'Ağzı yukarı kapta', 'Hiç toplanamaz'] },
         metin: 'Erlendeki çinkonun üstüne <b>HCl</b> dök. <button type="button" class="gv-b" data-gva="hcl1">HCl dök</button>', ok: okNesne(e1.g, 0.95, 0.8), kosul: function () { return V.h2 >= 1; }, gecikme: 400,
         kart: { tur: 'kesif', baslik: 'Su altında toplama', metin: 'Hidrojen kabarcıkları su dolu kavanozdaki suyu aşağı itip yerini aldı. Suda az çözünen gazlar (H₂, O₂) böyle toplanır.', denklem: 'Zn + 2HCl → ZnCl₂ + H₂', tahminId: 1, tahminDogru: 0 } },
-      { metin: 'Gazı test et: <b>kavanoza</b> dokun, yanan kibriti ağzına tut.', ok: okNesne(kavanoz, 0.95, 0.7), kosul: function () { return V.hTest; }, gecikme: 600,
+      { metin: 'Gazı test et: yanan kibriti <b>kavanozun</b> ağzına tut.', dugme: '🔥 Kibriti kavanoza tut', ok: okNesne(kavanoz, 0.95, 0.7), kosul: function () { return V.hTest; }, gecikme: 600,
         kart: { tur: 'kesif', baslik: '“Pıt!”', metin: 'Hidrojen yanan kibritle küçük bir patlama sesiyle yandı. Bu, hidrojenin tanınma testidir.' } },
       { metin: 'Şimdi mermerin üstüne <b>HCl</b> dök. CO₂ havadan ağırdır; ağzı yukarı kabın dibine iner. <button type="button" class="gv-b" data-gva="hcl2">HCl dök</button>', ok: okNesne(e2.g, 0.95, 0.8), kosul: function () { return V.co2 >= 1; }, gecikme: 400,
         kart: { tur: 'kesif', baslik: 'Havayı yukarı iterek toplama', metin: 'Karbondioksit havadan ağır olduğu için kabın dibinde birikti ve havayı yukarı itti. Havadan ağır gazlar ağzı yukarı kapta toplanır.', denklem: 'CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂' } },
-      { metin: 'Gazı test et: <b>ağzı yukarı kaba</b> dokun, yanan kibriti ağzına tut.', ok: okNesne(sise2, 0.95, 0.7), kosul: function () { return V.cTest; }, gecikme: 600,
+      { metin: 'Gazı test et: yanan kibriti <b>ağzı yukarı kabın</b> ağzına tut.', dugme: '🔥 Kibriti kaba tut', ok: okNesne(sise2, 0.95, 0.7), kosul: function () { return V.cTest; }, gecikme: 600,
         kart: { tur: 'kesif', baslik: 'Kibrit söndü', metin: 'Karbondioksit yanmayı desteklemez; yanan kibrit söndü. Yangın söndürücülerde bu yüzden CO₂ kullanılır.' } },
       { metin: '', kosul: function () { return true; }, gecikme: 100,
         kart: { tur: 'soru', soru: 'Amonyak (NH₃) havadan hafiftir ve suda çok çözünür. Nasıl toplanır?', secenekler: ['Ağzı aşağı kapta, havayı aşağı iterek', 'Su altında', 'Ağzı yukarı kapta'], dogru: 0, aciklama: 'Suda çok çözündüğü için su altında toplanamaz; havadan hafif olduğu için ağzı aşağı kapta yukarıda birikir.' } }
@@ -1417,10 +1517,10 @@
     V.M4 = M4;
     LA.kapKur(['A', 'B', 'C', 'D'].map(function (h) { return { tip: 'beher', ad: h + ' kabı', duzenek: 'yok' }; }));
     M4.forEach(function (m, i) { if (m[0] === 'na2co3' || m[0] === 'naoh') { M.ekle(kap(i), 'su', 0.036, { sessiz: true }); M.ekle(kap(i), m[0], 0.004, { sessiz: true }); } else M.ekle(kap(i), m[0], 0.04, { sessiz: true }); });
-    LA.kapSec(0);
+    LA.kapSec(0, true);
     UC.arkaRaf.visible = false; UC.PISET.visible = false;
-    UC.kameraAyar(new T.Vector3(0, 0.62, 0.45), 3.35);
-    gozlukKoy(-2.7, 1.25);
+    kapKadraj(V);
+    gozlukKoy(-1.3, 0.85);
     D.eylem = function (a) { if (a.indexOf('sise:') === 0) UC.siseAl(a.slice(5)); };
     function idx(id) { for (var i = 0; i < 4; i++) if (M4[i][0] === id) return i; return -1; }
     function gos(i) { return kap(i) && (kap(i).gos.evr || 0) > 0; }
@@ -1433,11 +1533,14 @@
       gozlukAdimi(),
       { metin: function () { var n = [0, 1, 2, 3].filter(gos).length; return 'Etiketsiz dört çözelti: asit, baz, tuz ve karbonat. Her kaba <b>evrensel gösterge</b> damlat. (' + n + '/4) ' + (siseVar('evrensel') ? '' : siseDug('evrensel', 'Göstergeyi al')); },
         ok: function () { if (!siseVar('evrensel')) return null; for (var i = 0; i < 4; i++) if (!gos(i)) return { kap: i }; return null; }, kosul: function () { return [0, 1, 2, 3].every(gos); }, gecikme: 1400,
+        dugme: 'Dört kaba da gösterge damlat', yap: function () { sirayla([0, 1, 2, 3].filter(function (i) { return !gos(i); }).map(function (i) { return function () { dok(i, 'evrensel', 0.00015); }; }), 1300); },
         kart: { tur: 'kesif', baslik: 'İlk ipuçları', metin: 'Kırmızı-turuncu renk asidik, yeşil nötr, mavi-mor bazik çözeltiyi gösterir. Tuz nötrdür; asit asidiktir. Hem baz hem de karbonat bazik görünür; onları ayırmak için bir test daha gerek.' } },
-      { basla: function () { UC.siseBirak(); }, metin: function () { return 'Asidik olduğunu düşündüğün kaba <b>magnezyum şerit</b> at. ' + (siseVar('mg') ? '' : siseDug('mg', 'Magnezyumu al')); },
+      { basla: function () { UC.siseBirak(); }, metin: function () { return 'Asidik olduğunu düşündüğün kaba <b>magnezyum şerit</b> at. Hangisi?'; },
+        secenekler: function () { return [0, 1, 2, 3].map(function (i) { return { etiket: harf(i) + ' kabına at', yap: function () { dok(i, 'mg', 0.05); } }; }); },
         ok: function () { return null; }, kosul: function () { var i = idx('hcl'); return kap(i).eklenen.indexOf('mg') >= 0; }, gecikme: 2200,
         kart: function () { return { tur: 'kesif', baslik: harf(idx('hcl')) + ' kabı: asit', metin: 'Magnezyum hidrojen gazı kabarcıkları çıkardı. Asitler aktif metallerle hidrojen gazı oluşturur.', denklem: 'Mg + 2HCl → MgCl₂ + H₂' }; } },
-      { basla: function () { UC.siseBirak(); }, metin: function () { return 'Bazik görünen kaplara biraz <b>hidroklorik asit</b> ekle; hangisi köpürüyor? ' + (siseVar('hcl') ? '' : siseDug('hcl', 'HCl al')); },
+      { basla: function () { UC.siseBirak(); }, metin: function () { return 'Bazik görünen (mavi-mor) kaplara biraz <b>hidroklorik asit</b> ekle; hangisi köpürüyor?'; },
+        secenekler: function () { return [0, 1, 2, 3].map(function (i) { return { etiket: harf(i) + ' kabına HCl', yap: function () { dok(i, 'hcl', 0.005); } }; }); },
         ok: function () { return null; }, kosul: function () { var k = kap(idx('na2co3')); return k.eklenen.indexOf('hcl') >= 0 && (k.gazHiz.CO2 || 0) > 1e-6; }, gecikme: 1800,
         kart: function () { return { tur: 'kesif', baslik: harf(idx('na2co3')) + ' kabı: karbonat', metin: 'Asit eklenince karbondioksit gazı çıktı. Karbonatlar asitlerle CO₂ oluşturur; baz (NaOH) ise gaz çıkarmadan nötrleşir.', denklem: 'Na₂CO₃ + 2HCl → 2NaCl + H₂O + CO₂' }; } },
       { basla: function () { UC.siseBirak(); }, metin: '', kosul: function () { return true; }, gecikme: 200,

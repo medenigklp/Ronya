@@ -16,6 +16,7 @@
   var simdi = function () { return (window.performance && performance.now) ? performance.now() : Date.now(); };
   var IK = {
     arti: '<path d="M12 5v14M5 12h14"/>',
+    damla: '<path d="M12 3.5c3 3.8 5.5 6.9 5.5 10.2a5.5 5.5 0 0 1-11 0c0-3.3 2.5-6.4 5.5-10.2z"/><path d="M9.5 14.5a2.6 2.6 0 0 0 2.4 2.4"/>',
     kar: '<path d="M5 12a7 7 0 0 1 12-5M19 12a7 7 0 0 1-12 5"/><path d="M17 3v4h-4M7 21v-4h4"/>',
     alev: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.3 2.2-5.3 3.6-7.7.5 1.9 1.4 3 2.6 3.6.3-3.1 1.4-5.7 3.3-7.7.6 3.5 4 6 4 11.2 0 4-2.7 6.8-7 6.8z"/>',
     buz: '<path d="M12 2v20M4.5 6.5l15 11M19.5 6.5l-15 11"/><path d="M9.5 3.5 12 6l2.5-2.5M9.5 20.5 12 18l2.5 2.5"/>',
@@ -36,9 +37,9 @@
 
   var LAx = {};
   /* ================= DURUM ================= */
-  var KAPLAR = [new M.Kap('beher', 'Beher', 'beher', 0.25), new M.Kap('erlen', 'Erlenmeyer', 'erlen', 0.25), new M.Kap('tup', 'Deney tüpü', 'tup', 0.025)];
-  var aktif = 0, gunluk = [], t0 = Date.now(), olaylarK = [[], [], []], rozet = [0, 0, 0], kullanilan = {};
-  var anim = [], kabarcik = [[], [], []], pul = [[], [], []], hedefT = [null, null, null], tutT = [null, null, null];
+  var KAPLAR = [new M.Kap('beher', 'Beher', 'beher', 0.25)];
+  var aktif = 0, gunluk = [], t0 = Date.now(), olaylarK = [[]], rozet = [0], kullanilan = {};
+  var anim = [], kabarcik = [[]], pul = [[]], hedefT = [null], tutT = [null];
   function cz() { return window.LabArayuz && window.LabArayuz.cizici; }
   function diziEkle() { olaylarK.push([]); rozet.push(0); kabarcik.push([]); pul.push([]); hedefT.push(null); tutT.push(null); }
   function diziSil(i) { [olaylarK, rozet, kabarcik, pul, hedefT, tutT].forEach(function (d) { d.splice(i, 1); }); }
@@ -54,11 +55,12 @@
     /* SERBEST */
     '<section class="mod on" id="m-serbest"><div class="sb"><div class="sb-sol">' +
     '<div class="kart" id="lb-adim" hidden></div>' +
-    '<div class="kart tezgah-kart"><div class="tezgah"><canvas id="lb-tezgah" aria-label="Laboratuvar tezgâhı: beher, erlenmeyer ve deney tüpü. Bir kaba dokunarak seç."></canvas></div>' +
-    '<div class="serit" id="lb-serit"><span class="nokta"></span><span><b>Beher</b> seçili. Kimyasal eklemek için <b>Kimyasal ekle</b>’ye dokun.</span></div>' +
+    '<div class="kart tezgah-kart"><div class="alet-bar" id="lb-aletbar"></div><div class="tezgah"><canvas id="lb-tezgah" aria-label="Laboratuvar tezgâhı. Masadaki kap ortada büyük görünür."></canvas></div>' +
+    '<div class="serit" id="lb-serit"><span class="nokta"></span><span><b>Madde ekle</b>’ye dokun: maddeyi seç, miktarını ayarla, <b>Ekle</b>’ye bas.</span></div>' +
     '<div class="olcum" id="lb-olcum"></div>' +
     '<div class="araclar">' +
-    '<button class="ab ana" data-is="dolap">' + ikon('arti') + 'Kimyasal ekle</button>' +
+    '<button class="ab ana" data-is="dolap">' + ikon('arti') + 'Madde ekle</button>' +
+    '<button class="ab" data-is="su">' + ikon('damla') + 'Saf su</button>' +
     '<button class="ab" data-is="kar">' + ikon('kar') + 'Karıştır</button>' +
     '<button class="ab" data-is="isit">' + ikon('alev') + 'Isıt</button>' +
     '<button class="ab sogut" data-is="sogut" title="Buz banyosu">' + ikon('buz') + 'Soğut</button>' +
@@ -66,29 +68,28 @@
     '<button class="ab" data-is="gaz">' + ikon('gaz') + 'Gaz testi</button>' +
     '<button class="ab" data-is="alev">' + ikon('alevt') + 'Alev testi</button>' +
     '<button class="ab" data-is="bosalt">' + ikon('bosalt') + 'Boşalt</button>' +
-    '<button class="ab" data-is="malzeme" hidden>' + ikon('kap') + 'Kaplar</button>' +
     '</div></div>' +
     '<div class="kart gozlem-kart" style="margin-top:12px"><div class="panel-bas"><h2>Gözlemler</h2><span class="kucuk" id="lb-gk1"></span></div><div class="gozlem-liste" id="lb-gozlem1"></div></div>' +
     '<div class="kart" style="margin-top:12px"><div class="panel-bas"><h2>Kapta neler var?</h2><span class="kucuk" id="lb-ick"></span></div><div class="icerik" id="lb-icerik"></div></div>' +
     '</div><div class="sb-sag">' +
     '<div class="kart gozlem-kart" style="margin-bottom:12px"><div class="panel-bas"><h2>Gözlemler</h2><span class="kucuk" id="lb-gk2"></span></div><div class="gozlem-liste" id="lb-gozlem2"></div></div>' +
-    '<div class="kart dolap" id="lb-dolap"><div class="dolap-ust"><div class="satir"><h2>Kimyasal dolabı</h2><button class="dolap-kapat" data-is="dolapkapat" aria-label="Kapat">×</button></div>' +
+    '<div class="kart dolap" id="lb-dolap"><div class="dolap-ust"><div class="satir"><h2>Madde seç</h2><button class="dolap-kapat" data-is="dolapkapat" aria-label="Kapat">×</button></div>' +
     '<input class="ara" id="lb-ara" type="search" placeholder="Ara: HCl, bakır, sirke…" autocomplete="off">' +
     '<div class="cipler" id="lb-cip"></div></div><div class="liste" id="lb-liste"></div></div>' +
     '</div></div></section>' +
     /* TİTRASYON */
-    '<section class="mod" id="m-titrasyon"><div class="ti"><div class="kart"><div class="tezgah"><canvas id="lb-tcan"></canvas></div>' +
+    '<section class="mod" id="m-titrasyon"><div class="ti">' +
+    '<div class="kart ti-kart"><div class="tezgah ti-tezgah"><canvas id="lb-tcan"></canvas><div class="ti-okuma" id="lb-tokuma"></div></div>' +
     '<div class="olcum" id="lb-tolcum"></div>' +
-    '<div class="ti-ayar">' +
-    '<div><label for="lb-tanalit">Erlendeki çözelti</label><select id="lb-tanalit"></select></div>' +
-    '<div><label for="lb-thacim">Hacmi</label><select id="lb-thacim"><option value="10">10 mL</option><option value="20">20 mL</option><option value="25" selected>25 mL</option></select></div>' +
-    '<div><label for="lb-ttitrant">Bürette</label><select id="lb-ttitrant"></select></div>' +
-    '<div><label for="lb-tgos">Gösterge</label><select id="lb-tgos"><option value="fenol">Fenolftalein</option><option value="mo">Metil oranj</option><option value="mk">Metil kırmızısı</option><option value="btb">Bromtimol mavisi</option><option value="">Yok (pH metre)</option></select></div>' +
-    '</div><div class="ti-dug">' +
-    '<button class="ab" data-ti="0.05">1 damla</button><button class="ab" data-ti="0.5">0,5 mL</button><button class="ab" data-ti="1">1 mL</button><button class="ab" data-ti="5">5 mL</button>' +
-    '<button class="ab ana" data-ti="akit">' + ikon('oynat') + '<span>Sürekli akıt</span></button><button class="ab" data-ti="bas">' + ikon('temiz') + 'Baştan</button></div>' +
-    '<div class="hiz"><span>Akış hızı</span><input type="range" id="lb-thiz" min="0.05" max="2" step="0.05" value="0.5"><span id="lb-thizd">0,5 mL/sn</span></div></div>' +
-    '<div class="kart"><div class="panel-bas"><h2>Titrasyon eğrisi</h2><div class="secim" id="lb-teksen"><button class="on" data-e="ph">pH</button><button data-e="k">İletkenlik</button></div></div>' +
+    '<div class="ti-dug"><button class="ab ana ti-akit" data-ti="akit">' + ikon('damla') + '<span>Basılı tut: akıt</span></button>' +
+    '<button class="ab" data-ti="0.05">1 damla</button><button class="ab" data-ti="0.1">0,1 mL</button><button class="ab" data-ti="1">1 mL</button><button class="ab" data-ti="5">5 mL</button><button class="ab" data-ti="bas">' + ikon('temiz') + 'Baştan</button></div>' +
+    '<div class="hiz"><span>Akış hızı</span><input type="range" id="lb-thiz" min="0.05" max="3" step="0.05" value="0.8" aria-label="Akış hızı"><span id="lb-thizd">0,8 mL/sn</span></div></div>' +
+    '<div class="kart ti-ayar-kart"><div class="panel-bas"><h2>Deney ayarları</h2></div><div class="ti-ayarlar">' +
+    '<div class="ti-grup"><div class="ti-gb"><span class="ti-nok e"></span>Erlende (analit)</div><select id="lb-tanalit" aria-label="Erlendeki çözelti"></select><div id="lb-tadz"></div></div>' +
+    '<div class="ti-grup"><div class="ti-gb"><span class="ti-nok b"></span>Bürette (titrant)</div><select id="lb-ttitrant" aria-label="Büretteki çözelti"></select><div id="lb-ttdz"></div></div>' +
+    '<div class="ti-grup"><div class="ti-gb">Gösterge</div><div class="ayar-cip" id="lb-tgos"></div></div>' +
+    '<label class="ti-gizle"><input type="checkbox" id="lb-tgizli"> Erlendeki derişimi gizle: titrasyonla kendin bul</label></div></div>' +
+    '<div class="kart ti-graf-kart"><div class="panel-bas"><h2>Titrasyon eğrisi</h2><div class="secim" id="lb-teksen"><button class="on" data-e="ph">pH</button><button data-e="k">İletkenlik</button></div></div>' +
     '<div class="grafik"><canvas id="lb-tgraf"></canvas></div><div class="ti-sonuc" id="lb-tsonuc"></div></div></div></section>' +
     /* HAZIR DENEYLER */
     '<section class="mod" id="m-hazir"><p style="margin:0 0 12px;color:var(--tx2);font-size:14px">Bir deney seç; malzemeler tezgâha gelir, adımları tek dokunuşla yap ya da kendin dene.</p><div class="dn-izgara" id="lb-deneyler"></div></section>' +
@@ -104,13 +105,15 @@
     '<div class="ort" id="lb-ort"></div><div class="pen" id="lb-pen" role="dialog" aria-modal="true"></div><div class="tost" id="lb-tost" role="status" aria-live="polite"></div>' +
     '</div>';
 
+  (function () { var ad = $('#lb-adim'), tk = $('#m-serbest .tezgah-kart'); if (ad && tk) { ad.classList.remove('kart'); ad.classList.add('dn-talimat'); tk.insertBefore(ad, $('#lb-serit')); } })();
   /* ================= SEKMELER ================= */
   var mod = 'serbest';
   function modAc(m) {
-    mod = m;
+    var onceki = mod; mod = m;
+    if (cz() && cz().tiGir) { if (m === 'titrasyon') cz().tiGir(); else if (onceki === 'titrasyon') cz().tiCik(); }
     $$('.lab-sekme button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-mod') === m); });
     $$('.mod').forEach(function (s) { s.classList.toggle('on', s.id === 'm-' + m); });
-    if (m === 'titrasyon') { tiBoyut(); tiCiz(); grafikCiz(); }
+    if (m === 'titrasyon') { tiBoyut(); tiCiz(); grafikCiz(); tiOkuma(); $('#lb-tolcum').innerHTML = olcumHtml(ti.k, true); }
     if (m === 'rapor') raporCiz();
     if (m === 'serbest') { boyut(); if (cz()) cz().boyut(); }
     try { history.replaceState(null, '', m === 'serbest' ? location.pathname + location.search : '#' + m); } catch (e) {}
@@ -494,19 +497,19 @@
   function tezgahCiz(t, dt) {
     cx.setTransform(olc * dpr, 0, 0, olc * dpr, 0, 0);
     arkaPlan(cx);
-    for (var i = 0; i < 3; i++) { ocak(cx, i, t); kapCiz(cx, i, t, dt); etiketCiz(cx, i); }
+    for (var i = 0; i < Math.min(3, KAPLAR.length); i++) { ocak(cx, i, t); kapCiz(cx, i, t, dt); etiketCiz(cx, i); }
     animCiz(cx, t);
   }
   cv.addEventListener('click', function (e) {
     var r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / olc;
     var i = x < 205 ? 0 : (x < 405 ? 1 : 2);
-    kapSec(i);
+    if (i < KAPLAR.length) kapSec(i);
   });
-  function kapSec(i) {
+  function kapSec(i, sessiz) {
     if (!(i >= 0 && i < KAPLAR.length)) return;
     aktif = i; rozet[i] = 0;
-    if (LAx.olay) LAx.olay('sec', { i: i });
-    gozlemCiz(); olcumCiz(); icerikCiz(); dugmeDurum();
+    if (LAx.olay && !sessiz) LAx.olay('sec', { i: i });
+    gozlemCiz(); olcumCiz(); icerikCiz(); dugmeDurum(); aletBarCiz();
     var k = KAPLAR[i];
     seritYaz(null, '<b>' + h(k.ad) + '</b> seçili' + (k.V > 1e-6 ? ' · ' + Y.tr(k.V * 1000, 1) + ' mL' : ' · boş'));
   }
@@ -554,7 +557,7 @@
   function gozlemCiz() {
     var L = olaylarK[aktif], k = KAPLAR[aktif];
     var html = L.length ? L.slice(0, 14).map(function (o) { return olayHtml(o); }).join('') :
-      '<div class="bos"><b>' + h(k.ad) + '</b> için henüz gözlem yok.<br>Kimyasal ekle ya da <b>Hazır deneyler</b>’den birini seç.</div>';
+      '<div class="bos"><b>' + h(k.ad) + '</b> için henüz gözlem yok.<br><b>Madde ekle</b>’ye dokun ya da <b>Hazır deneyler</b>’den birini seç.</div>';
     $('#lb-gozlem1').innerHTML = html; $('#lb-gozlem2').innerHTML = html;
     var e = L.length ? L.length + ' gözlem · ' + k.ad : k.ad;
     $('#lb-gk1').textContent = e; $('#lb-gk2').textContent = e;
@@ -620,10 +623,12 @@
     $('#lb-cip').innerHTML = cip;
     var q = dolapAra.toLocaleLowerCase('tr').trim(), s = '';
     M.KIM.forEach(function (K) {
+      if (GIZLI_STOK[K.id]) return;
       if (dolapKat === 'ev' ? !K.ev : (dolapKat !== 'tumu' && K.kat !== dolapKat)) return;
       var metin = (K.ad + ' ' + (K.diger || '') + ' ' + (K.f || '')).toLocaleLowerCase('tr');
       if (q && metin.indexOf(q) < 0 && (K.f || '').toLowerCase().indexOf(q.replace(/\s/g, '')) < 0) return;
-      s += '<button class="kim" data-kim="' + K.id + '">' + siseSvg(K) + '<span class="ad"><b>' + h(K.ad) + '</b><small>' + (K.f ? h(Y.alt(K.f)) + ' · ' : '') + h(stokYaz(K)) + (K.diger ? ' · ' + h(K.diger) : '') + '</small></span><span class="ghs">' + K.ghs.slice(0, 3).map(function (c) { return ghsImg(c, 20); }).join('') + '</span></button>';
+      var da = derisimAyar(K);
+      s += '<button class="kim" data-kim="' + K.id + '">' + siseSvg(K) + '<span class="ad"><b>' + h(K.ad) + '</b><small>' + (K.f ? h(Y.alt(K.f)) + ' · ' : '') + h(da ? '0,001–' + sayiYaz(da.max) + ' M' : stokYaz(K)) + (K.diger ? ' · ' + h(K.diger) : '') + '</small></span><span class="ghs">' + K.ghs.slice(0, 3).map(function (c) { return ghsImg(c, 20); }).join('') + '</span></button>';
     });
     $('#lb-liste').innerHTML = s || '<div class="bos">Sonuç yok.</div>';
   }
@@ -632,8 +637,7 @@
   $('#lb-liste').addEventListener('click', function (e) {
     var b = e.target.closest('[data-kim]'); if (!b) return;
     var id = b.getAttribute('data-kim');
-    if (cz() && mod === 'serbest' && !LAx.siseKapali) { dolapKapat(); cz().siseAl(id); if (window.matchMedia('(max-width:979px)').matches) { var tz = $('#m-serbest .tezgah'); if (tz && tz.getBoundingClientRect().top < 0) tz.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }
-    else miktarAc(id);
+    miktarAc(id);
   });
   function dolapAc() { $('#lb-dolap').classList.add('acik'); ortAc(true); }
   function dolapKapat() { $('#lb-dolap').classList.remove('acik'); if (!$('#lb-pen').classList.contains('acik')) ortAc(false); }
@@ -642,44 +646,160 @@
 
   /* ================= MİKTAR / AKTAR PENCERESİ ================= */
   var penHedef = 0;
-  function miktarlar(K) {
-    if (K.tur === 'metal') return K.miktar.map(function (g) { return [Y.tr(g, g < 0.1 ? 2 : (g < 1 ? 2 : 0)).replace(/,?0+$/, '').replace(/,$/, '') + ' g', g, g <= 0.05 ? 'küçük parça' : (g >= 1 ? 'büyük parça' : 'parça')]; });
-    if (K.tur === 'kati') return K.ek ? [['Spatula ucu', 0.2, '0,2 g'], ['0,5 g', 0.5], ['1 g', 1]] : [['Spatula ucu', 0.1, '0,1 g'], ['0,5 g', 0.5], ['1 g', 1], ['2 g', 2], ['5 g', 5], ['10 g', 10]];
-    if (K.tur === 'gosterge') return K.gos === 'lah' ? [['5 mL', 0.005], ['10 mL', 0.01], ['25 mL', 0.025]] : [['1 damla', 0.00005, '0,05 mL'], ['2 damla', 0.0001, '0,1 mL'], ['5 damla', 0.00025, '0,25 mL']];
-    return [['1 damla', 0.00005, '0,05 mL'], ['1 mL', 0.001], ['5 mL', 0.005], ['10 mL', 0.01], ['25 mL', 0.025], ['50 mL', 0.05]];
+  /* Seçilebilir derişim aralığı (mol/L): yalnızca laboratuvar stok çözeltilerinde */
+  var DMAX = { hcl: 6, h2so4: 9, hno3: 7, asetik: 17, naoh: 10, nh3: 6, kirec: 0.02, baoh2: 0.2, na2co3: 2, nacl: 5, agno3: 5, pbno3: 1.5, ki: 5, kbr: 5, cuso4: 1.4, fecl3: 3, feso4: 1.5, bacl2: 1.5, cacl2: 5, na2so4: 1.5, mgso4: 2.5, znso4: 3, al2so4: 1, nh4cl: 5, kscn: 5, cocl2: 2, naac: 5, licl: 10, srcl2: 3, kmno4: 0.4, tiyo: 2 };
+  var GIZLI_STOK = { hcl01: 'hcl', h2so401: 'h2so4', asetik01: 'asetik', naoh01: 'naoh', nh301: 'nh3' };
+  var DERISIM = {}, SON_MIK = {};
+  function derisimAyar(K) { return K && K.tur === 'sivi' && K.M > 0 && !K.ev && !K.dil && DMAX[K.id] ? { min: 0.001, max: DMAX[K.id] } : null; }
+  function derisimAl(id) { var K = M.KIMI[id]; return DERISIM[id] || (K && K.M) || 0; }
+  function sayiOku(x) { var v = parseFloat(String(x).replace(/\s/g, '').replace(',', '.')); return isFinite(v) ? v : NaN; }
+  function sayiYaz(v, enAz) {
+    var d = v < 0.01 ? 4 : (v < 0.1 ? 3 : (v < 1 ? 2 : (v < 10 ? 1 : 0)));
+    if (enAz !== undefined) d = Math.max(d, enAz);
+    var t = Y.tr(v, d);
+    if (t.indexOf(',') >= 0) t = t.replace(/0+$/, '').replace(/,$/, '');
+    return t;
   }
-  function kapSecHtml() {
-    return '<div class="etiket">Hangi kaba?</div><div class="kap-sec">' + KAPLAR.map(function (k, i) { return '<button data-hedef="' + i + '" class="' + (i === penHedef ? 'on' : '') + '">' + h(k.ad) + '</button>'; }).join('') + '</div>';
+  function derisimYaz(c) { return sayiYaz(c) + ' M'; }
+  function kapAdi(k) { return k ? k.ad : ''; }
+  /* Bir madde için miktar ayarı: tür, birim, aralık, hazır değerler */
+  function miktarAyar(K, k) {
+    var bosMl = Math.max(0, (k.kapasite - k.V) * 1000);
+    if (K.tur === 'metal') { var a = K.miktar; return { tur: 'kutle', etiket: 'Kütle', birim: 'g', min: 0.01, max: 5, v: SON_MIK[K.id] || a[Math.min(1, a.length - 1)], cip: [0.02, 0.05, 0.1, 0.25, 0.5, 1, 2] }; }
+    if (K.tur === 'kati') return K.ek ? { tur: 'kutle', etiket: 'Kütle', birim: 'g', min: 0.05, max: 10, v: SON_MIK[K.id] || 0.5, cip: [0.1, 0.5, 1, 2, 5] } : { tur: 'kutle', etiket: 'Kütle', birim: 'g', min: 0.01, max: 50, v: SON_MIK[K.id] || 1, cip: [0.1, 0.5, 1, 2, 5, 10, 20] };
+    if (K.tur === 'gosterge' && K.gos !== 'lah') return { tur: 'damla', etiket: 'Damla', birim: 'damla', min: 1, max: 20, v: SON_MIK[K.id] || 2, cip: [1, 2, 3, 5, 10], tam: true, bosMl: bosMl };
+    var cip = [1, 5, 10, 25, 50, 100]; if (k.kapasite > 0.5) cip = cip.concat([250, 500]);
+    return { tur: 'hacim', etiket: 'Hacim', birim: 'mL', min: 0.05, max: Math.max(0.05, bosMl), v: Math.min(bosMl, SON_MIK[K.id] || (K.id === 'su' ? Math.min(50, bosMl * 0.5) : (K.tur === 'gosterge' ? 5 : (k.tip === 'tup' ? 3 : 10)))), cip: cip.filter(function (x) { return x <= bosMl + 1e-9; }), bosMl: bosMl };
   }
-  function miktarAc(id) {
-    var K = M.KIMI[id]; penHedef = aktif;
+  /* log ölçekli kaydırıcı + sayı kutusu */
+  function ayarHtml(ad, cfg) {
+    var cips = (cfg.cip || []).filter(function (x) { return x >= cfg.min - 1e-12 && x <= cfg.max + 1e-12; });
+    return '<div class="ayar" data-ayar="' + ad + '"><div class="ayar-ust"><label for="lb-a-' + ad + '">' + h(cfg.etiket) + '</label>' +
+      '<span class="ayar-sayi"><input id="lb-a-' + ad + '" type="text" inputmode="decimal" autocomplete="off" value="' + sayiYaz(cfg.v) + '"><span>' + h(cfg.birim) + '</span></span></div>' +
+      '<input type="range" min="0" max="1000" step="1" aria-label="' + h(cfg.etiket) + '" data-kay="' + ad + '">' +
+      (cfg.altYazi ? '<div class="ayar-alt">' + cfg.altYazi + '</div>' : '') +
+      (cips.length ? '<div class="ayar-cip">' + cips.map(function (x) { return '<button type="button" data-cip="' + ad + '" data-v="' + x + '">' + sayiYaz(x) + (cfg.birim === 'damla' ? '' : ' ' + h(cfg.birim)) + '</button>'; }).join('') + '</div>' : '') + '</div>';
+  }
+  function ayarBagla(kok0, ad, cfg, degisti) {
+    var kut = $('#lb-a-' + ad, kok0), kay = $('[data-kay="' + ad + '"]', kok0), lmin = Math.log(cfg.min), lmax = Math.log(Math.max(cfg.max, cfg.min * 1.0001));
+    function kayKonum(v) { kay.value = Math.round((Math.log(Math.max(cfg.min, Math.min(cfg.max, v))) - lmin) / (lmax - lmin) * 1000); }
+    function cipIsle(v) { $$('[data-cip="' + ad + '"]', kok0).forEach(function (b) { b.classList.toggle('on', Math.abs(+b.getAttribute('data-v') - v) < 1e-9); }); }
+    function yuvarla(v) { if (cfg.tam) return Math.round(v); var d = v < 0.01 ? 4 : (v < 0.1 ? 3 : (v < 1 ? 2 : (v < 10 ? 1 : 0))), f = Math.pow(10, d); return Math.round(v * f) / f; }
+    function ata(v, kaynak) {
+      v = Math.max(cfg.min, Math.min(cfg.max, v)); cfg.v = v;
+      if (kaynak !== 'kutu') kut.value = sayiYaz(v);
+      if (kaynak !== 'kay') kayKonum(v);
+      cipIsle(v); degisti(v);
+    }
+    kayKonum(cfg.v); cipIsle(cfg.v);
+    kay.addEventListener('input', function () { ata(yuvarla(Math.exp(lmin + (lmax - lmin) * (+kay.value) / 1000)), 'kay'); });
+    kut.addEventListener('input', function () { var v = sayiOku(kut.value); if (isFinite(v) && v > 0) ata(v, 'kutu'); });
+    kut.addEventListener('blur', function () { ata(isFinite(sayiOku(kut.value)) ? sayiOku(kut.value) : cfg.v); });
+    kut.addEventListener('focus', function () { try { kut.select(); } catch (e) {} });
+    kut.addEventListener('keydown', function (e) { if (e.key === 'Enter') { kut.blur(); } });
+    $$('[data-cip="' + ad + '"]', kok0).forEach(function (b) { b.addEventListener('click', function () { ata(+b.getAttribute('data-v')); }); });
+    return { ata: ata };
+  }
+  function hedefSecHtml(baslik) {
+    if (KAPLAR.length < 2) return '';
+    return '<div class="etiket">' + (baslik || 'Hangi kaba?') + '</div><div class="kap-sec">' + KAPLAR.map(function (k, i) { return k.gizli ? '' : '<button data-hedef="' + i + '" class="' + (i === penHedef ? 'on' : '') + '">' + kapSvg(k, 18) + h(k.ad) + '</button>'; }).join('') + '</div>';
+  }
+  function miktarAc(id, sec) {
+    var K = M.KIMI[id]; if (!K) return;
+    sec = sec || {};
+    penHedef = sec.hedef !== undefined ? sec.hedef : aktif;
     var tehl = K.ghs.length ? '<div class="tehl">' + K.ghs.map(function (c) { return '<span>' + ghsImg(c, 26) + h(M.GHS[c]) + '</span>'; }).join('') + '</div>' : '';
-    var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>' + h(K.ad) + '</h3><div class="alt">' + (K.f ? h(Y.alt(K.f)) + ' · ' : '') + h(stokYaz(K)) + (K.diger ? ' · ' + h(K.diger) : '') + '</div>' +
-      (K.not ? '<p class="not">' + h(K.not) + '</p>' : '') + tehl + (K.uyari ? '<div class="uyari">⚠ ' + h(K.uyari) + '</div>' : '') + kapSecHtml() +
-      '<div class="etiket">Ne kadar?</div><div class="miktarlar">' + miktarlar(K).map(function (m) { return '<button data-mik="' + m[1] + '">' + h(m[0]) + (m[2] ? '<small>' + h(m[2]) + '</small>' : '') + '</button>'; }).join('') + '</div>';
+    var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><div class="pen-bas">' + siseSvg(K) + '<div><h3>' + h(K.ad) + '</h3><div class="alt">' + (K.f ? h(Y.alt(K.f)) + ' · ' : '') + h(K.tur === 'sivi' && derisimAyar(K) ? 'çözelti' : stokYaz(K)) + (K.diger ? ' · ' + h(K.diger) : '') + '</div></div></div>' +
+      (K.not ? '<p class="not">' + h(K.not) + '</p>' : '') + tehl + (K.uyari ? '<div class="uyari">⚠ ' + h(K.uyari) + '</div>' : '') +
+      hedefSecHtml() + '<div id="lb-mik-govde"></div>';
     penAc(s, function (e) {
+      var hb = e.target.closest('[data-hedef]');
+      if (hb) { govde(); return; }
       var b = e.target.closest('[data-mik]');
-      if (b) { penKapat(); dolapKapat(); ekleAnim(penHedef, id, parseFloat(b.getAttribute('data-mik'))); }
+      if (!b || b.disabled) return;
+      var v = b.getAttribute('data-mik');
+      var k = KAPLAR[penHedef], cfg = durum.cfg, dz = durum.dz;
+      if (!k) return;
+      var mik = cfg.tur === 'hacim' ? cfg.v / 1000 : (cfg.tur === 'damla' ? cfg.v * 0.00005 : cfg.v);
+      SON_MIK[id] = cfg.v; if (dz) DERISIM[id] = dz.v;
+      penKapat(); dolapKapat();
+      if (v === 'elle') {
+        if (penHedef !== aktif) kapSec(penHedef);
+        if (cz()) { cz().siseAl(id, dz ? dz.v : 0, cfg.tur === 'kutle' ? cfg.v : 0); seritYaz(null, '<b>' + h(K.ad) + '</b> masada. Şişeyi tutup kabın üstüne sürükle; eğdikçe dökülür.'); kaydirTezgah(); }
+        return;
+      }
+      ekleAnim(penHedef, id, mik, false, dz ? { derisim: dz.v } : null);
+      kaydirTezgah();
     });
+    var durum = {};
+    function govde() {
+      var k = KAPLAR[penHedef], g = $('#lb-mik-govde');
+      if (!k || !g) return;
+      var cfg = miktarAyar(K, k), da = derisimAyar(K), dz = null, html = '';
+      if (da) { dz = { etiket: 'Derişim', birim: 'M', min: da.min, max: da.max, v: Math.min(da.max, derisimAl(id)), cip: [0.01, 0.05, 0.1, 0.5, 1, 2, 6].concat(K.M ? [K.M] : []).filter(function (x, j, a) { return a.indexOf(x) === j; }).sort(function (a, b) { return a - b; }) }; html += ayarHtml('d', dz); }
+      if (cfg.tur === 'hacim' && cfg.bosMl < 0.05) {
+        g.innerHTML = html + '<div class="uyari">' + h(k.ad) + ' dolu. Önce boşalt ya da başka bir kap seç.</div>';
+        return;
+      }
+      if (cfg.tur === 'damla' && cfg.bosMl < 0.05) { g.innerHTML = '<div class="uyari">' + h(k.ad) + ' dolu.</div>'; return; }
+      html += ayarHtml('m', cfg);
+      html += '<div class="mol-bilgi" id="lb-mol"></div>';
+      html += '<button type="button" class="ekle-dug" data-mik="ekle"><b>Ekle</b><small id="lb-ekle-alt"></small></button>';
+      if (cz() && !LAx.siseKapali && !LAx.kilit) html += '<button type="button" class="elle-dug" data-mik="elle">ya da şişeyi masaya al, kendin dök</button>';
+      g.innerHTML = html;
+      durum = { cfg: cfg, dz: dz };
+      function bilgi() {
+        var t = '', alt = '';
+        var miktarT = sayiYaz(cfg.v) + ' ' + cfg.birim;
+        if (cfg.tur === 'hacim') {
+          if (dz) { var n = dz.v * cfg.v / 1000; t = sayiYaz(cfg.v) + ' mL × ' + sayiYaz(dz.v) + ' M = <b>' + h(Y.molYaz(n)) + '</b> ' + h(K.f ? Y.alt(K.f) : K.ad); }
+          else if (K.M) { var n2 = K.M * cfg.v / 1000; t = sayiYaz(cfg.v) + ' mL (' + sayiYaz(K.M) + ' M) = <b>' + h(Y.molYaz(n2)) + '</b>'; }
+          else t = 'Kapta ' + sayiYaz(k.V * 1000) + ' mL var; en fazla ' + sayiYaz(cfg.bosMl) + ' mL daha eklenebilir.';
+        } else if (cfg.tur === 'kutle') {
+          var MA = K.tur === 'metal' ? M.METAL[K.metal].MA : K.MA;
+          t = MA ? sayiYaz(cfg.v) + ' g ÷ ' + sayiYaz(MA) + ' g/mol = <b>' + h(Y.molYaz(cfg.v / MA)) + '</b>' : sayiYaz(cfg.v) + ' g';
+          if (K.metal && /^(Na|K|Li)$/.test(K.metal) && cfg.v >= (K.metal === 'K' ? 0.25 : 0.5)) t += '<span class="kirmizi">⚠ Bu kadar büyük parça suda patlayabilir!</span>';
+        } else if (cfg.tur === 'damla') t = sayiYaz(cfg.v) + ' damla ≈ ' + sayiYaz(cfg.v * 0.05) + ' mL';
+        $('#lb-mol').innerHTML = t;
+        $('#lb-ekle-alt').textContent = miktarT + (dz ? ' · ' + derisimYaz(dz.v) : '') + ' → ' + kapAdi(k);
+      }
+      if (dz) ayarBagla(g, 'd', dz, bilgi);
+      ayarBagla(g, 'm', cfg, bilgi);
+      bilgi();
+    }
+    govde();
   }
+  function kaydirTezgah() { if (window.matchMedia('(max-width:979px)').matches) { var tz = $('#m-serbest .tezgah-kart'); if (tz && tz.getBoundingClientRect().top < 0) tz.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }
   function aktarAc() {
     var a = KAPLAR[aktif];
-    if (KAPLAR.length < 2) { tost('Aktarmak için tezgâhta ikinci bir kap olmalı.'); return; }
     if (!(a.V > 1e-6)) { tost('Kap boş; aktarılacak sıvı yok.'); return; }
+    if (KAPLAR.filter(function (k) { return !k.gizli; }).length < 2) {
+      penAc('<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>Aktarmak için ikinci kap gerekli</h3><p class="not">Sıvıyı dökmek için masaya bir kap daha getir. Sonra yine <b>Aktar</b>’a dokun.</p><button type="button" class="ekle-dug" data-alet-ac="1"><b>Masaya kap getir</b></button>', function (e) { if (e.target.closest('[data-alet-ac]')) aletAc(); });
+      return;
+    }
     penHedef = aktif === 0 ? 1 : 0;
-    var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>' + h(a.ad) + ' kabından aktar</h3><div class="alt">Kapta ' + Y.tr(a.V * 1000, 1) + ' mL sıvı var.</div>' +
-      '<div class="etiket">Nereye?</div><div class="kap-sec">' + KAPLAR.map(function (k, i) { return i === aktif ? '' : '<button data-hedef="' + i + '" class="' + (i === penHedef ? 'on' : '') + '">' + h(k.ad) + '</button>'; }).join('') + '</div>' +
-      '<div class="etiket">Ne kadar?</div><div class="miktarlar"><button data-or="0.25">Çeyreği</button><button data-or="0.5">Yarısı</button><button data-or="1">Tamamı</button><button data-ml="1">1 mL</button><button data-ml="5">5 mL</button><button data-ml="10">10 mL</button></div>';
+    var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>' + h(a.ad) + ' kabından aktar</h3><div class="alt">Kapta ' + sayiYaz(a.V * 1000) + ' mL sıvı var.</div>' +
+      hedefSecHtml('Nereye?').replace('data-hedef="' + aktif + '"', 'data-hedef="' + aktif + '" hidden') + '<div id="lb-akt-govde"></div>';
+    var cfg = null;
     penAc(s, function (e) {
-      var b = e.target.closest('[data-or],[data-ml]');
-      if (!b) return;
-      var oran = b.hasAttribute('data-or') ? parseFloat(b.getAttribute('data-or')) : Math.min(1, parseFloat(b.getAttribute('data-ml')) / 1000 / a.V);
+      if (e.target.closest('[data-hedef]')) { govde(); return; }
+      var b = e.target.closest('[data-akt]'); if (!b || b.disabled || !cfg) return;
+      var hedef = penHedef, kaynak = aktif, oran = Math.min(1, cfg.v / 1000 / a.V);
       penKapat();
-      var hedef = penHedef, kaynak = aktif;
-      anim.push({ i: hedef, tur: 'sivi', renk: karis(M.renk(a).sivi, M.renk(a).bulRenk, M.renk(a).bulanik), t0: simdi(), sure: 900 });
       if (KAPLAR[hedef].kirik) { tost(KAPLAR[hedef].ad + ' kırık. Önce temizle.', true); return; }
-      setTimeout(function () { var L = M.aktar(KAPLAR[kaynak], KAPLAR[hedef], oran); gunlukIs(KAPLAR[kaynak].ad + ' → ' + KAPLAR[hedef].ad + ' aktarıldı'); if (hedef !== aktif) kapSec(hedef); olaylariIsle(hedef, L); }, 450);
+      kapSec(hedef);
+      anim.push({ i: hedef, tur: 'sivi', renk: karis(M.renk(a).sivi, M.renk(a).bulRenk, M.renk(a).bulanik), t0: simdi(), sure: 900 });
+      setTimeout(function () { var L = M.aktar(KAPLAR[kaynak], KAPLAR[hedef], oran); gunlukIs(KAPLAR[kaynak].ad + ' → ' + KAPLAR[hedef].ad + ' ' + sayiYaz(cfg.v) + ' mL aktarıldı'); olaylariIsle(hedef, L); aletBarCiz(); }, 450);
     });
+    function govde() {
+      var hk = KAPLAR[penHedef], g = $('#lb-akt-govde'), bos = Math.max(0, (hk.kapasite - hk.V) * 1000), en = Math.min(a.V * 1000, bos);
+      if (en < 0.05) { g.innerHTML = '<div class="uyari">' + h(hk.ad) + ' dolu; aktarılamaz.</div>'; cfg = null; return; }
+      cfg = { etiket: 'Aktarılacak hacim', birim: 'mL', min: 0.05, max: en, v: Math.min(en, a.V * 1000), cip: [1, 5, 10, 25, 50, 100].filter(function (x) { return x < en; }) };
+      g.innerHTML = ayarHtml('t', cfg) + '<button type="button" class="ekle-dug" data-akt="1"><b>Aktar</b><small id="lb-akt-alt"></small></button>';
+      ayarBagla(g, 't', cfg, function (v) { $('#lb-akt-alt').textContent = sayiYaz(v) + ' mL → ' + hk.ad; });
+      $('#lb-akt-alt').textContent = sayiYaz(cfg.v) + ' mL → ' + hk.ad;
+    }
+    govde();
   }
   var penTik = null;
   function penAc(html, tik) {
@@ -690,7 +810,7 @@
   $('#lb-pen').addEventListener('click', function (e) {
     if (e.target.closest('[data-pen="kapat"]')) { penKapat(); return; }
     var hb = e.target.closest('[data-hedef]');
-    if (hb) { penHedef = +hb.getAttribute('data-hedef'); $$('[data-hedef]', this).forEach(function (b) { b.classList.toggle('on', b === hb); }); return; }
+    if (hb) { penHedef = +hb.getAttribute('data-hedef'); $$('[data-hedef]', this).forEach(function (b) { b.classList.toggle('on', b === hb); }); }
     if (penTik) penTik(e);
   });
   document.addEventListener('keydown', function (e) {
@@ -699,7 +819,7 @@
   });
 
   function gunlukIs(m) { gunluk.push({ t: (Date.now() - t0) / 1000, kap: '', yap: m }); }
-  function ekleAnim(i, id, mik, sessiz) {
+  function ekleAnim(i, id, mik, sessiz, secenek) {
     var K = M.KIMI[id], k = KAPLAR[i];
     if (!k || !K) return;
     if (k.kirik) { tost(k.ad + ' kırık. Önce etiketindeki Temizle’ye dokun.', true); return; }
@@ -708,10 +828,13 @@
     anim.push({ i: i, tur: tur, renk: stokRenk(K), renkHex: K.tur === 'metal' ? M.METAL[K.metal].renk : '#fff', metal: K.metal, t0: simdi(), sure: tur === 'sivi' ? 900 : 800 });
     if (i !== aktif && !sessiz) kapSec(i);
     setTimeout(function () {
-      var miktarAd = K.tur === 'metal' || K.tur === 'kati' ? Y.tr(mik, mik < 1 ? 2 : 1) + ' g' : (mik <= 0.00026 ? Math.round(mik / 0.00005) + ' damla' : Y.tr(mik * 1000, mik < 0.001 ? 2 : 0) + ' mL');
-      gunlukIs(k.ad + ' kabına ' + miktarAd + ' ' + K.ad + (K.f ? ' (' + Y.alt(K.f) + ')' : '') + ' eklendi');
+      var miktarAd = K.tur === 'metal' || K.tur === 'kati' ? sayiYaz(mik) + ' g' : (K.tur === 'gosterge' && K.gos !== 'lah' ? Math.round(mik / 0.00005) + ' damla' : sayiYaz(mik * 1000) + ' mL');
+      var dzAd = secenek && secenek.derisim ? ' ' + derisimYaz(secenek.derisim) : '';
+      gunlukIs(k.ad + ' kabına ' + miktarAd + dzAd + ' ' + K.ad + (K.f ? ' (' + Y.alt(K.f) + ')' : '') + ' eklendi');
       if (KAPLAR.indexOf(k) < 0 || k.kirik) return;
-      var L = M.ekle(k, id, mik);
+      var L = M.ekle(k, id, mik, secenek || undefined);
+      if (!L.some(function (o) { return o.tur !== 'bilgi'; })) seritYaz(null, '<b>' + h(k.ad) + '</b> kabına ' + h(miktarAd + dzAd) + ' ' + h(K.ad) + ' eklendi' + (k.r && k.V > 1e-6 ? ' · pH ' + Y.tr(Math.max(-1, Math.min(15, k.r.pH)), 1) : ''));
+      aletBarCiz();
       olaylariIsle(i, L);
       olcumCiz(); icerikCiz();
       patlamaKontrol(k, K, mik);
@@ -735,12 +858,12 @@
     });
     if (yeni.length) { if (dokum) dokum.olay += yeni.filter(function (o) { return o.tur !== 'bilgi'; }).length; olaylariIsle(i, yeni); }
   }
-  function dokSessiz(i, id, miktar) {
+  function dokSessiz(i, id, miktar, derisim) {
     var k = KAPLAR[i], K = M.KIMI[id];
     if (!k || !K || !(miktar > 0)) return;
     if (k.kirik) return;
     kullanilan[id] = 1;
-    dokumOlay(i, M.ekle(k, id, miktar, { sessiz: true }));
+    dokumOlay(i, M.ekle(k, id, miktar, { sessiz: true, derisim: derisim > 0 ? derisim : undefined }));
     if (LAx.olay) LAx.olay('dok', { i: i, id: id, mik: miktar });
   }
   function aktarSessiz(a, b, oran) {
@@ -791,56 +914,94 @@
     k.bosalt(); k.kirik = false; olaylarK[i].length = 0; kabarcik[i] = [];
     kapSec(i); tost('Kırık cam toplandı; ' + k.ad + ' yenisiyle değiştirildi.');
   }
-  /* ---- Kaplar: ekle / kaldır ---- */
-  var KAP_TIP = { beher: ['Beher', 0.25], erlen: ['Erlenmeyer', 0.25], tup: ['Deney tüpü', 0.025] };
-  function kapEkle(tip) {
-    if (KAPLAR.length >= 4) { tost('Tezgâhta en fazla 4 kap olabilir.'); return; }
-    var T0 = KAP_TIP[tip], say = KAPLAR.filter(function (k) { return k.tip === tip; }).length;
+  /* ---- Kaplar: masaya getir / kaldır ---- */
+  var KAP_TIP = { beher: ['Beher', 0.25, 'beher', 'Karıştırma, ısıtma, çözelti hazırlama'], buyuk: ['Büyük beher', 1, 'beher', 'Büyük hacimler (1 L)'], erlen: ['Erlenmeyer', 0.25, 'erlen', 'Çalkalama ve titrasyon'], tup: ['Deney tüpü', 0.025, 'tup', 'Az miktarla hızlı deneme'] };
+  function kapTuru(k) { return k.tip === 'beher' && k.kapasite > 0.5 ? 'buyuk' : k.tip; }
+  var svgSay = 0;
+  function kapSvg(k, boy, tur) {
+    tur = tur || kapTuru(k);
+    var id = 'ks' + (++svgSay), dolu = 0, renk = 'rgba(160,200,230,.55)';
+    if (k && k.V > 1e-6) { var R = M.renk(k); dolu = Math.min(1, k.V / k.kapasite); renk = rgba(karis(karis(R.sivi, [150, 195, 228], 0.25), R.bulRenk, R.bulanik * 0.9), 0.9); }
+    var yol;
+    if (tur === 'erlen') yol = 'M15.5 4h9M16.5 4v12.5L6.6 37.6A3.2 3.2 0 0 0 9.5 42h21a3.2 3.2 0 0 0 2.9-4.4L23.5 16.5V4';
+    else if (tur === 'tup') yol = 'M15 3h10M16 3v35a4 4 0 0 0 8 0V3';
+    else if (tur === 'buyuk') yol = 'M3 7h34M4.5 7v31.5A3.5 3.5 0 0 0 8 42h24a3.5 3.5 0 0 0 3.5-3.5V7';
+    else yol = 'M8 6h24M9.5 6v32.5A3.5 3.5 0 0 0 13 42h14a3.5 3.5 0 0 0 3.5-3.5V6';
+    var ust = tur === 'erlen' ? 16 : (tur === 'tup' ? 4 : 8), sev = 42 - dolu * (42 - ust - 2);
+    return '<svg viewBox="0 0 40 46" width="' + (boy || 30) + '" height="' + Math.round((boy || 30) * 46 / 40) + '" aria-hidden="true"><defs><clipPath id="' + id + '"><path d="' + yol + 'Z"/></clipPath></defs>' +
+      (dolu > 0 ? '<rect x="0" y="' + sev.toFixed(1) + '" width="40" height="46" fill="' + renk + '" clip-path="url(#' + id + ')"/>' : '') +
+      '<path d="' + yol + '" fill="none" stroke="#6E7781" stroke-width="2" stroke-linejoin="round"/>' + (tur !== 'tup' && tur !== 'erlen' ? '<path d="M' + (tur === 'buyuk' ? '9 17h5M9 25h5M9 33h5' : '13 16h4M13 24h4M13 32h4') + '" stroke="#9AA3AD" stroke-width="1.4"/>' : '') + '</svg>';
+  }
+  function kapKisa(k) {
+    if (k.kirik) return 'kırık';
+    if (k.V > 1e-6) return sayiYaz(k.V * 1000) + ' mL · pH ' + (k.r ? Y.tr(Math.max(-1, Math.min(15, k.r.pH)), 1) : '–') + (k.isit ? ' · 🔥' : (k.sogut ? ' · ❄' : ''));
+    return k.metal.length || Object.keys(k.n).length ? 'katı var' : 'boş';
+  }
+  var _aletH = '';
+  function aletBarCiz() {
+    var bar = $('#lb-aletbar'); if (!bar) return;
+    var gor = KAPLAR.filter(function (k) { return !k.gizli; });
+    if (!gor.length || (LAx.gorevAktif && gor.length < 2)) { if (!bar.hidden) bar.hidden = true; _aletH = ''; return; }
+    var s = '<div class="alet-kaplar">' + KAPLAR.map(function (k, i) {
+      if (k.gizli) return '';
+      return '<button type="button" class="akap' + (i === aktif ? ' on' : '') + (rozet[i] && i !== aktif ? ' yeni' : '') + '" data-akap="' + i + '">' + kapSvg(k, 24) + '<span><b>' + h(k.ad) + '</b><small>' + h(kapKisa(k)) + '</small></span></button>';
+    }).join('') + '</div>' + (LAx.kilit ? '' : '<button type="button" class="aekle" data-is="alet">' + ikon('arti') + '<span>Alet</span></button>');
+    if (s !== _aletH) { bar.innerHTML = s; _aletH = s; }
+    bar.classList.toggle('cok', gor.length >= 3);
+    bar.hidden = false;
+  }
+  $('#lb-aletbar').addEventListener('click', function (e) { var b = e.target.closest('[data-akap]'); if (b) kapSec(+b.getAttribute('data-akap')); });
+  function aletAc() {
+    var dolu = KAPLAR.length >= 4;
+    var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>Masaya alet getir</h3><div class="alt">Seçtiğin kap masada büyük görünür. Diğerleri yukarıdaki sırada bekler; dokunarak geçiş yaparsın.</div>' +
+      '<div class="alet-izgara">' + Object.keys(KAP_TIP).map(function (t) { var T0 = KAP_TIP[t]; return '<button type="button" class="alet-k" data-yeni="' + t + '"' + (dolu ? ' disabled' : '') + '>' + kapSvg(null, 44, t) + '<b>' + T0[0] + '</b><small>' + sayiYaz(T0[1] * 1000) + ' mL · ' + T0[3] + '</small></button>'; }).join('') + '</div>' +
+      (dolu ? '<div class="uyari">Masada en fazla 4 kap olabilir. Önce aşağıdan birini kaldır.</div>' : '') +
+      '<div class="etiket">Masadaki kaplar</div><div class="alet-liste">' + KAPLAR.map(function (k, i) {
+        return k.gizli ? '' : '<div class="al-s' + (i === aktif ? ' on' : '') + '">' + kapSvg(k, 22) + '<span><b>' + h(k.ad) + '</b><small>' + h(kapKisa(k)) + '</small></span>' + (KAPLAR.length > 1 ? '<button type="button" data-kaldir="' + i + '">Kaldır</button>' : '') + '</div>';
+      }).join('') + '</div>' +
+      '<button type="button" class="elle-dug" data-sifirla="1">Masayı temizle (tek boş beher)</button>';
+    penAc(s, function (e) {
+      var b = e.target.closest('[data-yeni],[data-kaldir],[data-sifirla]');
+      if (!b || b.disabled) return;
+      if (b.hasAttribute('data-yeni')) { penKapat(); kapEkle(b.getAttribute('data-yeni')); }
+      else if (b.hasAttribute('data-kaldir')) { kapKaldir(+b.getAttribute('data-kaldir')); aletAc(); }
+      else { penKapat(); standartKaplar(); tost('Masa temizlendi.'); }
+    });
+  }
+  function kapEkle(tur) {
+    if (KAPLAR.length >= 4) { tost('Masada en fazla 4 kap olabilir.'); return; }
+    var T0 = KAP_TIP[tur] || KAP_TIP.beher, say = KAPLAR.filter(function (k) { return k.ad.indexOf(T0[0]) === 0; }).length;
     var ad = T0[0] + (say ? ' ' + (say + 1) : '');
     while (KAPLAR.some(function (k) { return k.ad === ad; })) { say++; ad = T0[0] + ' ' + (say + 1); }
-    var k = new M.Kap(tip + Date.now() % 100000, ad, tip, T0[1]);
+    var k = new M.Kap(tur + Date.now() % 100000, ad, T0[2], T0[1]);
     KAPLAR.push(k); diziEkle();
     if (cz()) cz().senkron();
-    kapSec(KAPLAR.length - 1); gunlukIs(ad + ' tezgâha kondu');
+    kapSec(KAPLAR.length - 1); gunlukIs(ad + ' masaya kondu');
+    seritYaz(null, '<b>' + h(ad) + '</b> masada. <b>Madde ekle</b>’ye dokun.');
   }
   function kapKaldir(i) {
     if (KAPLAR.length <= 1 || !KAPLAR[i]) return;
     var ad = KAPLAR[i].ad;
     KAPLAR.splice(i, 1); diziSil(i);
+    var yeni = aktif > i ? aktif - 1 : (aktif === i ? Math.max(0, i - 1) : aktif);
+    aktif = Math.min(yeni, KAPLAR.length - 1);
     if (cz()) cz().senkron();
-    kapSec(Math.min(aktif >= i && aktif > 0 ? aktif - 1 : aktif, KAPLAR.length - 1));
-    gunlukIs(ad + ' tezgâhtan kaldırıldı');
+    kapSec(aktif);
+    gunlukIs(ad + ' masadan kaldırıldı');
   }
   function kapKur(L) {
     KAPLAR.length = 0;
     L.forEach(function (d) {
-      var T0 = KAP_TIP[d.tip], k = new M.Kap(d.id || d.tip, d.ad || T0[0], d.tip, d.kapasite || T0[1]);
+      var T0 = KAP_TIP[d.tip] || KAP_TIP.beher, k = new M.Kap(d.id || d.tip, d.ad || T0[0], T0[2], d.kapasite || T0[1]);
       ['duzenek', 'yerX', 'yerZ', 'gizli'].forEach(function (a) { if (d[a] !== undefined) k[a] = d[a]; });
       KAPLAR.push(k);
     });
     diziSifirla(); aktif = 0; dokum = null;
     if (cz()) cz().senkron();
-    kapSec(0);
+    kapSec(0, true);
   }
-  function standartKaplar() { kapKur([{ tip: 'beher', id: 'beher' }, { tip: 'erlen', id: 'erlen' }, { tip: 'tup', id: 'tup' }]); }
-  function malzemeAc() {
-    var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>Kaplar</h3><div class="alt">Tezgâhta ' + KAPLAR.length + ' kap var (en fazla 4).</div>' +
-      '<div class="etiket">Tezgâha ekle</div><div class="miktarlar">' +
-      '<button data-yeni="beher"' + (KAPLAR.length >= 4 ? ' disabled' : '') + '>Beher<small>250 mL</small></button>' +
-      '<button data-yeni="erlen"' + (KAPLAR.length >= 4 ? ' disabled' : '') + '>Erlenmeyer<small>250 mL</small></button>' +
-      '<button data-yeni="tup"' + (KAPLAR.length >= 4 ? ' disabled' : '') + '>Deney tüpü<small>25 mL</small></button></div>' +
-      '<div class="etiket">Seçili kap: ' + h(KAPLAR[aktif].ad) + '</div><div class="miktarlar">' +
-      '<button data-kaldir="1"' + (KAPLAR.length <= 1 ? ' disabled' : '') + '>Tezgâhtan kaldır</button>' +
-      '<button data-sifirla="1">Tezgâhı baştan kur<small>beher, erlen, tüp</small></button></div>';
-    penAc(s, function (e) {
-      var b = e.target.closest('[data-yeni],[data-kaldir],[data-sifirla]');
-      if (!b || b.disabled) return;
-      penKapat();
-      if (b.hasAttribute('data-yeni')) kapEkle(b.getAttribute('data-yeni'));
-      else if (b.hasAttribute('data-kaldir')) kapKaldir(aktif);
-      else { standartKaplar(); tost('Tezgâh baştan kuruldu.'); }
-    });
-  }
+  function standartKaplar() { kapKur([{ tip: 'beher', id: 'beher' }]); }
+  function malzemeAc() { aletAc(); }
   /* ---- Sıcaklık ayarı (termostat) ---- */
   function sicaklikAc() {
     var k = KAPLAR[aktif], d = tutT[aktif] !== null ? tutT[aktif] : Math.round(Math.max(40, Math.min(90, k.T + 20)) / 5) * 5;
@@ -863,7 +1024,9 @@
     var b = e.target.closest('[data-is]');
     if (!b) return;
     var is = b.getAttribute('data-is'), k = KAPLAR[aktif];
-    if (is === 'dolap') { if (window.matchMedia('(min-width:980px)').matches) $('#lb-ara').focus(); else dolapAc(); }
+    if (is === 'dolap') { if (window.matchMedia('(min-width:980px)').matches) { $('#lb-ara').focus(); seritYaz(null, 'Sağdaki listeden bir madde seç.'); } else dolapAc(); }
+    else if (is === 'su') miktarAc('su');
+    else if (is === 'alet') aletAc();
     else if (is === 'dolapkapat') dolapKapat();
     else if (is === 'kar') { if (!(k.V > 1e-6)) return tost('Kap boş.'); k.karistir = 2.5; gunlukIs(k.ad + ' karıştırıldı'); }
     else if (is === 'malzeme') malzemeAc();
@@ -978,43 +1141,53 @@
     }).join('');
   }
   $('#lb-deneyler').addEventListener('click', function (e) { var b = e.target.closest('[data-dn]'); if (b) deneyBaslat(b.getAttribute('data-dn')); });
+  var deneyHarita = {}, deneyMesgul = 0;
   function deneyBaslat(id) {
-    deneyAktif = DENEY.filter(function (d) { return d.id === id; })[0]; deneyAdim = 0;
+    deneyAktif = DENEY.filter(function (d) { return d.id === id; })[0]; deneyAdim = 0; deneyMesgul = 0;
     if (LAx.gorevBitir) LAx.gorevBitir(true);
-    standartKaplar();
+    /* yalnızca deneyde kullanılan kaplar masaya gelir */
+    var kul = {}; deneyAktif.adim.forEach(function (a) { a[1].forEach(function (x) { kul[x[1]] = 1; }); });
+    var TUR = ['beher', 'erlen', 'tup'], L = [], j = 0; deneyHarita = {};
+    [0, 1, 2].forEach(function (i) { if (kul[i]) { deneyHarita[i] = j++; L.push({ tip: TUR[i], id: TUR[i] }); } });
+    kapKur(L.length ? L : [{ tip: 'beher', id: 'beher' }]);
     gunlukIs('Hazır deney: ' + deneyAktif.ad);
     if (!$('#lb-rad').value) $('#lb-rad').value = deneyAktif.ad;
-    modAc('serbest'); adimCiz(); kapSec(0);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    modAc('serbest'); adimCiz(); kapSec(0, true);
+    setTimeout(function () { var tk = $('#m-serbest .tezgah-kart'); if (tk) window.scrollTo({ top: Math.max(0, window.pageYOffset + tk.getBoundingClientRect().top - 8), behavior: 'smooth' }); }, 60);
   }
   function adimCiz() {
     var p = $('#lb-adim');
     if (!deneyAktif) { p.hidden = true; return; }
-    var d = deneyAktif, n = d.adim.length, bitti = deneyAdim >= n;
-    var s = '<div class="adimlar"><div class="ust"><h2>' + d.ikon + ' ' + h(d.ad) + '</h2><button class="ab" data-adim="kapat" style="height:34px;padding:0 10px">Kapat</button></div>';
+    var d = deneyAktif, n = d.adim.length, bitti = deneyAdim >= n, mesgul = simdi() < deneyMesgul;
+    var s = '<div class="adimlar"><div class="ust"><h2><span class="dn-ik" style="background:' + d.renk + '">' + d.ikon + '</span>' + h(d.ad) + '</h2><button class="ab" data-adim="kapat" style="height:34px;padding:0 10px">Kapat</button></div>';
     s += '<div class="ilerleme">' + d.adim.map(function (a, j) { return '<i class="' + (j < deneyAdim ? 'b' : (j === deneyAdim ? 's' : '')) + '"></i>'; }).join('') + '</div>';
-    if (!bitti) s += '<div class="adim sira"><span class="no">' + (deneyAdim + 1) + '</span><span class="mt">' + h(d.adim[deneyAdim][0]) + '</span><button class="yap" data-adim="' + deneyAdim + '">Yap</button></div>';
-    else s += '<div class="adim-sonuc"><b>Sonuç:</b> ' + h(d.sonuc) + '</div>';
+    if (!bitti) s += '<div class="gv-t-ust"><i class="gv-adno">' + (deneyAdim + 1) + '</i><div class="gv-t-metin">' + h(d.adim[deneyAdim][0]) + '</div></div><button class="gv-yap dn-yap" data-adim="' + deneyAdim + '"' + (mesgul ? ' disabled' : '') + '>' + (mesgul ? 'Yapılıyor…' : '▶ Bu adımı yap') + '</button>';
+    else s += '<div class="adim-sonuc"><b>Sonuç:</b> ' + h(d.sonuc) + '</div><button class="gv-yap2 dn-tekrar" data-adim="tekrar">Deneyi baştan yap</button>';
     s += '<details class="tum"><summary>Tüm adımlar (' + Math.min(deneyAdim, n) + '/' + n + ')</summary>' + d.adim.map(function (a, j) {
       return '<div class="adim ' + (j < deneyAdim ? 'bitti' : (j === deneyAdim ? 'sira' : '')) + '"><span class="no">' + (j < deneyAdim ? '✓' : j + 1) + '</span><span class="mt">' + h(a[0]) + '</span></div>';
     }).join('') + '</details>';
-    p.innerHTML = s + '</div>'; p.hidden = false; p.style.marginBottom = '12px';
+    p.innerHTML = s + '</div>'; p.hidden = false;
   }
   $('#lb-adim').addEventListener('click', function (e) {
     var b = e.target.closest('[data-adim]');
     if (!b) return;
     var v = b.getAttribute('data-adim');
-    if (v === 'kapat') { deneyAktif = null; adimCiz(); return; }
-    var a = deneyAktif.adim[+v], gec = 0;
+    if (v === 'kapat') { deneyAktif = null; adimCiz(); standartKaplar(); return; }
+    if (v === 'tekrar') { deneyBaslat(deneyAktif.id); return; }
+    if (b.disabled || simdi() < deneyMesgul) return;
+    var a = deneyAktif.adim[+v], gec = 0, d0 = deneyAktif;
     a[1].forEach(function (x) {
-      setTimeout(function () { islemYap(x); }, gec);
+      setTimeout(function () { if (deneyAktif === d0) islemYap(x); }, gec);
       gec += x[0] === 'e' ? 1050 : 300;
     });
+    deneyMesgul = simdi() + gec + 200;
     deneyAdim = +v + 1;
-    setTimeout(adimCiz, 200);
+    adimCiz();
+    setTimeout(function () { if (deneyAktif === d0) adimCiz(); }, gec + 260);
   });
   function islemYap(x) {
-    var i = x[1], k = KAPLAR[i];
+    var i = deneyHarita[x[1]] !== undefined ? deneyHarita[x[1]] : x[1], k = KAPLAR[i];
+    if (!k) return;
     if (x[0] === 'e') ekleAnim(i, x[2], x[3]);
     else if (x[0] === 'isit') { k.isit = x[2]; if (x[2]) k.sogut = false; if (i !== aktif) kapSec(i); dugmeDurum(); gunlukIs(k.ad + (x[2] ? ' ısıtılmaya başlandı' : ' ısıtma kapatıldı')); }
     else if (x[0] === 'isitT') { k.isit = true; k.sogut = false; hedefT[i] = x[2]; if (i !== aktif) kapSec(i); dugmeDurum(); gunlukIs(k.ad + ' ' + x[2] + ' °C’ye ısıtılıyor'); }
@@ -1024,86 +1197,145 @@
   }
 
   /* ================= TİTRASYON ================= */
-  var TITRANT = [['naoh01', 'NaOH 0,1 M'], ['hcl01', 'HCl 0,1 M'], ['naoh', 'NaOH 1 M'], ['hcl', 'HCl 1 M'], ['h2so401', 'H₂SO₄ 0,1 M'], ['baoh2', 'Ba(OH)₂ 0,1 M'], ['kmno4', 'KMnO₄ 0,02 M']];
-  var ANALIT = [
-    ['hcl01', 'HCl 0,1 M', [['hcl01', 1]]], ['asetik01', 'CH₃COOH 0,1 M', [['asetik01', 1]]], ['nh301', 'NH₃ 0,1 M', [['nh301', 1]]], ['naoh01', 'NaOH 0,1 M', [['naoh01', 1]]],
-    ['na2co3', 'Na₂CO₃ 0,1 M', [['na2co3', 0.2], ['su', 0.8]]], ['sirke', 'Sirke (5 kat seyreltilmiş)', [['sirke', 0.2], ['su', 0.8]]], ['baoh2', 'Ba(OH)₂ 0,1 M', [['baoh2', 1]]],
-    ['h2so401', 'H₂SO₄ 0,1 M', [['h2so401', 1]]], ['feso4', 'FeSO₄ 0,05 M (asitli)', [['feso4', 0.5], ['h2so4', 0.2], ['su', 0.3]]]
+  var TI_A = [
+    { id: 'hcl', ad: 'Hidroklorik asit', f: 'HCl', c: 0.1, tur: 'ka', H: 1 },
+    { id: 'h2so4', ad: 'Sülfürik asit', f: 'H₂SO₄', c: 0.05, tur: 'ka', H: 2 },
+    { id: 'asetik', ad: 'Asetik asit', f: 'CH₃COOH', c: 0.1, tur: 'za', H: 1 },
+    { id: 'sirke', ad: 'Sirke (10 kat seyreltilmiş)', f: 'CH₃COOH', c: 0.083, sabit: true, tur: 'za', H: 1 },
+    { id: 'naoh', ad: 'Sodyum hidroksit', f: 'NaOH', c: 0.1, tur: 'kb', OH: 1 },
+    { id: 'baoh2', ad: 'Baryum hidroksit', f: 'Ba(OH)₂', c: 0.05, tur: 'kb', OH: 2 },
+    { id: 'nh3', ad: 'Amonyak', f: 'NH₃', c: 0.1, tur: 'zb', OH: 1 },
+    { id: 'na2co3', ad: 'Sodyum karbonat', f: 'Na₂CO₃', c: 0.05, tur: 'kar', OH: 2 },
+    { id: 'feso4', ad: 'Demir(II) sülfat (asitli)', f: 'FeSO₄', c: 0.05, tur: 'fe', e: 1 }
   ];
-  var ti = { k: new M.Kap('tit', 'Erlenmeyer', 'erlen', 0.25), v: 0, veri: [], akit: false, eksen: 'ph', donum: [], renkler: [] };
+  var TI_T = [
+    { id: 'naoh', ad: 'Sodyum hidroksit', f: 'NaOH', c: 0.1, tur: 'baz', OH: 1 },
+    { id: 'hcl', ad: 'Hidroklorik asit', f: 'HCl', c: 0.1, tur: 'asit', H: 1 },
+    { id: 'h2so4', ad: 'Sülfürik asit', f: 'H₂SO₄', c: 0.05, tur: 'asit', H: 2 },
+    { id: 'baoh2', ad: 'Baryum hidroksit', f: 'Ba(OH)₂', c: 0.05, tur: 'baz', OH: 2 },
+    { id: 'kmno4', ad: 'Potasyum permanganat', f: 'KMnO₄', c: 0.02, tur: 'mno4', e: 5 }
+  ];
+  var TI_GOS = [['fenol', 'Fenolftalein'], ['mo', 'Metil oranj'], ['mk', 'Metil kırmızısı'], ['btb', 'Bromtimol mavisi'], ['', 'Yok']];
+  var GOS_ARALIK = { fenol: [8.2, 10], mo: [3.1, 4.4], mk: [4.4, 6.2], btb: [6, 7.6] };
+  var ti = { k: new M.Kap('tit', 'Erlenmeyer', 'erlen', 0.25), v: 0, veri: [], akit: false, eksen: 'ph', donum: [], renkler: [], a: 0, t: 0, ca: 0.1, va: 25, ct: 0.1, gos: 'fenol', gizli: false, dolum: 0, damlaT: 0, goster: false };
+  ti.tId = function () { return TI_T[ti.t].id; };
+  function tiMaks(id, tur) { var m = DMAX[id] || 2; return Math.min(tur === 'a' ? 2 : 2, m); }
   function secDoldur() {
-    $('#lb-tanalit').innerHTML = ANALIT.map(function (a, j) { return '<option value="' + j + '">' + h(a[1]) + '</option>'; }).join('');
-    $('#lb-ttitrant').innerHTML = TITRANT.map(function (a) { return '<option value="' + a[0] + '">' + h(a[1]) + '</option>'; }).join('');
+    $('#lb-tanalit').innerHTML = TI_A.map(function (a, j) { return '<option value="' + j + '">' + h(a.ad + ' (' + a.f + ')') + '</option>'; }).join('');
+    $('#lb-ttitrant').innerHTML = TI_T.map(function (a, j) { return '<option value="' + j + '">' + h(a.ad + ' (' + a.f + ')') + '</option>'; }).join('');
+    $('#lb-tgos').innerHTML = TI_GOS.map(function (g) { return '<button type="button" data-tgos="' + g[0] + '" class="' + (g[0] === ti.gos ? 'on' : '') + '">' + h(g[1]) + '</button>'; }).join('');
+    tiAyarCiz();
+  }
+  var tiZam = null;
+  function tiYenidenKur() { clearTimeout(tiZam); tiZam = setTimeout(tiKur, 120); }
+  function tiAyarCiz() {
+    var A = TI_A[ti.a], T0 = TI_T[ti.t];
+    var s1 = A.sabit ? '<div class="ti-sabit">Derişim sabit: yaklaşık ' + sayiYaz(A.c) + ' M</div>' : ayarHtml('tadz', { etiket: 'Derişim', birim: 'M', min: 0.001, max: tiMaks(A.id, 'a'), v: ti.ca, cip: [0.01, 0.05, 0.1, 0.5, 1] });
+    s1 += ayarHtml('tav', { etiket: 'Hacim', birim: 'mL', min: 1, max: 100, v: ti.va, cip: [5, 10, 20, 25, 50, 100] });
+    $('#lb-tadz').innerHTML = s1;
+    $('#lb-ttdz').innerHTML = ayarHtml('ttdz', { etiket: 'Derişim', birim: 'M', min: 0.001, max: tiMaks(T0.id, 't'), v: ti.ct, cip: [0.01, 0.02, 0.05, 0.1, 0.5, 1] });
+    if (!A.sabit) ayarBagla($('#lb-tadz'), 'tadz', { etiket: 'Derişim', birim: 'M', min: 0.001, max: tiMaks(A.id, 'a'), v: ti.ca, cip: [0.01, 0.05, 0.1, 0.5, 1] }, function (v) { ti.ca = v; tiYenidenKur(); });
+    ayarBagla($('#lb-tadz'), 'tav', { etiket: 'Hacim', birim: 'mL', min: 1, max: 100, v: ti.va, cip: [5, 10, 20, 25, 50, 100] }, function (v) { ti.va = v; tiYenidenKur(); });
+    ayarBagla($('#lb-ttdz'), 'ttdz', { etiket: 'Derişim', birim: 'M', min: 0.001, max: tiMaks(T0.id, 't'), v: ti.ct, cip: [0.01, 0.02, 0.05, 0.1, 0.5, 1] }, function (v) { ti.ct = v; tiYenidenKur(); });
   }
   function tiKur() {
-    var A = ANALIT[+$('#lb-tanalit').value], V = +$('#lb-thacim').value / 1000, g = $('#lb-tgos').value;
-    ti.k.bosalt(); ti.v = 0; ti.veri = []; ti.donum = []; ti.renkler = []; ti.akit = false; akitDugme();
-    A[2].forEach(function (x) { M.damla(ti.k, x[0], V * x[1]); });
-    if (g) M.damla(ti.k, g === 'fenol' ? 'fenol' : g, 0.0001);
+    var A = TI_A[ti.a], g = ti.gos, va = ti.va / 1000;
+    if (A.sabit) ti.ca = A.c;
+    ti.k.bosalt(); ti.v = 0; ti.dolum = 0; ti.veri = []; ti.donum = []; ti.renkler = []; ti.akit = false; ti.goster = false; akitDugme();
+    if (A.id === 'sirke') { M.damla(ti.k, 'sirke', va * 0.1); M.damla(ti.k, 'su', va * 0.9); }
+    else if (A.id === 'feso4') { M.damla(ti.k, 'feso4', va * 0.8, ti.ca / 0.8); M.damla(ti.k, 'h2so4', va * 0.2); }
+    else M.damla(ti.k, A.id, va, ti.ca);
+    if (g) M.damla(ti.k, g, 0.0001);
     ti.sinif = g ? M.GOS[g].sinif(ti.k.r.pH) : null;
     ti.veri.push([0, ti.k.r.pH, M.iletkenlik(ti.k)]);
-    tiCiz(); grafikCiz(); tiSonuc();
+    tiCiz(); grafikCiz(); tiSonuc(); tiOkuma();
   }
+  function tiKalan() { return Math.max(0, 50 - (ti.v - ti.dolum * 50)); }
   function tiEkle(ml) {
-    var id = $('#lb-ttitrant').value, kalan = 50 - ti.v;
-    if (kalan <= 1e-9) { ti.akit = false; akitDugme(); tost('Büret boşaldı (50 mL).'); return; }
-    ml = Math.min(ml, kalan);
+    var T0 = TI_T[ti.t], bos = (ti.k.kapasite - ti.k.V) * 1000;
+    if (bos <= 0.05) { if (ti.akit) { ti.akit = false; akitDugme(); } tost('Erlen doldu; daha fazla eklenemez.'); return; }
+    ml = Math.min(ml, bos);
     var adim = 0.05;
     while (ml > 1e-9) {
       var d = Math.min(adim, ml); ml -= d;
-      M.damla(ti.k, id, d / 1000); ti.v += d;
+      M.damla(ti.k, T0.id, d / 1000, ti.ct); ti.v += d;
+      if (ti.v - ti.dolum * 50 >= 50 - 1e-9) { ti.dolum++; tost('Büret bitti; yeniden 50 mL dolduruldu.'); }
       ti.veri.push([ti.v, ti.k.r.pH, M.iletkenlik(ti.k)]);
-      var g = $('#lb-tgos').value;
+      var g = ti.gos;
       if (g) { var s = M.GOS[g].sinif(ti.k.r.pH); if (s !== ti.sinif) { ti.renkler.push([ti.v, ti.sinif, s]); tost(M.GOS[g].ad + ': ' + ti.sinif + ' → ' + s + ' (' + Y.tr(ti.v, 2) + ' mL)'); ti.sinif = s; } }
     }
-    donumBul(); tiSonuc(); grafikCiz();
+    ti.damlaT = simdi();
+    donumBul(); tiSonuc(); grafikCiz(); tiOkuma();
   }
   function donumBul() {
     var V = ti.veri, D = [], j;
     if (V.length < 5) return;
     for (j = 1; j < V.length; j++) { var dv = V[j][0] - V[j - 1][0]; if (dv > 0) D.push([(V[j][0] + V[j - 1][0]) / 2, (V[j][1] - V[j - 1][1]) / dv, (V[j][1] + V[j - 1][1]) / 2]); }
-    var tepe = [];
+    var tepe = [], esik = 1.5 * Math.max(0.2, Math.min(1, 25 / Math.max(5, tiEsdeger()[0] || 25)));
     for (j = 2; j < D.length - 2; j++) {
       var d = D[j][1], ab = Math.abs(d);
-      if (ab > 1.5 && ab >= Math.abs(D[j - 1][1]) && ab >= Math.abs(D[j + 1][1]) && ab > Math.abs(D[j - 2][1]) && ab > Math.abs(D[j + 2][1]) && D[D.length - 1][0] > D[j][0] + 0.3) {
-        if (!tepe.length || D[j][0] - tepe[tepe.length - 1][0] > 2) tepe.push(D[j]);
+      if (ab > esik && ab >= Math.abs(D[j - 1][1]) && ab >= Math.abs(D[j + 1][1]) && ab > Math.abs(D[j - 2][1]) && ab > Math.abs(D[j + 2][1]) && D[D.length - 1][0] > D[j][0] + 0.3) {
+        if (!tepe.length || D[j][0] - tepe[tepe.length - 1][0] > Math.max(2, (tiEsdeger()[0] || 10) * 0.3)) tepe.push(D[j]);
         else if (ab > Math.abs(tepe[tepe.length - 1][1])) tepe[tepe.length - 1] = D[j];
       }
     }
     ti.donum = tepe;
   }
+  /* beklenen eşdeğerlik hacim(ler)i, mL */
+  function tiEsdeger() {
+    var A = TI_A[ti.a], T0 = TI_T[ti.t], na = ti.ca * ti.va;
+    if (A.tur === 'fe') return T0.tur === 'mno4' ? [na / 5 / ti.ct] : [];
+    if (/^(ka|za)$/.test(A.tur) && T0.tur === 'baz') return [na * A.H / (T0.OH * ti.ct)];
+    if (A.tur === 'kar' && T0.tur === 'asit') return [na / (T0.H * ti.ct), 2 * na / (T0.H * ti.ct)];
+    if (/^(kb|zb)$/.test(A.tur) && T0.tur === 'asit') return [na * A.OH / (T0.H * ti.ct)];
+    return [];
+  }
+  function tiTur() {
+    var A = TI_A[ti.a], T0 = TI_T[ti.t], bazT = T0.tur === 'baz', asitT = T0.tur === 'asit';
+    if (T0.tur === 'mno4') return A.tur === 'fe' ? { ad: 'Redoks titrasyonu (permanganometri)', metin: 'MnO₄⁻ + 5Fe²⁺ + 8H⁺ → Mn²⁺ + 5Fe³⁺ + 4H₂O. Fe²⁺ bitince ilk fazla damla çözeltiyi kalıcı pembeye boyar; gösterge gerekmez.', f: function () { return 5; } } : { ad: 'Bu ikili uygun değil', metin: 'Permanganat yalnızca indirgenlerle (burada Fe²⁺) titre edilir. Erlende demir(II) sülfat seç.' };
+    if (A.id === 'baoh2' && T0.id === 'h2so4') return { ad: 'Çökelme + nötralleşme', metin: 'Ba²⁺ + 2OH⁻ + 2H⁺ + SO₄²⁻ → BaSO₄(k) + 2H₂O. Dönüm noktasında ortamda neredeyse hiç iyon kalmaz: iletkenlik sıfıra yaklaşır. İletkenlik eğrisine bak.', f: function () { return 1; } };
+    if (A.tur === 'ka' && bazT) return { ad: 'Kuvvetli asit – kuvvetli baz', metin: 'Eşdeğerlik noktasında pH = 7. Dönüm noktasında pH çok hızlı değiştiği için fenolftalein de metil oranj da kullanılabilir.' };
+    if (A.tur === 'za' && bazT) return { ad: 'Zayıf asit – kuvvetli baz', metin: 'Başlangıçta tampon bölgesi oluşur. Eşdeğerlik noktasında asetat iyonu hidroliz olur, pH > 7 olur; uygun gösterge fenolftaleindir.', yari: 'pKa (CH₃COOH) ≈ 4,76' };
+    if (A.tur === 'zb' && asitT) return { ad: 'Zayıf baz – kuvvetli asit', metin: 'Eşdeğerlik noktasında NH₄⁺ hidroliz olur, pH < 7 olur; uygun gösterge metil oranj ya da metil kırmızısıdır.', yari: 'pKa (NH₄⁺) ≈ 9,25' };
+    if (A.tur === 'kar' && asitT) return { ad: 'Karbonat – kuvvetli asit (iki dönüm noktası)', metin: '1. adım: CO₃²⁻ + H⁺ → HCO₃⁻ (pH ≈ 8,3, fenolftalein). 2. adım: HCO₃⁻ + H⁺ → H₂O + CO₂ (pH ≈ 4, metil oranj).' };
+    if (A.tur === 'kb' && asitT) return { ad: 'Kuvvetli baz – kuvvetli asit', metin: 'pH yüksekten başlar, eşdeğerlik noktasında 7’ye iner ve hızla düşer.' };
+    return { ad: 'Bu ikili bir nötralleşme titrasyonu değil', metin: 'Asidi bazla, bazı asitle titre et. Permanganatı demir(II) sülfatla dene.' };
+  }
   function tiSonuc() {
-    var A = ANALIT[+$('#lb-tanalit').value], T = $('#lb-ttitrant').value, Va = +$('#lb-thacim').value, s = '';
-    var K = M.KIMI[T];
-    var tur = aciklamaTur(A[0], T);
+    var A = TI_A[ti.a], T0 = TI_T[ti.t], tur = tiTur(), es = tiEsdeger(), s = '';
     s += '<div class="kutu"><b>' + h(tur.ad) + '</b><br>' + h(tur.metin) + '</div>';
+    var ft = T0.tur === 'mno4' ? 5 : (T0.H || T0.OH || 1);
     if (ti.donum.length) {
       ti.donum.forEach(function (d, j) {
-        var ntit = d[0] / 1000 * (K.M || 0);
-        if (d.ph === undefined) { var tk = new M.Kap('t', 't', 'erlen', 0.25); A[2].forEach(function (x) { M.damla(tk, x[0], Va / 1000 * x[1]); }); M.damla(tk, T, d[0] / 1000); d.ph = tk.r ? tk.r.pH : d[2]; }
-        s += '<div class="kutu"><b>' + (ti.donum.length > 1 ? (j + 1) + '. ' : '') + 'Dönüm noktası ≈ ' + Y.tr(d[0], 2) + ' mL</b> (pH ≈ ' + Y.tr(d.ph, 2) + ')<br>' +
-          'Harcanan ' + h(TITRANT.filter(function (x) { return x[0] === T; })[0][1]) + ': ' + Y.tr(d[0], 2) + ' mL → ' + Y.tr(ntit * 1000, 3) + ' mmol' + (tur.hesap ? '<br>' + tur.hesap(ntit, Va, j) : '') + '</div>';
+        if (d.ph === undefined) {
+          var tk = new M.Kap('t', 't', 'erlen', 0.25), va = ti.va / 1000;
+          if (A.id === 'sirke') { M.damla(tk, 'sirke', va * 0.1); M.damla(tk, 'su', va * 0.9); } else if (A.id === 'feso4') { M.damla(tk, 'feso4', va * 0.8, ti.ca / 0.8); M.damla(tk, 'h2so4', va * 0.2); } else M.damla(tk, A.id, va, ti.ca);
+          M.damla(tk, T0.id, d[0] / 1000, ti.ct); d.ph = tk.r ? tk.r.pH : d[2];
+        }
+        var nt = d[0] * ti.ct, fa = A.tur === 'kar' ? (j + 1) : (A.tur === 'fe' ? 1 : (A.H || A.OH || 1)), ca = nt * ft / fa / ti.va;
+        var gercek = A.sabit ? A.c : ti.ca, fark = Math.abs(ca - gercek) / gercek * 100;
+        s += '<div class="kutu sonuc"><b>' + (ti.donum.length > 1 ? (j + 1) + '. ' : '') + 'Dönüm noktası ≈ ' + Y.tr(d[0], 2) + ' mL</b> <span class="ince">(pH ≈ ' + Y.tr(d.ph, 1) + ')</span>' +
+          '<div class="hesap">n(' + h(T0.f) + ') = ' + Y.tr(d[0], 2) + ' mL × ' + sayiYaz(ti.ct) + ' M = <b>' + h(Y.molYaz(nt / 1000)) + '</b>' +
+          (tur.ad.indexOf('uygun değil') < 0 && tur.ad.indexOf('değil') < 0 ? '<br>[' + h(A.f) + '] = ' + h(Y.molYaz(nt / 1000)) + (ft !== 1 ? ' × ' + ft : '') + (fa !== 1 ? ' ÷ ' + fa : '') + ' ÷ ' + sayiYaz(ti.va) + ' mL = <b>' + sayiYaz(ca, 3) + ' M</b>' +
+          (ti.gizli && !ti.goster ? ' <button type="button" class="ti-goster" data-ti="goster">Gerçek değeri göster</button>' : '<br><span class="ince">Gerçek değer: ' + sayiYaz(gercek, 3) + ' M · fark %' + Y.tr(fark, 1) + '</span>') : '') + '</div></div>';
       });
       if (tur.yari && ti.donum[0]) {
         var yv = ti.donum[0][0] / 2, en = null;
         ti.veri.forEach(function (p) { if (!en || Math.abs(p[0] - yv) < Math.abs(en[0] - yv)) en = p; });
-        if (en) s += '<div class="kutu">Yarı dönüm noktasında (' + Y.tr(yv, 2) + ' mL) pH ≈ ' + Y.tr(en[1], 2) + ' = ' + tur.yari + '</div>';
+        if (en) s += '<div class="kutu">Yarı dönüm noktasında (' + Y.tr(yv, 2) + ' mL) pH ≈ ' + Y.tr(en[1], 2) + ' → ' + tur.yari + '</div>';
       }
-    } else if (ti.v > 0) s += '<div class="kutu">Titrant eklemeye devam et; pH’ın hızla değiştiği bölge dönüm noktasıdır.</div>';
+    } else if (ti.v > 0) s += '<div class="kutu">Titrant eklemeye devam et. pH’ın birden sıçradığı yer dönüm noktasıdır; yaklaşınca damla damla ekle.' + (es.length && !ti.gizli ? ' <span class="ince">Beklenen: yaklaşık ' + Y.tr(es[0], 1) + ' mL</span>' : '') + '</div>';
+    else s += '<div class="kutu">Büreti aç: <b>Basılı tut</b> ya da <b>1 damla</b> düğmelerini kullan.' + (es.length && !ti.gizli ? ' <span class="ince">Beklenen dönüm noktası: yaklaşık ' + Y.tr(es[0], 1) + ' mL</span>' : '') + '</div>';
     if (ti.renkler.length) s += '<div class="kutu">Gösterge rengi ' + ti.renkler.map(function (r) { return Y.tr(r[0], 2) + ' mL’de ' + r[1] + ' → ' + r[2]; }).join(', ') + ' değişti.</div>';
+    if (ti.gos && GOS_ARALIK[ti.gos] && ti.donum.length && ti.donum[0].ph !== undefined) {
+      var ar = GOS_ARALIK[ti.gos], ph = ti.donum[ti.donum.length - 1].ph, uy = ph >= ar[0] - 1.6 && ph <= ar[1] + 1.6;
+      s += '<div class="kutu ' + (uy ? 'iyi' : 'kotu') + '">' + h(M.GOS[ti.gos].ad) + ' pH ' + Y.tr(ar[0], 1) + '–' + Y.tr(ar[1], 1) + ' arasında renk değiştirir: bu titrasyon için ' + (uy ? '<b>uygun</b>.' : '<b>uygun değil</b>; dönüm noktası pH’ına yakın aralıklı bir gösterge seç.') + '</div>';
+    }
     $('#lb-tsonuc').innerHTML = s;
   }
-  function aciklamaTur(a, t) {
-    var bazT = /naoh|baoh2/.test(t), asitT = /hcl|h2so4/.test(t);
-    if (t === 'kmno4') return { ad: 'Redoks titrasyonu (permanganometri)', metin: a === 'feso4' ? 'MnO₄⁻ + 5Fe²⁺ + 8H⁺ → Mn²⁺ + 5Fe³⁺ + 4H₂O. Fe²⁺ bitince ilk fazla damla çözeltiyi pembeye boyar; gösterge gerekmez.' : 'Permanganat yalnızca indirgen bir maddeyle (ör. Fe²⁺) titre edilir.', hesap: a === 'feso4' ? function (n, Va) { return 'n(Fe²⁺) = 5 × n(MnO₄⁻) = ' + Y.tr(5 * n * 1000, 3) + ' mmol → [Fe²⁺] = ' + Y.tr(5 * n / (Va / 1000), 4) + ' M'; } : null };
-    if (a === 'baoh2' && t === 'h2so401') return { ad: 'Çökelme + nötralleşme (iletkenlik titrasyonu)', metin: 'Ba²⁺ + 2OH⁻ + 2H⁺ + SO₄²⁻ → BaSO₄(k) + 2H₂O. Dönüm noktasında ortamda neredeyse hiç iyon kalmaz: iletkenlik sıfıra yaklaşır, ampul söner. İletkenlik eksenine geç.', hesap: function (n, Va) { return '[Ba(OH)₂] = ' + Y.tr(n / (Va / 1000), 4) + ' M'; } };
-    if (a === 'hcl01' && bazT) return { ad: 'Kuvvetli asit – kuvvetli baz', metin: 'Dönüm noktasında pH = 7. pH 4–10 arası ani değişim olduğu için fenolftalein de metil oranj da kullanılabilir.', hesap: function (n, Va) { return 'n(HCl) = n(OH⁻) → [HCl] = ' + Y.tr(n * (t === 'baoh2' ? 2 : 1) / (Va / 1000), 4) + ' M'; } };
-    if ((a === 'asetik01' || a === 'sirke') && bazT) return { ad: 'Zayıf asit – kuvvetli baz', metin: 'Başlangıçta tampon bölgesi oluşur. Dönüm noktasında CH₃COO⁻ hidrolizi yüzünden pH > 7 olur; uygun gösterge fenolftaleindir.', yari: 'pKa (CH₃COOH ≈ 4,76)', hesap: function (n, Va) { var c = n * (t === 'baoh2' ? 2 : 1) / (Va / 1000); return '[CH₃COOH] = ' + Y.tr(c, 4) + ' M' + (a === 'sirke' ? ' → seyreltilmemiş sirkede ≈ ' + Y.tr(c * 5, 3) + ' M (≈ %' + Y.tr(c * 5 * 60.05 / 10, 1) + ')' : ''); } };
-    if (a === 'nh301' && asitT) return { ad: 'Zayıf baz – kuvvetli asit', metin: 'Dönüm noktasında NH₄⁺ hidrolizi yüzünden pH < 7 olur; uygun gösterge metil oranj ya da metil kırmızısıdır.', yari: '14 − pKb ≈ 9,25 (NH₄⁺ için pKa)', hesap: function (n, Va) { return '[NH₃] = ' + Y.tr(n * (t === 'h2so401' ? 2 : 1) / (Va / 1000), 4) + ' M'; } };
-    if (a === 'na2co3' && asitT) return { ad: 'Karbonat – kuvvetli asit (iki dönüm noktası)', metin: '1. adım: CO₃²⁻ + H⁺ → HCO₃⁻ (pH ≈ 8,3, fenolftalein). 2. adım: HCO₃⁻ + H⁺ → H₂O + CO₂ (pH ≈ 4, metil oranj).', hesap: function (n, Va, j) { return j === 0 ? '[Na₂CO₃] = ' + Y.tr(n * (t === 'h2so401' ? 2 : 1) / (Va / 1000), 4) + ' M' : 'İkinci dönüm noktasına kadar toplam 2 mol H⁺ / mol CO₃²⁻ harcanır.'; } };
-    if ((a === 'naoh01' || a === 'baoh2') && asitT) return { ad: 'Kuvvetli baz – kuvvetli asit', metin: 'pH yüksekten başlar, dönüm noktasında 7’ye iner ve hızla düşer.', hesap: function (n, Va) { var f = t === 'h2so401' ? 2 : 1, g = a === 'baoh2' ? 2 : 1; return '[' + (a === 'baoh2' ? 'Ba(OH)₂' : 'NaOH') + '] = ' + Y.tr(n * f / g / (Va / 1000), 4) + ' M'; } };
-    if (a === 'h2so401' && bazT) return { ad: 'Kuvvetli asit (H₂SO₄) – kuvvetli baz', metin: 'H₂SO₄ iki protonludur: 1 mol asit 2 mol OH⁻ ile nötrleşir.', hesap: function (n, Va) { return '[H₂SO₄] = n(OH⁻) / 2 / V = ' + Y.tr(n * (t === 'baoh2' ? 2 : 1) / 2 / (Va / 1000), 4) + ' M'; } };
-    return { ad: 'Bu ikili bir nötralleşme titrasyonu değil', metin: 'Asidi bazla, bazı asitle titre et. Permanganatı FeSO₄ ile dene.' };
+  function tiOkuma() {
+    var o = $('#lb-tokuma'); if (!o) return;
+    o.innerHTML = '<span><small>Bürette kalan</small><b>' + Y.tr(tiKalan(), 2) + ' mL</b></span><span><small>Eklenen</small><b>' + Y.tr(ti.v, 2) + ' mL</b></span><span><small>pH</small><b>' + (ti.k.r ? Y.tr(Math.max(-1, Math.min(15, ti.k.r.pH)), 2) : '–') + '</b></span>';
   }
   var tcv = $('#lb-tcan'), tcx = tcv.getContext('2d'), tol = 1, gcv = $('#lb-tgraf'), gcx = gcv.getContext('2d');
   function tiBoyut() {
@@ -1111,14 +1343,13 @@
     var w2 = gcv.parentNode.clientWidth - 16 || 340; gcv.width = Math.round(w2 * dpr); gcv.height = Math.round(w2 * 0.66 * dpr); gcv.style.height = w2 * 0.66 + 'px'; gcv._w = w2;
   }
   function tiCiz(t) {
+    if (cz() && cz().tiCiz) return;
     var c = tcx, k = ti.k; t = t || 0;
     c.setTransform(tol * dpr, 0, 0, tol * dpr, 0, 0);
-    var g1 = c.createLinearGradient(0, 0, 0, 300); g1.addColorStop(0, '#FDFBF9'); g1.addColorStop(0.83, '#F3ECE5'); g1.addColorStop(0.831, '#E9DCCD'); g1.addColorStop(1, '#DCCBB8');
+    var g1 = c.createLinearGradient(0, 0, 0, 300); g1.addColorStop(0, '#F4F6F9'); g1.addColorStop(0.83, '#F3EEE8'); g1.addColorStop(0.831, '#E7E1DA'); g1.addColorStop(1, '#DED6CD');
     c.fillStyle = g1; c.fillRect(0, 0, 360, 300);
-    /* sehpa */
     c.fillStyle = '#6E737A'; c.fillRect(60, 18, 6, 230); c.fillRect(40, 244, 60, 8); c.fillRect(60, 40, 100, 5);
-    /* büret */
-    var bx = 172, by = 14, bh = 150, sv = 1 - ti.v / 50, Kt = M.KIMI[$('#lb-ttitrant').value], tr0 = Kt ? stokRenk(Kt) : [250, 250, 250];
+    var bx = 172, by = 14, bh = 150, sv = tiKalan() / 50, Kt = M.KIMI[TI_T[ti.t].id], tr0 = Kt ? stokRenk(Kt) : [250, 250, 250];
     c.fillStyle = 'rgba(214,232,244,.35)'; c.fillRect(bx - 7, by, 14, bh);
     c.fillStyle = rgba(tr0, 0.9); c.fillRect(bx - 6, by + bh * (1 - sv), 12, bh * sv);
     c.strokeStyle = 'rgba(105,128,150,.8)'; c.lineWidth = 1.5; c.strokeRect(bx - 7, by, 14, bh);
@@ -1127,51 +1358,77 @@
     c.fillStyle = '#3A3D42'; c.fillRect(bx - 9, by + bh + 2, 18, 7); c.fillStyle = ti.akit ? '#38C172' : '#B42318'; c.fillRect(bx - 14, by + bh + 4, 6, 3);
     c.strokeStyle = 'rgba(105,128,150,.8)'; c.beginPath(); c.moveTo(bx, by + bh + 9); c.lineTo(bx, by + bh + 22); c.stroke();
     if (ti.akit) { var dy = by + bh + 24 + ((t * 2.4) % 1) * 40; c.fillStyle = rgba(tr0, 0.9); c.beginPath(); c.arc(bx, dy, 2.4, 0, 7); c.fill(); }
-    /* erlen */
     var ex = 172, eb = 246, tw = 100, nw = 30, gh = 62, bhh = 22, R = M.renk(k);
-    var pth = new Path2D(); pth.moveTo(ex - nw / 2, eb - gh - bhh); pth.lineTo(ex - nw / 2, eb - gh); pth.lineTo(ex - tw / 2, eb - 6); pth.quadraticCurveTo(ex - tw / 2, eb, ex - tw / 2 + 8, eb); pth.lineTo(ex + tw / 2 - 8, eb); pth.quadraticCurveTo(ex + tw / 2, eb, ex + tw / 2, eb - 6); pth.lineTo(ex + nw / 2, eb - gh); pth.lineTo(ex + nw / 2, eb - gh - bhh); pth.closePath();
+    var pth = new Path2D(); pth.moveTo(ex - nw / 2, eb - gh - bhh); pth.lineTo(ex - nw / 2, eb - gh); pth.lineTo(ex - tw / 2, eb - 6); pth.quadraticCurveTo(ex - tw / 2, eb, ex - tw / 2 + 8, eb); pth.lineTo(ex + tw / 2 - 8, eb); pth.quadraticCurveTo(ex + tw / 2, eb, ex + tw / 2, eb - 6); pth.lineTo(ex + nw / 2, eb - gh); pth.lineTo(ex + nw / 2, eb - gh - bhh);
     c.save(); c.clip(pth);
-    var lvl = Math.min(gh + 10, 12 + k.V * 1000 * 0.62), sv2 = karis(R.sivi, R.bulRenk, R.bulanik * 0.9);
-    var gr = c.createLinearGradient(0, eb - lvl, 0, eb); gr.addColorStop(0, rgba(karis(sv2, [255, 255, 255], 0.15), 0.9)); gr.addColorStop(1, rgba(sv2, 0.95));
-    c.fillStyle = gr; c.beginPath(); c.moveTo(ex - 60, eb - lvl + Math.sin(t * 6) * 1.5); c.quadraticCurveTo(ex, eb - lvl + 4, ex + 60, eb - lvl - Math.sin(t * 6) * 1.5); c.lineTo(ex + 60, eb + 2); c.lineTo(ex - 60, eb + 2); c.fill();
-    c.fillStyle = '#fff'; c.save(); c.translate(ex, eb - 4); c.beginPath(); c.ellipse(0, 0, 11 * Math.abs(Math.cos(t * 12)) + 3, 2.4, 0, 0, 7); c.fill(); c.restore();
+    var lvl = Math.min(gh + 10, 12 + k.V * 1000 * 0.3), sv2 = karis(R.sivi, R.bulRenk, R.bulanik * 0.9);
+    c.fillStyle = rgba(sv2, 0.95); c.fillRect(ex - 60, eb - lvl, 120, lvl + 2);
     c.restore();
     c.strokeStyle = 'rgba(105,128,150,.7)'; c.lineWidth = 2; c.stroke(pth);
-    c.fillStyle = '#4C5056'; yuvarlak(c, ex - 64, eb + 2, 128, 16, 5); c.fill(); c.fillStyle = '#38C172'; c.beginPath(); c.arc(ex + 50, eb + 10, 2.5, 0, 7); c.fill();
     $('#lb-tolcum').innerHTML = olcumHtml(k, true);
   }
   function grafikCiz() {
-    var c = gcx, W = gcv._w || 340, H = W * 0.66, sol = 38, alt = 28, ust0 = 10, sag = 10;
+    var c = gcx, W = gcv._w || 340, H = W * 0.66, sol = 40, alt = 34, ust0 = 12, sag = 12;
     c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
-    var k = ti.eksen === 'k', vmax = Math.max(10, Math.ceil((ti.donum.length ? Math.max(ti.v, ti.donum[ti.donum.length - 1][0] * 2) : Math.max(ti.v * 1.25, 25)) / 5) * 5);
-    vmax = Math.min(50, vmax);
+    var k = ti.eksen === 'k', es = tiEsdeger(), sonEs = es.length ? es[es.length - 1] : 0;
+    var hedefV = Math.max(ti.v * 1.12, sonEs ? sonEs * 1.6 : 25, ti.donum.length ? ti.donum[ti.donum.length - 1][0] * 1.6 : 0, 10);
+    var vmax = Math.min(250, Math.ceil(hedefV / 5) * 5);
     var ymax = k ? Math.max(1, Math.ceil(Math.max.apply(null, ti.veri.map(function (p) { return p[2]; }).concat([1])) * 1.15)) : 14;
     function X(v) { return sol + (W - sol - sag) * v / vmax; }
     function Yy(y) { return ust0 + (H - ust0 - alt) * (1 - y / ymax); }
+    /* gösterge renk değişim aralığı bandı */
+    if (!k && ti.gos && GOS_ARALIK[ti.gos]) {
+      var ar = GOS_ARALIK[ti.gos], g0 = M.gosGecirgen(ti.gos, ar[1] + 0.5), g1 = M.gosGecirgen(ti.gos, ar[0] - 0.5);
+      var bant = c.createLinearGradient(0, Yy(ar[1]), 0, Yy(ar[0]));
+      bant.addColorStop(0, 'rgba(' + Math.round(255 * g0[0]) + ',' + Math.round(255 * g0[1]) + ',' + Math.round(255 * g0[2]) + ',.32)'); bant.addColorStop(1, 'rgba(' + Math.round(255 * g1[0]) + ',' + Math.round(255 * g1[1]) + ',' + Math.round(255 * g1[2]) + ',.32)');
+      c.fillStyle = bant; c.fillRect(sol, Yy(ar[1]), W - sol - sag, Yy(ar[0]) - Yy(ar[1]));
+      c.fillStyle = 'rgba(92,85,79,.75)'; c.font = '600 10px "IBM Plex Sans",system-ui,sans-serif'; c.textAlign = 'right'; c.fillText(M.GOS[ti.gos].ad, W - sag - 4, Yy(ar[1]) - 3);
+    }
     c.strokeStyle = '#EFE9E3'; c.lineWidth = 1; c.fillStyle = '#7A726B'; c.font = '11px "IBM Plex Sans",system-ui,sans-serif';
     var adimY = k ? Math.max(0.5, Math.round(ymax / 5)) : 2;
     for (var y = 0; y <= ymax + 1e-9; y += adimY) { c.beginPath(); c.moveTo(sol, Yy(y)); c.lineTo(W - sag, Yy(y)); c.stroke(); c.textAlign = 'right'; c.fillText(Y.tr(y, k && adimY < 1 ? 1 : 0), sol - 6, Yy(y) + 4); }
-    for (var v = 0; v <= vmax; v += vmax > 25 ? 10 : 5) { c.textAlign = 'center'; c.fillText(String(v), X(v), H - alt + 16); }
-    c.textAlign = 'left'; c.fillText(k ? 'mS/cm' : 'pH', sol + 4, ust0 + 12); c.textAlign = 'right'; c.fillText('mL', W - sag, H - alt - 6);
+    var adimV = vmax > 120 ? 50 : (vmax > 60 ? 20 : (vmax > 25 ? 10 : 5));
+    for (var v = 0; v <= vmax + 1e-9; v += adimV) { c.textAlign = 'center'; c.fillText(String(v), X(v), H - alt + 15); }
+    c.textAlign = 'left'; c.font = '600 11px "IBM Plex Sans",system-ui,sans-serif'; c.fillText(k ? 'İletkenlik (mS/cm)' : 'pH', sol + 4, ust0 + 11);
+    c.textAlign = 'center'; c.fillText('Eklenen ' + TI_T[ti.t].f + ' (mL)', sol + (W - sol - sag) / 2, H - 6);
     if (!k) { c.strokeStyle = 'rgba(27,107,74,.35)'; c.setLineDash([4, 4]); c.beginPath(); c.moveTo(sol, Yy(7)); c.lineTo(W - sag, Yy(7)); c.stroke(); c.setLineDash([]); }
-    ti.donum.forEach(function (d) { c.strokeStyle = 'rgba(248,83,0,.55)'; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(X(d[0]), ust0); c.lineTo(X(d[0]), H - alt); c.stroke(); c.setLineDash([]); });
-    c.strokeStyle = '#F85300'; c.lineWidth = 2.2; c.beginPath();
+    if (!ti.gizli) es.forEach(function (e) { if (e > vmax) return; c.strokeStyle = 'rgba(11,92,138,.35)'; c.setLineDash([2, 4]); c.beginPath(); c.moveTo(X(e), ust0); c.lineTo(X(e), H - alt); c.stroke(); c.setLineDash([]); });
+    ti.donum.forEach(function (d) {
+      c.strokeStyle = 'rgba(248,83,0,.6)'; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(X(d[0]), ust0); c.lineTo(X(d[0]), H - alt); c.stroke(); c.setLineDash([]);
+      c.fillStyle = '#C54200'; c.font = '700 11px "IBM Plex Sans",system-ui,sans-serif'; c.textAlign = X(d[0]) > W - 70 ? 'right' : 'left'; c.fillText(Y.tr(d[0], 2) + ' mL', X(d[0]) + (c.textAlign === 'right' ? -4 : 4), ust0 + 26);
+    });
+    c.strokeStyle = '#F85300'; c.lineWidth = 2.4; c.lineJoin = 'round'; c.beginPath();
     ti.veri.forEach(function (p, j) { var yy = k ? p[2] : Math.max(-0.5, Math.min(14.5, p[1])); if (j) c.lineTo(X(p[0]), Yy(yy)); else c.moveTo(X(p[0]), Yy(yy)); });
     c.stroke();
     var son = ti.veri[ti.veri.length - 1];
-    if (son) { c.fillStyle = '#F85300'; c.beginPath(); c.arc(X(son[0]), Yy(k ? son[2] : Math.max(-0.5, Math.min(14.5, son[1]))), 4, 0, 7); c.fill(); }
+    if (son) { c.fillStyle = '#F85300'; c.beginPath(); c.arc(X(son[0]), Yy(k ? son[2] : Math.max(-0.5, Math.min(14.5, son[1]))), 4.5, 0, 7); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.stroke(); }
   }
-  function akitDugme() { var b = $('[data-ti="akit"]'); b.innerHTML = ikon(ti.akit ? 'dur' : 'oynat') + '<span>' + (ti.akit ? 'Durdur' : 'Sürekli akıt') + '</span>'; }
+  function akitDugme() { var b = $('[data-ti="akit"]'); if (b) b.classList.toggle('on', !!ti.akit); }
   $('#m-titrasyon').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-ti]'), s = e.target.closest('[data-e]');
+    var b = e.target.closest('[data-ti]'), s = e.target.closest('[data-e]'), gb = e.target.closest('[data-tgos]');
     if (s) { ti.eksen = s.getAttribute('data-e'); $$('#lb-teksen button').forEach(function (x) { x.classList.toggle('on', x === s); }); grafikCiz(); return; }
+    if (gb) { ti.gos = gb.getAttribute('data-tgos'); $$('#lb-tgos button').forEach(function (x) { x.classList.toggle('on', x === gb); }); tiKur(); return; }
     if (!b) return;
     var v = b.getAttribute('data-ti');
-    if (v === 'akit') { ti.akit = !ti.akit; akitDugme(); }
-    else if (v === 'bas') tiKur();
+    if (v === 'akit') return;
+    if (v === 'bas') tiKur();
+    else if (v === 'goster') { ti.goster = true; tiSonuc(); }
     else tiEkle(parseFloat(v));
   });
-  ['#lb-tanalit', '#lb-thacim', '#lb-tgos', '#lb-ttitrant'].forEach(function (s) { $(s).addEventListener('change', tiKur); });
+  (function () {
+    var b = $('[data-ti="akit"]');
+    function bas(e) { e.preventDefault(); ti.akit = true; ti.akitT = 0; akitDugme(); }
+    function birak() { if (ti.akit) { ti.akit = false; akitDugme(); } }
+    b.addEventListener('pointerdown', bas); document.addEventListener('pointerup', birak); document.addEventListener('pointercancel', birak);
+    b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  })();
+  $('#lb-tanalit').addEventListener('change', function () { ti.a = +this.value; var A = TI_A[ti.a]; ti.ca = A.c; var T0 = TI_T[ti.t];
+    if (/^(ka|za)$/.test(A.tur) && T0.tur !== 'baz') { ti.t = 0; ti.ct = TI_T[0].c; $('#lb-ttitrant').value = '0'; }
+    else if (/^(kb|zb|kar)$/.test(A.tur) && T0.tur !== 'asit') { ti.t = 1; ti.ct = TI_T[1].c; $('#lb-ttitrant').value = '1'; }
+    else if (A.tur === 'fe') { ti.t = 4; ti.ct = TI_T[4].c; $('#lb-ttitrant').value = '4'; ti.gos = ''; $$('#lb-tgos button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-tgos') === ''); }); }
+    tiAyarCiz(); tiKur(); });
+  $('#lb-ttitrant').addEventListener('change', function () { ti.t = +this.value; ti.ct = TI_T[ti.t].c; tiAyarCiz(); tiKur(); });
+  $('#lb-tgizli').addEventListener('change', function () { ti.gizli = this.checked; ti.goster = false; tiSonuc(); grafikCiz(); });
   $('#lb-thiz').addEventListener('input', function () { $('#lb-thizd').textContent = Y.tr(+this.value, 2).replace(/0$/, '') + ' mL/sn'; });
 
   /* ================= RAPOR ================= */
@@ -1226,15 +1483,15 @@
         if (L.length) olaylariIsle(i, L);
         if (!k.isit && i === aktif && $('[data-is="isit"]').classList.contains('on')) dugmeDurum();
       }
-      if (ti.akit && mod === 'titrasyon') tiEkle(+$('#lb-thiz').value * 0.1);
+      if (ti.akit && mod === 'titrasyon') { ti.akitT = (ti.akitT || 0) + 0.1; tiEkle(+$('#lb-thiz').value * 0.1 * Math.min(1, 0.35 + ti.akitT * 0.5)); }
     }
     if (birikim > 0.3) birikim = 0;
     var t = su / 1000;
     if (mod === 'serbest') { if (cz()) cz().ciz(t, dt); else tezgahCiz(t, dt); }
-    else if (mod === 'titrasyon') tiCiz(t);
+    else if (mod === 'titrasyon') { if (cz() && cz().tiCiz) cz().tiCiz(t, dt); else tiCiz(t); if (olcSay % 12 === 0) $('#lb-tolcum').innerHTML = olcumHtml(ti.k, true); }
     if (++olcSay % 12 === 0) {
       if (mod === 'serbest') {
-        olcumCiz();
+        olcumCiz(); aletBarCiz();
         var k2 = KAPLAR[aktif];
         if (k2.tiyo >= 0 && !k2.tiyoBitti) { var sp = $('#lb-serit .sag'); if (sp) sp.textContent = '⏱ ' + Y.tr(k2.zaman - k2.tiyoT0, 0) + ' sn'; else seritYaz(null, 'Kronometre çalışıyor: bulanıklığı bekle.'); }
       }
@@ -1250,6 +1507,7 @@
   requestAnimationFrame(dongu);
   LAx.KAPLAR = KAPLAR; LAx.ti = ti; LAx.deneyBaslat = deneyBaslat; LAx.ekle = ekleAnim; LAx.modAc = modAc; LAx.kapSec = kapSec;
   LAx.miktarAc = miktarAc; LAx.stokRenk = stokRenk; LAx.anim = anim; LAx.rozet = rozet;
+  LAx.derisimAl = derisimAl; LAx.derisimYaz = derisimYaz; LAx.aletBarCiz = aletBarCiz; LAx.aletAc = aletAc; LAx.sayiYaz = sayiYaz; LAx.kapSvg = kapSvg; LAx.ayarHtml = ayarHtml; LAx.ayarBagla = ayarBagla;
   LAx.dokumBasla = dokumBasla; LAx.dokSessiz = dokSessiz; LAx.aktarSessiz = aktarSessiz; LAx.dokumBitti = dokumBitti;
   LAx.kirikTemizle = kirikTemizle; LAx.patlat = patlat; LAx.kapEkle = kapEkle; LAx.kapKaldir = kapKaldir; LAx.kapKur = kapKur; LAx.standartKaplar = standartKaplar;
   LAx.olaylar = function (i) { return olaylarK[i] || []; }; LAx.olaylariIsle = olaylariIsle; LAx.seritYaz = seritYaz; LAx.tost = tost;
@@ -1264,7 +1522,7 @@
   LAx.uc3dHazir = function () {
     kok.classList.add('uc3d');
     dugmeDurum();
-    seritYaz(null, '<b>Kimyasal ekle</b>’ye dokun, şişeyi bir kabın üstüne sürükle. Saf su için pişete, kabı dökmek için kabı başka bir kabın üstüne sürükle.');
+    seritYaz(null, '<b>Madde ekle</b>’ye dokun: maddeyi seç, miktarını ayarla, <b>Ekle</b>’ye bas. Başka kap için üstteki <b>+ Alet</b>.');
   };
   window.LabArayuz = LAx;
 })();

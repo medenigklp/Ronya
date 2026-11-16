@@ -41,7 +41,7 @@
   function listeCiz() {
     var d = depoOku(), top = 0;
     GOREV.forEach(function (g) { top += (d[g.id] && d[g.id].yildiz) || 0; });
-    var s = '<div class="gv-liste-ust"><div><h2>Görevler</h2><p>Adım adım ilerle, sorulara cevap ver, yıldızları topla. Yeşil ok sıradaki adımı gösterir.</p></div><div class="gv-toplam">★ ' + top + ' / ' + GOREV.length * 3 + '</div></div>';
+    var s = '<div class="gv-liste-ust"><div><h2>Görevler</h2><p>Her adımda ne yapacağın yazar; yeşil düğmeye dokunman yeter. Sorulara cevap ver, yıldızları topla.</p></div><div class="gv-toplam">★ ' + top + ' / ' + GOREV.length * 3 + '</div></div>';
     if (G) s += '<div class="gv-devam"><span>Devam eden görev: <b>' + h(G.D.ad) + '</b></span><button class="ab ana" data-gvl="devam">Devam et</button></div>';
     if (!UC) s += '<div class="gv-uyari">Görevler 3D tezgâh ister. Bu tarayıcıda 3D (WebGL) açılamadı; serbest deney ve hazır deneyler kullanılabilir.</div>';
     s += '<div class="gv-izgara">' + GOREV.map(function (g, i) {

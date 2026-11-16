@@ -33,6 +33,7 @@
     { id: 'ayirma', ad: 'Karışımları ayırma', ikon: '🧲', renk: '#EDF1F5', konu: 'Karışımlar · 10. sınıf', ozet: 'Tuz, kum ve demir tozu karışımını mıknatıs, süzme ve buharlaştırmayla ayır.', kur: ayirmaKur },
     { id: 'yakma', ad: 'Yakma ve oksitler', ikon: '✨', renk: '#FFF0E0', konu: 'Asitler, bazlar ve tuzlar · 10. sınıf', ozet: 'Magnezyumu ve kükürdü yak; metal ve ametal oksitlerin suda asit mi baz mı verdiğini bul.', kur: yakmaKur },
     { id: 'elektroliz', ad: 'Suyun elektrolizi', ikon: '🔋', renk: '#E4F0F8', konu: 'Kimyasal değişimler · 9.–10. sınıf', ozet: 'Suyu hidrojen ve oksijene ayır; hacim oranını gör, gazları kibrit ve korla test et.', kur: elektrolizKur },
+    { id: 'gaz', ad: 'Gazları toplama', ikon: '🫙', renk: '#E8F2F8', konu: 'Gazlar · laboratuvar becerisi', ozet: 'Hidrojeni su altında, karbondioksiti ağzı yukarı kapta topla; gazları kibritle tanı.', kur: gazKur },
     { id: 'final', ad: 'Final: Bilinmeyeni bul', ikon: '🕵️', renk: '#F4EEE8', konu: 'Tekrar · tüm görevler', ozet: 'Etiketsiz dört çözeltiyi gösterge, magnezyum ve asit testleriyle tanı.', kur: finalKur }
   ];
   var GI = {}; GOREV.forEach(function (d) { GI[d.id] = d; });
@@ -1295,6 +1296,118 @@
         kart: { tur: 'soru', soru: 'Suyun elektrolizinde hidrojen ve oksijen hangi hacim oranında toplanır?', secenekler: ['2 : 1', '1 : 1', '1 : 2'], dogru: 0, aciklama: '2H₂O → 2H₂ + O₂: aynı koşulda 2 hacim hidrojene karşılık 1 hacim oksijen oluşur.' } }
     ];
     D.ozetSon = ['Elektrolizde su, elektrik enerjisiyle hidrojen ve oksijene ayrışır.', 'Katotta (−) hidrojen, anotta (+) oksijen toplanır; hacim oranı 2 : 1.', 'Hidrojen “pıt” sesiyle yanar; oksijen kor hâlindeki çubuğu alevlendirir.'];
+  }
+
+  /* ================= 11. GAZLARI TOPLAMA ================= */
+  function gazKur() {
+    var D = GI.gaz, V = G.v;
+    LA.kapKur([{ tip: 'beher', gizli: true }]);
+    istasyon(true); UC.arkaRaf.visible = false; UC.PISET.visible = false;
+    UC.kameraAyar(new T.Vector3(0.0, 0.58, 0.35), 2.45, new T.Vector3(0.1, 0.5, 1)); UC.oran([0.92, 0.6]);
+    V.h2 = 0; V.h2Akis = false; V.hTest = false; V.co2 = 0; V.co2Akis = false; V.cTest = false; V.yol = false;
+    var kok = sahneyeEkle(grup());
+    var suMat = new T.MeshPhysicalMaterial({ color: 0xcfe6f5, transparent: true, opacity: 0.5, depthWrite: false });
+    function erlen(x, z, renk) {
+      var g = grup(x, 0, z); kok.add(g);
+      var oz = UC.ozellik('erlen'), sc = 0.7;
+      var c = new T.Mesh(UC.torna(oz.dis, 64), UC.MAT.cam); c.scale.setScalar(sc); c.renderOrder = 4; g.add(c);
+      var s = new T.Mesh(lathe(oz, 0.3, sc), new T.MeshPhysicalMaterial({ color: renk, transparent: true, opacity: 0.55, depthWrite: false })); s.renderOrder = 2; g.add(s);
+      var tipa = new T.Mesh(new T.CylinderGeometry(0.1, 0.085, 0.1, 16), new T.MeshStandardMaterial({ color: 0xb98c5a, roughness: 0.9 })); tipa.position.y = 1.12 * sc + 0.03; g.add(tipa);
+      var kab = new T.InstancedMesh(new T.SphereGeometry(1, 8, 6), new T.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, roughness: 0, depthWrite: false }), 30); kab.count = 0; kab.frustumCulled = false; g.add(kab);
+      hedefKutu(g, 0.38, 0.9, 0.4); UC.golgeKoy(g, 0, 0, 0.9, 0.9, 0.6);
+      return { g: g, kab: kab, L: [] };
+    }
+    /* 1) Su üstünde toplama: H₂ */
+    var e1 = erlen(-1.9, -0.3, 0xe4eef4);
+    var cinko = []; for (var j = 0; j < 5; j++) { var c = new T.Mesh(new T.DodecahedronGeometry(0.035, 0), UC.metalMat('Zn')); c.position.set((j - 2) * 0.05, 0.035, (j % 2) * 0.05 - 0.025); e1.g.add(c); cinko.push(c); }
+    var legen = grup(-0.75, 0, 0.1); kok.add(legen);
+    var lg = new T.Mesh(UC.torna([[0, 0], [0.5, 0], [0.52, 0.02], [0.55, 0.3], [0.57, 0.31]], 48), UC.MAT.cam); lg.renderOrder = 4; legen.add(lg);
+    var lsu = new T.Mesh(UC.torna([[0, 0.012], [0.505, 0.012], [0.535, 0.24], [0, 0.24]], 48), suMat); lsu.renderOrder = 2; legen.add(lsu);
+    var kavanoz = grup(0, 0.13, 0); legen.add(kavanoz);
+    var kv = new T.Mesh(UC.torna([[0.2, 0], [0.2, 0.7], [0.17, 0.76], [0, 0.78]], 40), UC.MAT.camKalin); kv.renderOrder = 5; kavanoz.add(kv);
+    var kvSu = new T.Mesh(new T.CylinderGeometry(0.19, 0.19, 1, 24), suMat); kvSu.renderOrder = 3; kavanoz.add(kvSu);
+    var kvKab = new T.InstancedMesh(new T.SphereGeometry(1, 8, 6), new T.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, roughness: 0, depthWrite: false }), 24); kvKab.count = 0; kvKab.frustumCulled = false; kavanoz.add(kvKab); var kvL = [];
+    var boru1 = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3([new T.Vector3(-1.9, 0.86, -0.3), new T.Vector3(-1.9, 1.05, -0.28), new T.Vector3(-1.5, 1.1, -0.15), new T.Vector3(-1.05, 0.6, 0.0), new T.Vector3(-0.85, 0.2, 0.08), new T.Vector3(-0.76, 0.2, 0.1)]), 50, 0.02, 8), UC.MAT.camKalin); kok.add(boru1);
+    hedefKutu(kavanoz, 0.3, 0.9, 0.4);
+    var e1et = grup(0, 0, 0.42); e1.g.add(e1et); etiket(e1et, '<b>Zn + HCl</b>', 0, 'gv-alt');
+    var lget = grup(0, 0, 0.62); legen.add(lget); etiket(lget, '<b>Su altında</b>', 0, 'gv-alt');
+    /* 2) Havayı yukarı iterek toplama: CO₂ */
+    var e2 = erlen(0.75, -0.35, 0xe8eef2);
+    var mermer = []; for (j = 0; j < 4; j++) { var mm = new T.Mesh(new T.DodecahedronGeometry(0.045, 0), new T.MeshStandardMaterial({ color: 0xece8e0, roughness: 0.8 })); mm.position.set((j - 1.5) * 0.06, 0.04, (j % 2) * 0.05 - 0.02); e2.g.add(mm); mermer.push(mm); }
+    var sise2 = grup(1.85, 0, 0.15); kok.add(sise2);
+    var s2c = new T.Mesh(UC.torna([[0, 0], [0.22, 0], [0.23, 0.02], [0.23, 0.62], [0.16, 0.72], [0.16, 0.8], [0.18, 0.81]], 40), UC.MAT.camKalin); s2c.renderOrder = 5; sise2.add(s2c);
+    var co2Sis = new T.Mesh(new T.CylinderGeometry(0.215, 0.215, 1, 24), new T.MeshBasicMaterial({ color: 0xd9dde2, transparent: true, opacity: 0.0, depthWrite: false })); co2Sis.renderOrder = 3; sise2.add(co2Sis);
+    var boru2 = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3([new T.Vector3(0.75, 0.86, -0.35), new T.Vector3(0.78, 1.15, -0.3), new T.Vector3(1.4, 1.25, -0.05), new T.Vector3(1.78, 1.05, 0.12), new T.Vector3(1.84, 0.3, 0.15), new T.Vector3(1.85, 0.08, 0.15)]), 50, 0.02, 8), UC.MAT.camKalin); kok.add(boru2);
+    hedefKutu(sise2, 0.3, 0.9, 0.4);
+    var e2et = grup(0, 0, 0.42); e2.g.add(e2et); etiket(e2et, '<b>CaCO₃ + HCl</b>', 0, 'gv-alt');
+    var s2et = grup(0, 0, 0.45); sise2.add(s2et); etiket(s2et, '<b>Ağzı yukarı kap</b>', 0, 'gv-alt');
+    /* kibrit */
+    var kib = grup(0.15, 0.03, 1.2); kok.add(kib);
+    var kc = new T.Mesh(new T.CylinderGeometry(0.012, 0.012, 0.5, 8), new T.MeshStandardMaterial({ color: 0xc9a46a, roughness: 0.9 })); kc.rotation.z = Math.PI / 2; kc.position.x = -0.25; kib.add(kc);
+    var kAlev = new T.Sprite(new T.SpriteMaterial({ map: UC.yumusakD, color: 0xffb547, transparent: true, opacity: 0.9, depthWrite: false })); kAlev.scale.set(0.1, 0.14, 1); kAlev.position.set(0.02, 0.04, 0); kib.add(kAlev);
+    hedefKutu(kib, 0.3, 0.25, 0); kib.rotation.y = 0.1;
+    var etKib = etiket(kib, 'Yanan kibrit', 0.15, 'gv-pr');
+    var kibP0 = kib.position.clone(), kibQ0 = kib.quaternion.clone();
+    var pat = new T.Sprite(new T.SpriteMaterial({ map: UC.yumusakD, color: 0xfff2b0, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false })); kok.add(pat);
+    var patEt = etiket(grup(), '<b>Pıt!</b>', 0, 'gv-alev'); patEt.gizli = true; kok.add(patEt.nesne);
+    D.eylem = function (a) {
+      if (a === 'hcl1' && !V.h2Akis) { V.h2Akis = true; mesaj('HCl döküldü: hidrojen kabarcıkları!'); }
+      if (a === 'hcl2' && !V.co2Akis) { V.co2Akis = true; mesaj('HCl döküldü: karbondioksit çıkıyor!'); }
+    };
+    function kibritTest(hedefNokta, tur) {
+      if (V.yol) return;
+      V.yol = true; etKib.gizli = true;
+      tasi(kib, hedefNokta.clone().add(new T.Vector3(0.04, 0.0, 0.05)), new T.Quaternion().setFromEuler(new T.Euler(0, 0, -0.45)), 0.8, 0.3, function () {
+        if (tur === 'h2') {
+          pat.position.copy(hedefNokta); patEt.nesne.position.copy(hedefNokta).add(new T.Vector3(0, 0.15, 0)); patEt.gizli = false;
+          anim(0.6, function (e, k) { pat.material.opacity = Math.sin(Math.PI * k) * 1.2; pat.scale.setScalar(0.2 + k * 0.8); kAlev.material.opacity = 0.9 * (1 - e); }, function () { V.hTest = true; bekle(900, function () { patEt.gizli = true; }); geri(); });
+        } else {
+          anim(0.7, function (e) { kAlev.material.opacity = 0.9 * (1 - e); kAlev.scale.set(0.1 * (1 - e) + 0.02, 0.14 * (1 - e) + 0.02, 1); }, function () { V.cTest = true; geri(); });
+        }
+      });
+      function geri() { tasi(kib, kibP0, kibQ0, 0.8, 0.2, function () { kAlev.material.opacity = 0.9; kAlev.scale.set(0.1, 0.14, 1); V.yol = false; }); }
+    }
+    dokun(kavanoz, function () { if (V.h2 >= 1) { var p = kavanoz.localToWorld(new T.Vector3(0, 0.0, 0)); kibritTest(new T.Vector3(p.x, 0.62, p.z + 0.22), 'h2'); } else mesaj('Önce kavanozda gaz toplanmalı.'); });
+    dokun(sise2, function () { if (V.co2 >= 1) { kibritTest(sise2.localToWorld(new T.Vector3(0, 0.86, 0)), 'co2'); } else mesaj('Önce kapta gaz toplanmalı.'); });
+    dokun(kib, function () { mesaj('Kibriti test etmek istediğin kaba dokun.'); });
+    var birQ = new T.Quaternion(), mtx = new T.Matrix4(), vv = new T.Vector3(), ss = new T.Vector3();
+    function kabarcik(E, hiz, dt, y0, y1) {
+      if (hiz && Math.random() < dt * hiz && E.L.length < 28) E.L.push({ x: (Math.random() - 0.5) * 0.18, z: (Math.random() - 0.5) * 0.18, y: y0, r: 0.008 + Math.random() * 0.01, v: 0.25 + Math.random() * 0.2 });
+      for (var i = E.L.length - 1; i >= 0; i--) { var b = E.L[i]; b.y += b.v * dt; if (b.y > y1) E.L.splice(i, 1); }
+      E.L.forEach(function (b, i) { vv.set(b.x, b.y, b.z); ss.setScalar(b.r); mtx.compose(vv, birQ, ss); E.kab.setMatrixAt(i, mtx); });
+      E.kab.count = E.L.length; E.kab.instanceMatrix.needsUpdate = true;
+    }
+    D.guncelle = function (t, dt) {
+      etKib.gizli = V.yol || !(G && G.A && (G.adim === 2 || G.adim === 4));
+      if (V.h2Akis) V.h2 = Math.min(1, V.h2 + dt * 0.18);
+      if (V.co2Akis) V.co2 = Math.min(1, V.co2 + dt * 0.2);
+      kabarcik(e1, V.h2Akis ? 30 : 0, dt, 0.04, 0.2);
+      kabarcik(e2, V.co2Akis ? 30 : 0, dt, 0.04, 0.2);
+      cinko.forEach(function (c, i) { if (V.h2Akis) c.position.y = 0.035 + Math.sin(t * 9 + i) * 0.004; });
+      var suBoy = 0.7 * (1 - V.h2 * 0.85); kvSu.scale.y = Math.max(0.01, suBoy); kvSu.position.y = suBoy / 2;
+      if (V.h2Akis && V.h2 < 1 && Math.random() < dt * 14 && kvL.length < 20) kvL.push({ x: (Math.random() - 0.5) * 0.1, z: (Math.random() - 0.5) * 0.1, y: 0.02, r: 0.012 + Math.random() * 0.01 });
+      for (var i = kvL.length - 1; i >= 0; i--) { var b = kvL[i]; b.y += 0.5 * dt; if (b.y > suBoy) kvL.splice(i, 1); }
+      kvL.forEach(function (b, i) { vv.set(b.x, b.y, b.z); ss.setScalar(b.r); mtx.compose(vv, birQ, ss); kvKab.setMatrixAt(i, mtx); });
+      kvKab.count = kvL.length; kvKab.instanceMatrix.needsUpdate = true;
+      var cb = 0.02 + 0.6 * V.co2; co2Sis.scale.y = cb; co2Sis.position.y = cb / 2 + 0.02; co2Sis.material.opacity = V.co2 > 0 ? 0.28 : 0;
+      kAlev.scale.x = (V.yol ? kAlev.scale.x : 0.1 + Math.sin(t * 17) * 0.01);
+      return true;
+    };
+    D.adim = [
+      gozlukAdimi(),
+      { tahmin: { soru: 'Hidrojen suda çok az çözünür. Sence nasıl toplanır?', secenekler: ['Su dolu kabın içine, suyu iterek', 'Ağzı yukarı kapta', 'Hiç toplanamaz'] },
+        metin: 'Erlendeki çinkonun üstüne <b>HCl</b> dök. <button type="button" class="gv-b" data-gva="hcl1">HCl dök</button>', ok: okNesne(e1.g, 0.95, 0.8), kosul: function () { return V.h2 >= 1; }, gecikme: 400,
+        kart: { tur: 'kesif', baslik: 'Su altında toplama', metin: 'Hidrojen kabarcıkları su dolu kavanozdaki suyu aşağı itip yerini aldı. Suda az çözünen gazlar (H₂, O₂) böyle toplanır.', denklem: 'Zn + 2HCl → ZnCl₂ + H₂', tahminId: 1, tahminDogru: 0 } },
+      { metin: 'Gazı test et: <b>kavanoza</b> dokun, yanan kibriti ağzına tut.', ok: okNesne(kavanoz, 0.95, 0.7), kosul: function () { return V.hTest; }, gecikme: 600,
+        kart: { tur: 'kesif', baslik: '“Pıt!”', metin: 'Hidrojen yanan kibritle küçük bir patlama sesiyle yandı. Bu, hidrojenin tanınma testidir.' } },
+      { metin: 'Şimdi mermerin üstüne <b>HCl</b> dök. CO₂ havadan ağırdır; ağzı yukarı kabın dibine iner. <button type="button" class="gv-b" data-gva="hcl2">HCl dök</button>', ok: okNesne(e2.g, 0.95, 0.8), kosul: function () { return V.co2 >= 1; }, gecikme: 400,
+        kart: { tur: 'kesif', baslik: 'Havayı yukarı iterek toplama', metin: 'Karbondioksit havadan ağır olduğu için kabın dibinde birikti ve havayı yukarı itti. Havadan ağır gazlar ağzı yukarı kapta toplanır.', denklem: 'CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂' } },
+      { metin: 'Gazı test et: <b>ağzı yukarı kaba</b> dokun, yanan kibriti ağzına tut.', ok: okNesne(sise2, 0.95, 0.7), kosul: function () { return V.cTest; }, gecikme: 600,
+        kart: { tur: 'kesif', baslik: 'Kibrit söndü', metin: 'Karbondioksit yanmayı desteklemez; yanan kibrit söndü. Yangın söndürücülerde bu yüzden CO₂ kullanılır.' } },
+      { metin: '', kosul: function () { return true; }, gecikme: 100,
+        kart: { tur: 'soru', soru: 'Amonyak (NH₃) havadan hafiftir ve suda çok çözünür. Nasıl toplanır?', secenekler: ['Ağzı aşağı kapta, havayı aşağı iterek', 'Su altında', 'Ağzı yukarı kapta'], dogru: 0, aciklama: 'Suda çok çözündüğü için su altında toplanamaz; havadan hafif olduğu için ağzı aşağı kapta yukarıda birikir.' } }
+    ];
+    D.ozetSon = ['Suda az çözünen gazlar (H₂, O₂) su altında toplanır.', 'Havadan ağır gazlar (CO₂) ağzı yukarı, havadan hafif gazlar (NH₃) ağzı aşağı kapta toplanır.', 'H₂ “pıt” sesiyle yanar; CO₂ yanan kibriti söndürür.'];
   }
 
   /* ================= 10. FİNAL: BİLİNMEYENİ BUL ================= */

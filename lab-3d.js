@@ -20,7 +20,7 @@
     var R;
     try { R = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: !!window.LAB_KAYIT }); } catch (e) { return; }
     if (!R.getContext()) return;
-    R.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    R.setPixelRatio(Math.min(window.LAB_KAYIT ? 3 : 2, window.devicePixelRatio || 1));
     R.outputColorSpace = T.SRGBColorSpace;
     R.toneMapping = T.NeutralToneMapping; R.toneMappingExposure = 1.02;
     R.domElement.className = 'uc';

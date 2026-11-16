@@ -477,3 +477,5 @@
 .alet-bar.cok .akap small{font-size:10.5px}
 .alet-bar.cok .aekle span{display:none}
 .alet-bar.cok .aekle{padding:0 10px}
+/* iPhone: 16 px altındaki giriş alanlarında sayfa yakınlaşmasın */
+.ara,.ti-grup select,.ti-ayar select,.rapor input,.rapor textarea{font-size:16px}

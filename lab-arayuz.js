@@ -524,7 +524,7 @@
       '<div class="olc"><small>' + (tit ? 'Eklenen' : 'Hacim') + '</small><strong>' + (tit ? Y.tr(ti.v, 2) : Y.tr(k.V * 1000, k.V < 0.0095 ? 2 : 1)) + '<span class="birim">mL</span></strong></div>' +
       '<div class="olc"><small><span class="ampul" style="' + amp + '"></span>İletkenlik</small><strong>' + (k.V > 1e-6 ? Y.tr(kap, kap < 10 ? 2 : (kap < 100 ? 1 : 0)) : '–') + '<span class="birim">mS/cm</span></strong></div>';
   }
-  function olcumCiz() { $('#lb-olcum').innerHTML = olcumHtml(KAPLAR[aktif]); }
+  function olcumCiz() { var el = $('#lb-olcum'), x = olcumHtml(KAPLAR[aktif]); if (el._h !== x) { el.innerHTML = x; el._h = x; } }
   function dugmeDurum() {
     var k = KAPLAR[aktif];
     $('[data-is="isit"]').classList.toggle('on', k.isit);
@@ -702,7 +702,7 @@
   }
   function hedefSecHtml(baslik) {
     if (KAPLAR.length < 2) return '';
-    return '<div class="etiket">' + (baslik || 'Hangi kaba?') + '</div><div class="kap-sec">' + KAPLAR.map(function (k, i) { return k.gizli ? '' : '<button data-hedef="' + i + '" class="' + (i === penHedef ? 'on' : '') + '">' + kapSvg(k, 18) + h(k.ad) + '</button>'; }).join('') + '</div>';
+    return '<div class="etiket">' + (baslik || 'Hangi kaba?') + '</div><div class="kap-sec">' + KAPLAR.map(function (k, i) { return k.gizli ? '' : '<button data-hedef="' + i + '" class="' + (i === penHedef ? 'on' : '') + '">' + kapSvg(k, 18, null, 'kh') + h(k.ad) + '</button>'; }).join('') + '</div>';
   }
   function miktarAc(id, sec) {
     var K = M.KIMI[id]; if (!K) return;
@@ -917,10 +917,9 @@
   /* ---- Kaplar: masaya getir / kaldır ---- */
   var KAP_TIP = { beher: ['Beher', 0.25, 'beher', 'Karıştırma, ısıtma, çözelti hazırlama'], buyuk: ['Büyük beher', 1, 'beher', 'Büyük hacimler (1 L)'], erlen: ['Erlenmeyer', 0.25, 'erlen', 'Çalkalama ve titrasyon'], tup: ['Deney tüpü', 0.025, 'tup', 'Az miktarla hızlı deneme'] };
   function kapTuru(k) { return k.tip === 'beher' && k.kapasite > 0.5 ? 'buyuk' : k.tip; }
-  var svgSay = 0;
-  function kapSvg(k, boy, tur) {
+  function kapSvg(k, boy, tur, onek) {
     tur = tur || kapTuru(k);
-    var id = 'ks' + (++svgSay), dolu = 0, renk = 'rgba(160,200,230,.55)';
+    var id = (onek || 'ks') + (k ? KAPLAR.indexOf(k) : tur) + '-' + (boy || 30), dolu = 0, renk = 'rgba(160,200,230,.55)';
     if (k && k.V > 1e-6) { var R = M.renk(k); dolu = Math.min(1, k.V / k.kapasite); renk = rgba(karis(karis(R.sivi, [150, 195, 228], 0.25), R.bulRenk, R.bulanik * 0.9), 0.9); }
     var yol;
     if (tur === 'erlen') yol = 'M15.5 4h9M16.5 4v12.5L6.6 37.6A3.2 3.2 0 0 0 9.5 42h21a3.2 3.2 0 0 0 2.9-4.4L23.5 16.5V4';
@@ -938,15 +937,23 @@
     return k.metal.length || Object.keys(k.n).length ? 'katı var' : 'boş';
   }
   var _aletH = '';
+  /* kap çubuğu: kap listesi değişmedikçe düğmeler yerinde kalır, yalnızca içleri güncellenir (dokunuşlar kesilmesin) */
   function aletBarCiz() {
     var bar = $('#lb-aletbar'); if (!bar) return;
     var gor = KAPLAR.filter(function (k) { return !k.gizli; });
     if (!gor.length || (LAx.gorevAktif && gor.length < 2)) { if (!bar.hidden) bar.hidden = true; _aletH = ''; return; }
-    var s = '<div class="alet-kaplar">' + KAPLAR.map(function (k, i) {
-      if (k.gizli) return '';
-      return '<button type="button" class="akap' + (i === aktif ? ' on' : '') + (rozet[i] && i !== aktif ? ' yeni' : '') + '" data-akap="' + i + '">' + kapSvg(k, 24) + '<span><b>' + h(k.ad) + '</b><small>' + h(kapKisa(k)) + '</small></span></button>';
-    }).join('') + '</div>' + (LAx.kilit ? '' : '<button type="button" class="aekle" data-is="alet">' + ikon('arti') + '<span>Alet</span></button>');
-    if (s !== _aletH) { bar.innerHTML = s; _aletH = s; }
+    var anahtar = KAPLAR.map(function (k) { return k.gizli ? '-' : k.id + ':' + k.ad; }).join('|') + '#' + (LAx.kilit ? 1 : 0);
+    if (anahtar !== _aletH) {
+      bar.innerHTML = '<div class="alet-kaplar">' + KAPLAR.map(function (k, i) { return k.gizli ? '' : '<button type="button" class="akap" data-akap="' + i + '"></button>'; }).join('') + '</div>' +
+        (LAx.kilit ? '' : '<button type="button" class="aekle" data-is="alet">' + ikon('arti') + '<span>Alet</span></button>');
+      _aletH = anahtar;
+    }
+    $$('[data-akap]', bar).forEach(function (b) {
+      var i = +b.getAttribute('data-akap'), k = KAPLAR[i]; if (!k) return;
+      var ic = kapSvg(k, 24, null, 'kb') + '<span><b>' + h(k.ad) + '</b><small>' + h(kapKisa(k)) + '</small></span>';
+      if (b._ic !== ic) { b.innerHTML = ic; b._ic = ic; }
+      b.classList.toggle('on', i === aktif); b.classList.toggle('yeni', !!(rozet[i] && i !== aktif));
+    });
     bar.classList.toggle('cok', gor.length >= 3);
     bar.hidden = false;
   }
@@ -954,10 +961,10 @@
   function aletAc() {
     var dolu = KAPLAR.length >= 4;
     var s = '<button class="kapat" data-pen="kapat" aria-label="Kapat">×</button><h3>Masaya alet getir</h3><div class="alt">Seçtiğin kap masada büyük görünür. Diğerleri yukarıdaki sırada bekler; dokunarak geçiş yaparsın.</div>' +
-      '<div class="alet-izgara">' + Object.keys(KAP_TIP).map(function (t) { var T0 = KAP_TIP[t]; return '<button type="button" class="alet-k" data-yeni="' + t + '"' + (dolu ? ' disabled' : '') + '>' + kapSvg(null, 44, t) + '<b>' + T0[0] + '</b><small>' + sayiYaz(T0[1] * 1000) + ' mL · ' + T0[3] + '</small></button>'; }).join('') + '</div>' +
+      '<div class="alet-izgara">' + Object.keys(KAP_TIP).map(function (t) { var T0 = KAP_TIP[t]; return '<button type="button" class="alet-k" data-yeni="' + t + '"' + (dolu ? ' disabled' : '') + '>' + kapSvg(null, 44, t, 'kp') + '<b>' + T0[0] + '</b><small>' + sayiYaz(T0[1] * 1000) + ' mL · ' + T0[3] + '</small></button>'; }).join('') + '</div>' +
       (dolu ? '<div class="uyari">Masada en fazla 4 kap olabilir. Önce aşağıdan birini kaldır.</div>' : '') +
       '<div class="etiket">Masadaki kaplar</div><div class="alet-liste">' + KAPLAR.map(function (k, i) {
-        return k.gizli ? '' : '<div class="al-s' + (i === aktif ? ' on' : '') + '">' + kapSvg(k, 22) + '<span><b>' + h(k.ad) + '</b><small>' + h(kapKisa(k)) + '</small></span>' + (KAPLAR.length > 1 ? '<button type="button" data-kaldir="' + i + '">Kaldır</button>' : '') + '</div>';
+        return k.gizli ? '' : '<div class="al-s' + (i === aktif ? ' on' : '') + '">' + kapSvg(k, 22, null, 'kl') + '<span><b>' + h(k.ad) + '</b><small>' + h(kapKisa(k)) + '</small></span>' + (KAPLAR.length > 1 ? '<button type="button" data-kaldir="' + i + '">Kaldır</button>' : '') + '</div>';
       }).join('') + '</div>' +
       '<button type="button" class="elle-dug" data-sifirla="1">Masayı temizle (tek boş beher)</button>';
     penAc(s, function (e) {

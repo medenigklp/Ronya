@@ -1224,6 +1224,7 @@
     '.dugme.ikincil{background:transparent;color:var(--murekkep);border:1px solid var(--cizgi)}.dugme:disabled{opacity:.45;cursor:default}',
     '.not{margin:0;font-size:13.5px;color:var(--gri);line-height:1.5}.not b{color:var(--murekkep)}',
     '.uyari{margin:0;font-size:13.5px;line-height:1.5;padding:8px 10px;border-radius:10px;background:var(--turuncu-y);color:var(--turuncu-k)}',
+    'a.dugme{display:inline-flex;align-items:center;gap:6px;text-decoration:none}.indir-ilerleme{flex:none;min-width:0}',
     '.ozel-liste{list-style:none;margin:0;padding:0;display:grid;gap:6px}',
     '.ozel-liste li{display:flex;gap:8px;align-items:flex-start;font-size:14px;padding:8px 10px;border:1px dashed var(--cizgi);border-radius:10px}',
     '.ozel-liste li span{flex:1;min-width:0;overflow-wrap:anywhere}.ozel-liste button{border:0;background:transparent;color:var(--gri);padding:0 2px;font-size:18px;line-height:1}',
@@ -1289,6 +1290,7 @@
     return '<div class="sd" data-mod="' + (pencere ? 'pencere' : 'satir') + '"><div class="sd-panel" role="' + (pencere ? 'dialog' : 'region') + '" aria-label="Sesli ders">' +
       '<div class="sd-ust">' + (pencere ? '<h2 data-r="baslik">Sesli anlatım</h2>' : (o.baslik ? '<h2>' + esc(o.baslik) + '</h2>' : '')) + sekmeler +
         '<button type="button" class="sd-kucuk" data-r="ikiliDugme" aria-pressed="false" title="Kadın ve erkek öğretmen sırayla anlatsın"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="currentColor"/><circle cx="16.5" cy="8" r="3.2" fill="currentColor"/><path d="M2.5 19c.6-3.4 2.8-5.2 5.5-5.2s4.9 1.8 5.5 5.2zM11 19c.5-3.4 2.7-5.2 5.5-5.2S21.4 15.6 22 19z" fill="currentColor"/></svg><span class="etk">Karşılıklı</span></button>' +
+        '<button type="button" class="sd-kucuk" data-r="indirDugme" aria-label="Sesli anlatımı indir" title="Dersin sesini dosya olarak indir"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v11m0 0l-4.6-4.6M12 14.5l4.6-4.6M4.5 16.5v3h15v-3" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="etk">İndir</span></button>' +
         '<button type="button" class="sd-kucuk" data-r="ayarDugme" aria-pressed="false" aria-label="Ayarlar">' + ikon('ayar').replace('<svg', '<svg width="16" height="16"') + '<span class="etk">Ayarlar</span></button>' +
         (pencere ? '<button type="button" class="sd-kucuk" data-r="kapat" aria-label="Kapat">' + ikon('kapat').replace('<svg', '<svg width="16" height="16"') + '<span class="etk">Kapat</span></button>' : '') +
       '</div>' +
@@ -1335,6 +1337,14 @@
           '<p class="uyari" data-r="sesNot" hidden></p>' +
           '<button type="button" class="dugme ikincil" data-r="studyoAc">🎙️ Kendi sesinle kaydet</button>' +
         '</section>' +
+        '<section class="kart" data-r="indirKart"><h3>Sesli anlatımı indir</h3>' +
+          '<p class="not">Dersin bütün anlatımı tek bir ses dosyası olarak iner. Telefonda dinleyebilir, öğrencilerinle paylaşabilirsin.</p>' +
+          '<div class="alan"><span class="etiket">Hangi sesle?</span><div class="secim" data-r="indirSesler"><button type="button" data-isec="bulut">Doğal ses</button><button type="button" data-isec="kayit">Kendi sesim</button></div><p class="not" data-r="indirSesNot"></p></div>' +
+          '<button type="button" class="dugme" data-r="indirHazirla">Ses dosyasını hazırla</button>' +
+          '<div class="sd-ilerleme indir-ilerleme" data-r="indirIlerleme" hidden><div class="cubuk"><i data-r="indirCubuk"></i></div><span data-r="indirYazi" aria-live="polite"></span></div>' +
+          '<div class="satir" data-r="indirSonuc" hidden><a class="dugme" data-r="indirLink" href="#" download>⬇ İndir</a><button type="button" class="dugme ikincil" data-r="indirPaylas" hidden>Paylaş</button></div>' +
+          '<p class="uyari" data-r="indirUyari" hidden></p>' +
+        '</section>' +
         '<section class="kart"><h3>Cümle ya da metin ekle</h3>' +
           '<div class="alan"><label>Tahtaya yazılıp seslendirilecek metin<textarea data-r="cumle" class="kisa" rows="4" maxlength="' + METIN_SINIR + '" placeholder="Bir cümle yaz ya da 2–3 sayfalık bir konuyu buraya yapıştır." style="margin-top:6px"></textarea></label>' +
           '<p class="not" data-r="cumleSay" aria-live="polite"></p></div>' +
@@ -1348,10 +1358,10 @@
         '<div class="sd-sekmeler" role="tablist"><button role="tab" data-st="ders" aria-selected="true">Ders cümleleri</button><button role="tab" data-st="ornek" aria-selected="false">Ses kopyası için örnek</button></div>' +
         '<div data-r="stDers">' +
           '<p class="not" style="margin-bottom:8px">Her cümleyi kendi sesinle oku: <b>● Kaydet</b>’e bas, cümleyi oku, <b>■ Bitir</b>’e bas. Sessiz bir odada, telefonu ağzından bir karış uzakta tut. Kayıtlar bu cihazda saklanır; ders “Öğretmen kaydı” seçiliyken senin sesinle oynar.</p>' +
-          '<div class="satir" style="margin-bottom:10px"><button type="button" class="dugme" data-r="siraKaydet">● Sırayla kaydet</button><button type="button" class="dugme ikincil" data-r="paketIndir">Kayıtları indir</button></div>' +
+          '<div class="satir" style="margin-bottom:10px"><button type="button" class="dugme" data-r="siraKaydet">● Sırayla kaydet</button><button type="button" class="dugme ikincil" data-r="studyoMp3">⬇ Kendi sesimle dersi indir</button><button type="button" class="dugme ikincil" data-r="paketIndir">Site paketi (JSON)</button></div>' +
           '<p class="uyari" data-r="studyoNot" hidden></p>' +
           '<ul class="studyo-liste" data-r="studyoListe"></ul>' +
-          '<p class="not" style="margin-top:8px">Kayıtlar yalnızca bu cihazda durur. Öğrencilerin de duyması için “Kayıtları indir” ile alınan dosya sitenin <b>sesli</b> klasörüne eklenir.</p>' +
+          '<p class="not" style="margin-top:8px">Kayıtlar yalnızca bu cihazda durur. <b>Kendi sesimle dersi indir</b> dersin tamamını dinlenebilir tek bir ses dosyası yapar. <b>Site paketi</b> ise dinlemek için değil: sitenin <b>sesli</b> klasörüne eklenince öğrenciler dersi senin sesinle duyar.</p>' +
         '</div>' +
         '<div data-r="stOrnek" hidden>' +
           '<p class="not" style="margin-bottom:8px">Yeni yazılan metinlerin de senin sesinle okunması için bir ses servisinde (ör. ElevenLabs) sesinin kopyası oluşturulur. Servis bunun için 1–5 dakikalık temiz bir kayıt ister. Aşağıdaki metni doğal ders anlatır gibi oku, kaydı indirip servise yükle.</p>' +
@@ -1418,6 +1428,12 @@
     r.ileri.addEventListener('click', function () { self.calis(Math.min(self.P.adimlar.length - 1, self.P.i + 1)); });
     r.geri.addEventListener('click', function () { self.calis(Math.max(0, self.P.i - 1)); });
     r.bastan.addEventListener('click', function () { self.calis(0); });
+    r.indirDugme.addEventListener('click', function () { self.indirAc(); });
+    r.indirSesler.addEventListener('click', function (e) { var b = e.target.closest('[data-isec]'); if (!b || b.disabled || self.indiriliyor) return; self.indirSecim = b.getAttribute('data-isec'); self.indirSifirla(); self.indirCiz(); });
+    r.indirHazirla.addEventListener('click', function () { self.sesDosyasi(); });
+    r.indirPaylas.addEventListener('click', function () { self.indirPaylas(); });
+    r.indirLink.addEventListener('click', function (e) { if (r.indirLink.getAttribute('href') === '#') e.preventDefault(); });
+    r.studyoMp3.addEventListener('click', function () { self.studyoKapat(); self.indirAc('kayit', true); });
     r.ayarDugme.addEventListener('click', function () {
       var acik = !self.kokEl.classList.contains('ayar-acik');
       self.kokEl.classList.toggle('ayar-acik', acik); r.ayarDugme.setAttribute('aria-pressed', String(acik));
@@ -1907,6 +1923,7 @@
       r.kaynakNot.textContent = kaynakNe() === 'bulut' ? 'Cümleler Google’ın doğal Türkçe sesleriyle okunur. Bir cümle ilk kez seslendirilirken kısa bir bekleme olabilir.' : kaynakNe() === 'kayit'
         ? (n ? 'Bu derste ' + adimlar.length + ' adımın ' + n + '’i öğretmen kaydıyla oynar; kalanlar cihaz sesiyle.' : 'Bu ders için henüz öğretmen kaydı yok; “Kendi sesinle kaydet” ile ekleyebilirsin.')
         : (n ? 'Bu dersin ' + n + ' adımı için öğretmen kaydı var.' : '');
+      if (!self.indiriliyor) self.indirCiz();
     });
   };
 
@@ -2051,6 +2068,7 @@
   Oynatici.prototype.yukle = function (id, opt) {
     opt = opt || {};
     this.durdur();
+    if (!this.indiriliyor) this.indirSifirla();
     var ders = typeof id === 'object' ? id : null;
     if (ders) id = ders.id || 'ders';
     this.P.id = id;
@@ -2216,6 +2234,216 @@
       indir(new Blob([JSON.stringify(paket)], { type: 'application/json' }), 'sesli-' + String(self.P.id).replace(/[^\w-]+/g, '-') + '.json');
       self.r.studyoNot.textContent = n + ' kayıt indirildi. Dosya sitenin sesli klasörüne eklenince öğrenciler de bu sesi duyar.'; self.r.studyoNot.hidden = false;
     });
+  };
+  /* ---- sesli anlatımı tek dosya olarak indir: doğal ses ya da öğretmenin kendi kaydı ---- */
+  // Cihaz sesi (tarayıcının konuşma motoru) dosyaya kaydedilemez; bu yüzden yalnız bu iki kaynak sunulur.
+  var INDIR_ORAN = 24000;
+  function slugla(t) {
+    var h = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u' };
+    return String(t || 'ders').replace(/[çğıöşüÇĞİÖŞÜ]/g, function (c) { return h[c]; }).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'ders';
+  }
+  function sureYazi(sn) { sn = Math.max(1, Math.round(sn)); var d = Math.floor(sn / 60), k = sn % 60; return d ? d + ' dk' + (k ? ' ' + k + ' sn' : '') : k + ' sn'; }
+  function boyutYazi(b) { return b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+  var lameSoz = null;
+  function lameYukle() { // MP3 kodlayıcı yalnız gerektiğinde yüklenir; yüklenemezse dosya WAV olur
+    if (window.lamejs && window.lamejs.Mp3Encoder) return Promise.resolve(window.lamejs);
+    if (lameSoz) return lameSoz;
+    lameSoz = ['https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js'].reduce(function (zincir, u) {
+      return zincir.catch(function () {
+        return new Promise(function (ok, red) {
+          var sc = document.createElement('script'), zaman = setTimeout(function () { red(new Error('zaman aşımı')); }, 15000);
+          sc.src = u; sc.async = true;
+          sc.onload = function () { clearTimeout(zaman); if (window.lamejs && window.lamejs.Mp3Encoder) ok(window.lamejs); else red(new Error('kodlayıcı yok')); };
+          sc.onerror = function () { clearTimeout(zaman); red(new Error('yüklenemedi')); };
+          document.head.appendChild(sc);
+        });
+      });
+    }, Promise.reject(new Error('başla')));
+    lameSoz.catch(function () { lameSoz = null; });
+    return lameSoz;
+  }
+  function cozucuYap() { // 24 kHz'lik çevrimdışı ses bağlamı: çözülen her ses bu hıza dönüşür
+    var O = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!O) return null;
+    var oranlar = [INDIR_ORAN, 44100];
+    for (var i = 0; i < oranlar.length; i++) { try { return new O(1, 1, oranlar[i]); } catch (e) {} }
+    return null;
+  }
+  function sesCoz(ctx, buf) {
+    return new Promise(function (ok, red) {
+      try { var p = ctx.decodeAudioData(buf, ok, red); if (p && p.then) p.then(ok, red); } catch (e) { red(e); }
+    });
+  }
+  // tek kanala indir, baştaki ve sondaki sessizliği kırp, ses düzeyini eşitle (yaklaşık −20 dBFS)
+  function parcaHazirla(ab, kayitMi) {
+    var n = ab.length, k = ab.numberOfChannels, v = new Float32Array(n), c, i;
+    for (c = 0; c < k; c++) { var d = ab.getChannelData(c); for (i = 0; i < n; i++) v[i] += d[i] / k; }
+    var esik = 0.012, bas = 0, son = n - 1, pay = Math.round(ab.sampleRate * 0.08);
+    while (bas < n && Math.abs(v[bas]) < esik) bas++;
+    while (son > bas && Math.abs(v[son]) < esik) son--;
+    if (son <= bas) return null;
+    v = v.subarray(Math.max(0, bas - pay), Math.min(n, son + pay + 1));
+    var top = 0, say = 0;
+    for (i = 0; i < v.length; i++) { var x = v[i]; if (x > esik || x < -esik) { top += x * x; say++; } }
+    var rms = say ? Math.sqrt(top / say) : 0, kazanc = rms ? Math.max(0.5, Math.min(kayitMi ? 4 : 2, 0.1 / rms)) : 1;
+    if (Math.abs(kazanc - 1) > 0.02) { var w = new Float32Array(v.length); for (i = 0; i < v.length; i++) w[i] = v[i] * kazanc; v = w; }
+    return v;
+  }
+  function int16Yap(f) { // yumuşak sınırlayıcıyla 16 bit tam sayıya
+    var o = new Int16Array(f.length);
+    for (var i = 0; i < f.length; i++) {
+      var x = f[i];
+      if (x > 0.95) x = 0.95 + 0.05 * Math.tanh((x - 0.95) / 0.05); else if (x < -0.95) x = -0.95 - 0.05 * Math.tanh((-x - 0.95) / 0.05);
+      o[i] = x < 0 ? Math.round(x * 32768) : Math.round(x * 32767);
+    }
+    return o;
+  }
+  function wavYap(i16, oran) {
+    var b = new ArrayBuffer(44 + i16.length * 2), d = new DataView(b);
+    var yaz = function (o, t) { for (var i = 0; i < t.length; i++) d.setUint8(o + i, t.charCodeAt(i)); };
+    yaz(0, 'RIFF'); d.setUint32(4, 36 + i16.length * 2, true); yaz(8, 'WAVE'); yaz(12, 'fmt ');
+    d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, oran, true);
+    d.setUint32(28, oran * 2, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); yaz(36, 'data'); d.setUint32(40, i16.length * 2, true);
+    new Int16Array(b, 44).set(i16);
+    return new Blob([b], { type: 'audio/wav' });
+  }
+  function mp3Yap(lame, i16, oran, ilerle) { // parça parça kodlanır; arada sayfa donmaz
+    return new Promise(function (ok, red) {
+      try {
+        var enc = new lame.Mp3Encoder(1, oran, 64), parca = [], i = 0, BLOK = 1152, TUR = 1152 * 100;
+        var adim = function () {
+          try {
+            var bit = Math.min(i16.length, i + TUR);
+            for (; i < bit; i += BLOK) { var m = enc.encodeBuffer(i16.subarray(i, Math.min(i + BLOK, i16.length))); if (m.length) parca.push(new Uint8Array(m)); }
+            ilerle(Math.min(1, i / i16.length));
+            if (i < i16.length) setTimeout(adim, 0);
+            else { var sn = enc.flush(); if (sn.length) parca.push(new Uint8Array(sn)); ok(new Blob(parca, { type: 'audio/mpeg' })); }
+          } catch (e) { red(e); }
+        };
+        adim();
+      } catch (e) { red(e); }
+    });
+  }
+  Oynatici.prototype.indirSifirla = function () {
+    var r = this.r;
+    if (this.indirUrl) { URL.revokeObjectURL(this.indirUrl); this.indirUrl = null; }
+    this.indirDosya = null;
+    r.indirSonuc.hidden = true; r.indirLink.setAttribute('href', '#'); r.indirPaylas.hidden = true; r.indirUyari.hidden = true;
+    r.indirIlerleme.hidden = true; r.indirCubuk.style.width = '0';
+  };
+  Oynatici.prototype.indirHata = function (yazi) { this.r.indirUyari.textContent = yazi; this.r.indirUyari.hidden = false; };
+  Oynatici.prototype.indirCiz = function () {
+    var self = this, r = this.r, A = this.P.adimlar || [], bulutVar = Bulut.hazir();
+    if (!this.indirSecim) this.indirSecim = kaynakNe() === 'kayit' ? 'kayit' : (bulutVar ? 'bulut' : 'kayit');
+    if (this.indirSecim === 'bulut' && !bulutVar) this.indirSecim = 'kayit';
+    Array.prototype.forEach.call(r.indirSesler.querySelectorAll('[data-isec]'), function (b) {
+      var s = b.getAttribute('data-isec'); b.setAttribute('aria-pressed', String(s === self.indirSecim)); if (s === 'bulut') b.hidden = !bulutVar;
+    });
+    r.indirHazirla.disabled = !!this.indiriliyor || !A.length;
+    r.indirHazirla.className = this.indirDosya ? 'dugme ikincil' : 'dugme';
+    r.indirHazirla.textContent = this.indiriliyor ? 'Hazırlanıyor…' : (this.indirDosya ? 'Yeniden hazırla' : 'Ses dosyasını hazırla');
+    if (!A.length) { r.indirSesNot.textContent = 'Önce bir ders aç; indirilen dosya o dersin anlatımı olur.'; return; }
+    if (this.indirSecim === 'bulut') { r.indirSesNot.textContent = ayar.ikili ? 'Karşılıklı anlatım açık: kadın ve erkek doğal ses sırayla okur.' : 'Ayarlar’da seçili doğal sesle okunur.'; return; }
+    r.indirSesNot.textContent = 'Kayıtların sayılıyor…';
+    Promise.all(A.map(function (a) { var h = ozet(a.s); return Kayitlar.al('k:' + h).then(function (v) { return !!(v && v.veri) || !!Yayin.al(h); }); })).then(function (v) {
+      if (self.indirSecim !== 'kayit') return;
+      var n = v.filter(Boolean).length;
+      r.indirSesNot.textContent = n
+        ? 'Bu derste ' + A.length + ' adımın ' + n + '’i senin kaydınla.' + (n < A.length ? (bulutVar ? ' Kaydı olmayan cümleleri doğal ses okur.' : ' Kaydı olmayan cümleler dosyaya girmez.') : '')
+        : 'Bu ders için henüz kendi ses kaydın yok. Önce “Kendi sesinle kaydet” ile cümleleri oku' + (bulutVar ? ' ya da “Doğal ses”i seç.' : '.');
+    });
+  };
+  Oynatici.prototype.indirAc = function (secim, basla) {
+    var r = this.r;
+    if (secim && !this.indiriliyor) { this.indirSecim = secim; this.indirSifirla(); }
+    if (this.opt.mod === 'pencere') { this.kokEl.classList.add('ayar-acik'); r.ayarDugme.setAttribute('aria-pressed', 'true'); }
+    this.indirCiz();
+    setTimeout(function () { try { r.indirKart.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { r.indirKart.scrollIntoView(); } }, 60);
+    if (basla) this.sesDosyasi();
+  };
+  Oynatici.prototype.sesDosyasi = function () {
+    var self = this, r = this.r, A = (this.P.adimlar || []).slice(), plan = this.P.plan, secim = this.indirSecim;
+    if (this.indiriliyor || !A.length) return;
+    if (secim === 'bulut' && !Bulut.hazir()) { this.indirHata('Doğal sesler şu an kullanılamıyor.'); return; }
+    var ctx = cozucuYap();
+    if (!ctx) { this.indirHata('Bu tarayıcı ses dosyası hazırlayamıyor. Safari ya da Chrome’un güncel sürümünü dene.'); return; }
+    this.indirSifirla(); this.indiriliyor = true; this.indirCiz();
+    var baslik = (this.P.ders && this.P.ders.baslik) || (this.P.id === 'metin' ? 'kendi metnim' : this.P.id) || 'ders';
+    var durum = function (yazi, oran) { r.indirYazi.textContent = yazi; if (oran != null) r.indirCubuk.style.width = Math.round(Math.max(0, Math.min(1, oran)) * 100) + '%'; };
+    r.indirIlerleme.hidden = false;
+    durum('Sesler hazırlanıyor… 0/' + A.length, 0);
+    var tampon = function (url) { return fetch(url).then(function (x) { if (!x.ok && x.status) throw new Error('ses alınamadı'); return x.arrayBuffer(); }); };
+    var bitti = 0, eksik = 0, kendi = 0, dogal = 0;
+    var adimSesi = function (i) {
+      var a = A[i], pl = plan && plan[i], sesi = konusmaciSesi(pl ? pl.kim : null);
+      var bulut = function (m, say) {
+        if (!Bulut.hazir()) return Promise.resolve(null);
+        return Bulut.al(m, sesi.bulut).then(function (k) { return tampon(k.url); }).then(function (b) { return sesCoz(ctx, b); })
+          .then(function (ab) { var v = parcaHazirla(ab, false); if (v && say) dogal++; return v; });
+      };
+      var ana = secim === 'kayit'
+        ? self.kayitBul(a.s).then(function (k) {
+            if (!k) return bulut(a.s, true);
+            return tampon(k.url).then(function (b) { if (k.yerel) URL.revokeObjectURL(k.url); return sesCoz(ctx, b); })
+              .then(function (ab) { var v = parcaHazirla(ab, true); if (v) kendi++; return v; })
+              .catch(function () { return bulut(a.s, true); });
+          })
+        : bulut(a.s, true);
+      var on = pl && pl.on ? bulut(pl.on, false).catch(function () { return null; }) : Promise.resolve(null);
+      return Promise.all([on, ana.catch(function () { return null; })]).then(function (s) {
+        bitti++; if (!s[1]) eksik++;
+        durum('Sesler hazırlanıyor… ' + bitti + '/' + A.length, bitti / A.length * 0.7);
+        return { on: s[0], ana: s[1], sil: !!a.sil };
+      });
+    };
+    var sonuc = new Array(A.length), sira = 0;
+    var isci = function () { if (sira >= A.length) return Promise.resolve(); var i = sira++; return adimSesi(i).then(function (x) { sonuc[i] = x; return isci(); }); };
+    var iscilar = []; for (var w = 0; w < Math.min(3, A.length); w++) iscilar.push(isci()); // aynı anda en çok 3 cümle
+    Promise.all(iscilar).then(function () {
+      var oran = ctx.sampleRate, parcalar = [], toplam = Math.round(0.35 * oran), ilk = true;
+      sonuc.forEach(function (x) {
+        if (!x || !x.ana) return;
+        if (!ilk) { var bos = Math.round((x.sil ? 1.0 : 0.55) * oran); parcalar.push(bos); toplam += bos; }
+        if (x.on) { var ara = Math.round(0.25 * oran); parcalar.push(x.on, ara); toplam += x.on.length + ara; }
+        parcalar.push(x.ana); toplam += x.ana.length; ilk = false;
+      });
+      if (ilk) throw new Error(secim === 'kayit' ? 'Bu derste kullanılabilecek ses kaydı bulunamadı. Önce “Kendi sesinle kaydet” ile cümleleri oku.' : 'Doğal ses alınamadı. İnternet bağlantını kontrol edip yeniden dene.');
+      toplam += Math.round(0.6 * oran);
+      var cikis = new Float32Array(toplam), konum = Math.round(0.35 * oran);
+      parcalar.forEach(function (p) { if (typeof p === 'number') konum += p; else { cikis.set(p, konum); konum += p.length; } });
+      var sure = toplam / oran, i16 = int16Yap(cikis), ad = 'sesli-' + slugla(baslik) + (secim === 'kayit' ? '-kendi-sesim' : '');
+      cikis = null;
+      durum('Dosyaya çevriliyor…', 0.72);
+      return lameYukle().then(function (lame) {
+        return mp3Yap(lame, i16, oran, function (o) { durum('MP3’e çevriliyor… %' + Math.round(o * 100), 0.72 + o * 0.28); })
+          .then(function (blob) { return { blob: blob, ad: ad + '.mp3', tur: 'MP3', sure: sure }; });
+      }, function () { return { blob: wavYap(i16, oran), ad: ad + '.wav', tur: 'WAV', sure: sure }; });
+    }).then(function (d) {
+      self.indiriliyor = false;
+      self.indirUrl = URL.createObjectURL(d.blob); self.indirDosya = d;
+      r.indirLink.setAttribute('href', self.indirUrl); r.indirLink.setAttribute('download', d.ad);
+      r.indirLink.textContent = '⬇ İndir (' + d.tur + ', ' + boyutYazi(d.blob.size) + ')';
+      r.indirSonuc.hidden = false;
+      var dosya = null; try { dosya = new File([d.blob], d.ad, { type: d.blob.type }); } catch (e) {}
+      var paylas = false; try { paylas = !!(dosya && navigator.share && navigator.canShare && navigator.canShare({ files: [dosya] })); } catch (e) {}
+      r.indirPaylas.hidden = !paylas;
+      durum('Hazır: ' + sureYazi(d.sure) + ' · ' + d.ad, 1);
+      var not = [];
+      if (secim === 'kayit' && dogal) not.push(kendi + ' cümle senin sesinle, ' + dogal + ' cümle doğal sesle.');
+      if (eksik) not.push(eksik + ' cümlenin sesi alınamadığı için dosyaya girmedi.');
+      if (not.length) self.indirHata(not.join(' '));
+      self.indirCiz();
+    }).catch(function (e) {
+      self.indiriliyor = false; r.indirIlerleme.hidden = true; self.indirCiz();
+      var m = e && e.message;
+      self.indirHata(m && m.length > 30 ? m : 'Ses dosyası hazırlanamadı. Bağlantını kontrol edip yeniden dene.');
+    });
+  };
+  Oynatici.prototype.indirPaylas = function () {
+    var d = this.indirDosya, dosya;
+    if (!d || !navigator.share) return;
+    try { dosya = new File([d.blob], d.ad, { type: d.blob.type }); } catch (e) { return; }
+    navigator.share({ files: [dosya], title: d.ad }).catch(function () {});
   };
   Oynatici.prototype.ornekKayit = function () {
     var self = this, r = this.r;

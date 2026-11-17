@@ -40,29 +40,49 @@
     var golgeD = tuval(256, 256, function (c) { var g = c.createRadialGradient(128, 128, 6, 128, 128, 128); g.addColorStop(0, 'rgba(20,24,30,.55)'); g.addColorStop(0.5, 'rgba(20,24,30,.22)'); g.addColorStop(1, 'rgba(20,24,30,0)'); c.fillStyle = g; c.fillRect(0, 0, 256, 256); });
     var yumusakD = tuval(128, 128, function (c) { var g = c.createRadialGradient(64, 64, 2, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.45, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); });
     var karoD = tuval(4, 4, function (c, w, h) { c.fillStyle = '#F4F1ED'; c.fillRect(0, 0, w, h); });
-    /* açık renkli tezgâh yüzeyi (epoksi): çok ince benekler */
-    var tezgahD = tuval(512, 512, function (c, w, h) {
-      c.fillStyle = '#E9E4DE'; c.fillRect(0, 0, w, h);
-      for (var i = 0; i < 2600; i++) { var v = 196 + Math.random() * 34; c.fillStyle = 'rgba(' + v + ',' + (v - 6) + ',' + (v - 14) + ',' + (0.18 + Math.random() * 0.22) + ')'; c.fillRect(Math.random() * w, Math.random() * h, 1.3, 1.3); }
-    });
-    tezgahD.wrapS = tezgahD.wrapT = T.RepeatWrapping; tezgahD.repeat.set(4, 3);
-    /* tezgâhın arka kısmı fona karışsın diye saydamlık geçişi (üst = uzak kenar) */
-    var tezgahA = tuval(8, 256, function (c, w, h) { var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#000'); g.addColorStop(0.42, '#000'); g.addColorStop(0.7, '#fff'); g.addColorStop(1, '#fff'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
-    /* stüdyo fonu: yumuşak geçiş, bulanık ışık lekeleri ve çok silik altıgen (benzen) deseni */
-    var fonD = tuval(1024, 1024, function (c, w, h) {
-      var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#D7E3EF'); g.addColorStop(0.5, '#ECEFF3'); g.addColorStop(0.78, '#F6F2ED'); g.addColorStop(1, '#F8F4EF'); c.fillStyle = g; c.fillRect(0, 0, w, h);
-      [[0.14, 0.16, 170, '255,146,84', 0.2], [0.84, 0.1, 210, '110,170,230', 0.22], [0.56, 0.27, 120, '186,150,236', 0.16], [0.3, 0.4, 90, '255,196,110', 0.15], [0.93, 0.42, 130, '96,196,186', 0.15], [0.04, 0.47, 110, '140,184,240', 0.13], [0.7, 0.05, 80, '255,160,130', 0.17], [0.42, 0.08, 60, '120,200,170', 0.12]].forEach(function (b) {
-        var x = b[0] * w, y = b[1] * h, r = b[2], rg = c.createRadialGradient(x, y, r * 0.15, x, y, r);
-        rg.addColorStop(0, 'rgba(' + b[3] + ',' + b[4] + ')'); rg.addColorStop(0.65, 'rgba(' + b[3] + ',' + (b[4] * 0.55) + ')'); rg.addColorStop(1, 'rgba(' + b[3] + ',0)');
-        c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
-      });
-      c.lineWidth = 2.2; var s = 46, hx = s * Math.sqrt(3);
-      for (var yy = 0; yy < h * 0.62; yy += s * 1.5) for (var xx = -hx; xx < w + hx; xx += hx) {
-        var ox = xx + ((Math.round(yy / (s * 1.5)) % 2) ? hx / 2 : 0), al = 0.055 * (1 - yy / (h * 0.62));
-        c.strokeStyle = 'rgba(80,104,140,' + al.toFixed(3) + ')'; c.beginPath();
-        for (var k = 0; k <= 6; k++) { var a = Math.PI / 6 + k * Math.PI / 3, px = ox + s * Math.cos(a), py = yy + s * Math.sin(a); if (k) c.lineTo(px, py); else c.moveTo(px, py); }
+    /* ---- fon ve tezgâh: sade, açık renkli stüdyo görünümü (LAB_FON ile başka tarz denenebilir) ---- */
+    var FON = window.LAB_FON || 'gun';
+    function rasgele(t) { var x = Math.sin(t * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+    var tezgahD = tuval(1024, 1024, function (c, w, h) {
+      var i, r = 0;
+      if (FON === 'gun') {   /* açık meşe */
+        c.fillStyle = '#E6CFAE'; c.fillRect(0, 0, w, h);
+        for (i = 0; i < 260; i++) { var y = rasgele(i) * h, a = 0.05 + rasgele(i + 9) * 0.12; c.strokeStyle = 'rgba(150,104,58,' + a.toFixed(3) + ')'; c.lineWidth = 0.8 + rasgele(i + 3) * 2.2; c.beginPath(); c.moveTo(0, y); for (var x = 0; x <= w; x += 64) c.lineTo(x, y + Math.sin(x / 140 + i) * 5 + Math.sin(x / 37 + i * 2) * 1.5); c.stroke(); }
+        c.fillStyle = 'rgba(120,80,40,.18)'; for (i = 1; i < 4; i++) c.fillRect(0, i * h / 4 - 1, w, 2);
+        return;
+      }
+      /* beyaz mermer: çok silik gri damarlar */
+      c.fillStyle = FON === 'pastel' ? '#F7F4F1' : '#F2F0ED'; c.fillRect(0, 0, w, h);
+      for (i = 0; i < 4200; i++) { var v = 200 + rasgele(i) * 45; c.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 4) + ',' + (0.12 + rasgele(i + 1) * 0.16) + ')'; c.fillRect(rasgele(i + 2) * w, rasgele(i + 5) * h, 1.2, 1.2); }
+      for (i = 0; i < 16; i++) {
+        var x0 = rasgele(i * 3 + 1) * w, y0 = rasgele(i * 3 + 2) * h, uz = 300 + rasgele(i * 3 + 4) * 600, aci = rasgele(i * 7) * 6.28;
+        c.strokeStyle = 'rgba(130,132,142,' + (0.05 + rasgele(i * 5) * 0.08).toFixed(3) + ')'; c.lineWidth = 0.8 + rasgele(i * 11) * 2.4;
+        c.beginPath(); c.moveTo(x0, y0);
+        for (var k = 1; k <= 8; k++) { aci += (rasgele(i * 13 + k) - 0.5) * 0.9; x0 += Math.cos(aci) * uz / 8; y0 += Math.sin(aci) * uz / 8; c.lineTo(x0, y0); }
         c.stroke();
       }
+    });
+    tezgahD.wrapS = tezgahD.wrapT = T.RepeatWrapping; tezgahD.repeat.set(FON === 'gun' ? 2.5 : 3, FON === 'gun' ? 1.6 : 2);
+    /* tezgâhın arka kısmı fona karışsın diye saydamlık geçişi (üst = uzak kenar) */
+    var tezgahA = tuval(8, 256, function (c, w, h) { var g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#000'); g.addColorStop(0.42, '#000'); g.addColorStop(0.72, '#fff'); g.addColorStop(1, '#fff'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
+    var fonD = tuval(1024, 1024, function (c, w, h) {
+      var g = c.createLinearGradient(0, 0, 0, h);
+      if (FON === 'gun') { g.addColorStop(0, '#BFD9EE'); g.addColorStop(0.42, '#E2EDF5'); g.addColorStop(0.66, '#F6F1EA'); g.addColorStop(1, '#EFE4D6'); }
+      else if (FON === 'pastel') { g = c.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#FBDCCB'); g.addColorStop(0.45, '#F1E3F1'); g.addColorStop(1, '#D9E8F6'); }
+      else { g.addColorStop(0, '#DCE2EA'); g.addColorStop(0.46, '#EDEFF2'); g.addColorStop(0.72, '#F6F3EF'); g.addColorStop(1, '#F2EEE9'); }
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+      /* kabın arkasında yumuşak ışık havuzu */
+      var r = c.createRadialGradient(w * 0.5, h * 0.44, 0, w * 0.5, h * 0.44, w * 0.6);
+      r.addColorStop(0, 'rgba(255,255,255,' + (FON === 'pastel' ? 0.55 : 0.8) + ')'); r.addColorStop(0.45, 'rgba(255,255,255,.3)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = r; c.fillRect(0, 0, w, h);
+      if (FON === 'gun') {   /* soldan pencere ışığı */
+        var p = c.createLinearGradient(0, 0, w * 0.6, h * 0.5); p.addColorStop(0, 'rgba(255,250,235,.55)'); p.addColorStop(1, 'rgba(255,250,235,0)');
+        c.fillStyle = p; c.fillRect(0, 0, w, h);
+      }
+      /* köşelerde hafif karartma */
+      var v = c.createRadialGradient(w * 0.5, h * 0.48, w * 0.36, w * 0.5, h * 0.48, w * 0.82);
+      v.addColorStop(0, 'rgba(40,48,66,0)'); v.addColorStop(1, 'rgba(40,48,66,' + (FON === 'pastel' ? 0.06 : 0.1) + ')');
+      c.fillStyle = v; c.fillRect(0, 0, w, h);
     });
     var etiketOnbellek = {};
     function etiketD(ust, alt, renk, kahve) {
@@ -166,10 +186,10 @@
     /* ================= ODA ================= */
     /* stüdyo tezgâhı: önde görünen açık renkli tabla, arkası fona karışır */
     sahne.background = fonD;
-    var tez = new T.Mesh(new T.PlaneGeometry(16, 10), new T.MeshPhysicalMaterial({ color: 0xffffff, map: tezgahD, alphaMap: tezgahA, transparent: true, roughness: 0.42, clearcoat: 0.3, clearcoatRoughness: 0.35 }));
+    var tez = new T.Mesh(new T.PlaneGeometry(16, 10), new T.MeshPhysicalMaterial({ color: 0xffffff, map: tezgahD, alphaMap: tezgahA, transparent: true, roughness: FON === 'gun' ? 0.55 : 0.32, clearcoat: FON === 'gun' ? 0.25 : 0.6, clearcoatRoughness: 0.22 }));
     tez.rotation.x = -Math.PI / 2; tez.position.set(0, 0, -3.2); tez.renderOrder = -2; sahne.add(tez);
-    var onYuz = new T.Mesh(new T.BoxGeometry(16, 0.07, 0.07), new T.MeshStandardMaterial({ color: 0xe2dbd3, roughness: 0.6 })); onYuz.position.set(0, -0.035, 1.8); sahne.add(onYuz);
-    var onYuz2 = new T.Mesh(new T.PlaneGeometry(16, 1.4), new T.MeshStandardMaterial({ color: 0xe9e3dc, roughness: 0.8 })); onYuz2.position.set(0, -0.76, 1.835); sahne.add(onYuz2);
+    var onYuz = new T.Mesh(new T.BoxGeometry(16, 0.07, 0.07), new T.MeshStandardMaterial({ color: FON === 'gun' ? 0xc9a77c : 0xdedad5, roughness: 0.6 })); onYuz.position.set(0, -0.035, 1.8); sahne.add(onYuz);
+    var onYuz2 = new T.Mesh(new T.PlaneGeometry(16, 1.4), new T.MeshStandardMaterial({ color: FON === 'gun' ? 0xd4b38a : 0xe8e4df, roughness: 0.8 })); onYuz2.position.set(0, -0.76, 1.835); sahne.add(onYuz2);
     var duvar = new T.Group(), supurge = new T.Group();
     var arkaRaf = new T.Group(); sahne.add(arkaRaf);   /* eski dekor; yeni tasarımda boş kalır (görevler visible değiştirebilir) */
     function ayiracSisesi(x, z, ad, alt, renk, kahve, siviRenk) {

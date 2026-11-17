@@ -541,6 +541,19 @@
 
   /* ================= GÖZLEMLER ================= */
   var TUR_RENK = { cokelme: '#8C8C8C', gaz: '#3B82C4', tehlike: '#B42318', renk: '#8A4FC4', notr: '#1B6B4A', isi: '#E8730C', metal: '#B5642F', cozunme: '#5A9BD5', uyari: '#A15C00', bilgi: '#B9AFA5', yok: '#B9AFA5' };
+  /* denklem tek satırda kalsın: sığmazsa yazıyı biraz küçült (en az 10,5 px), yine sığmazsa yana kaysın */
+  function dnkSigdir() {
+    $$('.ol').forEach(function (ol) {
+      var D = $$('.dnk > div', ol), en = 13.5;
+      D.forEach(function (d) {
+        if (!d.clientWidth) return;
+        var f = 13.5; d.style.fontSize = '';
+        while (d.scrollWidth > d.clientWidth + 1 && f > 10.5) { f -= 0.5; d.style.fontSize = f + 'px'; }
+        en = Math.min(en, f);
+      });
+      D.forEach(function (d) { d.style.fontSize = en < 13.5 ? en + 'px' : ''; });
+    });
+  }
   function dnk(x) { return h(x).split(/( \+ | → | ⇌ )/).map(function (p) { return /^ (\+|→|⇌) $/.test(p) ? p : '<span class="nw">' + p + '</span>'; }).join(''); }
   function olayHtml(o, kapAd) {
     var s = '<div class="ol ' + h(o.tur) + '"' + (o.renk && o.tur !== 'tehlike' ? ' style="border-left-color:' + h(o.renk) + '"' : '') + '>';
@@ -559,6 +572,7 @@
     var html = L.length ? L.slice(0, 14).map(function (o) { return olayHtml(o); }).join('') :
       '<div class="bos"><b>' + h(k.ad) + '</b> için henüz gözlem yok.<br><b>Madde ekle</b>’ye dokun ya da <b>Hazır deneyler</b>’den birini seç.</div>';
     $('#lb-gozlem1').innerHTML = html; $('#lb-gozlem2').innerHTML = html;
+    dnkSigdir();
     var e = L.length ? L.length + ' gözlem · ' + k.ad : k.ad;
     $('#lb-gk1').textContent = e; $('#lb-gk2').textContent = e;
   }

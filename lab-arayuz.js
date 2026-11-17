@@ -110,11 +110,17 @@
   var mod = 'serbest';
   function modAc(m) {
     var onceki = mod; mod = m;
-    if (cz() && cz().tiGir) { if (m === 'titrasyon') cz().tiGir(); else if (onceki === 'titrasyon') cz().tiCik(); }
+    if (cz() && cz().tiGir) {
+      if (onceki === 'titrasyon' && m !== 'titrasyon') cz().tiCik();
+      if (onceki === 'elektroliz' && m !== 'elektroliz' && cz().elCik) cz().elCik();
+      if (m === 'titrasyon') cz().tiGir();
+      if (m === 'elektroliz' && cz().elGir) cz().elGir();
+    }
     $$('.lab-sekme button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-mod') === m); });
     $$('.mod').forEach(function (s) { s.classList.toggle('on', s.id === 'm-' + m); });
     if (m === 'titrasyon') { tiBoyut(); tiCiz(); grafikCiz(); tiOkuma(); $('#lb-tolcum').innerHTML = olcumHtml(ti.k, true); }
     if (m === 'rapor') raporCiz();
+    if (m === 'elektroliz' && LAx.elAcildi) LAx.elAcildi();
     if (m === 'serbest') { boyut(); if (cz()) cz().boyut(); }
     try { history.replaceState(null, '', m === 'serbest' ? location.pathname + location.search : '#' + m); } catch (e) {}
   }
@@ -1510,6 +1516,7 @@
     var t = su / 1000;
     if (mod === 'serbest') { if (cz()) cz().ciz(t, dt); else tezgahCiz(t, dt); }
     else if (mod === 'titrasyon') { if (cz() && cz().tiCiz) cz().tiCiz(t, dt); else tiCiz(t); if (olcSay % 12 === 0) $('#lb-tolcum').innerHTML = olcumHtml(ti.k, true); }
+    else if (mod === 'elektroliz' && LAx.elDongu) LAx.elDongu(t, dt);
     if (++olcSay % 12 === 0) {
       if (mod === 'serbest') {
         olcumCiz(); aletBarCiz();

@@ -482,3 +482,54 @@
 .ara,.ti-grup select,.ti-ayar select,.rapor input,.rapor textarea{font-size:16px}
 .gv-t-ust.bekle.tamam .gv-adno{background:#1FA85C}
 .gv-t-ust.bekle.tamam .gv-t-metin{color:#14663A;font-weight:600}
+/* ===== Elektroliz ===== */
+.el{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:980px){.el{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:start}.el-kart{grid-row:span 2}}
+.el-tezgah{position:relative;background:linear-gradient(#E3EAF1,#F6F1EC);overflow:hidden}
+.el-et{position:absolute;left:0;top:0;z-index:2;pointer-events:none;background:rgba(255,255,255,.94);border-radius:10px;padding:4px 9px 5px;box-shadow:0 1px 5px rgba(20,17,15,.16);font-size:12.5px;line-height:1.25;white-space:nowrap;color:var(--tx);margin-top:-6px}
+.el-et:empty{display:none}
+.el-et small{display:block;font-size:10.5px;font-weight:700;color:var(--tx3);letter-spacing:.01em}
+.el-et b{font-weight:700}
+.el-et.kat{border-left:3px solid #1C1F24;margin-left:-4px}
+.el-et.an{border-left:3px solid #D8342C;margin-left:4px}
+.el-et.T{background:rgba(232,94,20,.92);color:#fff;font-weight:700;margin-top:0}
+.el-canli{padding:10px 12px 0}
+.el-ilerle{height:6px;border-radius:4px;background:var(--cz);overflow:hidden}
+.el-ilerle i{display:block;height:100%;background:var(--ac);border-radius:4px;transition:width .12s linear}
+.el-canli-s{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12.5px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.el-canli-s .el-hz{margin-left:auto;font-weight:600;color:var(--ac2)}
+.el-dug{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px;padding:10px 12px 8px}
+.el-dug .ab{justify-content:center;height:52px;font-size:15px}
+.lab .el-dug .el-calis{background:#1B6B4A;border-color:#1B6B4A;color:#fff}
+.lab .el-dug .el-calis.on{background:#B42318;border-color:#B42318}
+.el-dug svg{width:18px;height:18px}
+.el-hiz{display:flex;align-items:center;gap:8px;padding:0 12px 12px;font-size:13px;color:var(--tx3);font-weight:600}
+.el-hiz .ayar-cip{margin:0}
+.el-tanim{margin-top:6px;font-size:12.5px;color:var(--tx3)}
+.el-bilgi{margin-top:10px;font-size:12.5px;line-height:1.45;color:var(--tx3)}
+.el-taraflar{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:8px}
+@media (min-width:560px){.el-taraflar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.el-taraf{border:1px solid var(--cz);border-top:4px solid #1C1F24;border-radius:12px;padding:9px 12px 11px;background:#fff;min-width:0}
+.el-taraf.an{border-top-color:#D8342C}
+.el-tb{display:flex;align-items:center;gap:7px;font-weight:700;font-size:14.5px}
+.el-tb small{font-weight:500;font-size:12px;color:var(--tx3)}
+.el-isaret{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#1C1F24;color:#fff;font-weight:800;font-size:15px;line-height:1}
+.el-taraf.an .el-isaret{background:#D8342C}
+.el-yari{margin-top:6px;font-weight:600;font-size:13.5px;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+.el-yari::-webkit-scrollbar,.el-denk::-webkit-scrollbar{display:none}
+.el-urun{margin-top:3px;font-size:13px;color:var(--tx2)}
+.el-urun b{font-size:15px;color:var(--tx)}
+.el-mik{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px}
+.el-mol{font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.el-g{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--cz2);border-radius:10px;padding:2px 9px 2px 4px;background:var(--yz2)}
+.el-g input{width:84px;border:0;background:transparent;font:inherit;font-size:16px;font-weight:700;text-align:right;color:var(--ac3);padding:4px 2px;font-variant-numeric:tabular-nums}
+.el-g input:focus{outline:none}
+.el-g:focus-within{border-color:var(--ac);box-shadow:0 0 0 3px var(--acz)}
+.el-g span{font-size:13px;color:var(--tx2)}
+.el-g small{font-size:11px;color:var(--tx3)}
+.el-ek{margin-top:8px;font-size:12.5px;line-height:1.45;color:var(--tx2);background:var(--ywz);border-radius:8px;padding:6px 8px}
+.el-denk{margin-top:4px;font-weight:600;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+.el-uyari{color:var(--rd);font-weight:600}
+.ayar-ust label .sym{text-transform:none;letter-spacing:0}
+.el-canli-s b{color:var(--tx);font-weight:700}
+@media (min-width:980px){.el-kart{position:sticky;top:12px}}

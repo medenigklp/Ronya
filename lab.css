@@ -73,9 +73,9 @@
 .ol h3{font-family:var(--fb);font-size:15px;font-weight:600;line-height:1.35}
 .ol p{margin:4px 0 0;font-size:14px;color:var(--tx2)}
 .ol .dnk{margin-top:8px;padding:7px 9px;border-radius:9px;background:var(--yz2);font-size:13.5px;line-height:1.45;overflow-x:auto}
-.ol .dnk span{display:block;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px}
-.ol .dnk div{white-space:normal}
-.ol .dnk .nw{white-space:nowrap}
+.ol .dnk > span{display:block;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px}
+.ol .dnk > div{white-space:nowrap;font-size:13.5px;text-transform:none;letter-spacing:normal}
+.ol .dnk .nw{white-space:nowrap;display:inline}
 .ol details{margin-top:7px}
 .ol summary{font-size:13px;font-weight:600;color:var(--ac2);cursor:pointer;list-style:none}
 .ol summary::-webkit-details-marker{display:none}
@@ -255,7 +255,7 @@
 .uc-tp{padding:5px 0;border-top:1px solid rgba(255,255,255,.08)}
 .uc-tp:first-child{border-top:0}
 .uc-tp span{display:block;font-size:11.5px;color:rgba(255,255,255,.6)}
-.uc-tp b{font-weight:600;font-size:13px}
+.uc-tp b{display:block;font-weight:600;font-size:13px;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
 .uc-e3{position:absolute;transform:translate(-50%,-100%);pointer-events:none!important;background:rgba(20,17,15,.82);color:#fff;font-size:12px;font-weight:600;border-radius:8px;padding:3px 8px;white-space:nowrap}
 .olc.tik{cursor:pointer}
 .olc.tik small::after{content:' ✎';opacity:.55}
@@ -322,7 +322,7 @@
 .gv-kart h3{font-size:17px;line-height:1.25;margin-bottom:6px}
 .gv-kart p{margin:0 0 10px;font-size:14px;color:var(--tx2)}
 .gv-kart .gv-ince{font-size:12.5px}
-.gv-dnk{font-family:var(--fd);font-weight:600;background:var(--grz);color:var(--gr);border-radius:10px;padding:7px 10px;margin:0 0 10px;font-size:14.5px}
+.gv-dnk{font-family:var(--fd);font-weight:600;background:var(--grz);color:var(--gr);border-radius:10px;padding:7px 10px;margin:0 0 10px;font-size:14.5px;white-space:nowrap;overflow-x:auto}
 .gv-tah{font-size:13px;border-radius:10px;padding:7px 10px;margin:0 0 10px;background:var(--yz2);color:var(--tx2)}
 .gv-tah.ok{background:#E6F6EE;color:#1B6B4A;font-weight:600}
 .gv-sec{display:flex;flex-direction:column;gap:7px;margin:6px 0 8px}

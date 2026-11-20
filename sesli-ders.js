@@ -164,7 +164,8 @@
     },
     al: function (k) { return this.islem('readonly', function (st) { return st.get(k); }).catch(function () { return null; }); },
     koy: function (k, v) { return this.islem('readwrite', function (st) { return st.put(v, k); }); },
-    sil: function (k) { return this.islem('readwrite', function (st) { return st.delete(k); }).catch(function () {}); }
+    sil: function (k) { return this.islem('readwrite', function (st) { return st.delete(k); }).catch(function () {}); },
+    anahtarlar: function () { return this.islem('readonly', function (st) { return st.getAllKeys ? st.getAllKeys() : null; }).then(function (l) { return l || []; }, function () { return []; }); }
   };
   var Yayin = {
     harita: {}, soz: null,
@@ -881,8 +882,10 @@
     tahta: depo.al('tahta', 'beyaz'), kalem: depo.al('kalem', null), renk: depo.al('renk', 0), yazi: depo.al('yazi', 'caveat'),
     cins: depo.al('cins', 'k'), sesAdi: depo.al('ses', ''), kaynak: depo.al('kaynak', null), bulutSes: depo.al('bulutSes', ''),
     ikili: !!depo.al('ikili', false), bulutSesK: depo.al('bulutSesK', ''), bulutSesE: depo.al('bulutSesE', ''), sesAdiK: depo.al('sesAdiK', ''), sesAdiE: depo.al('sesAdiE', ''),
-    tarz: Math.min(3, depo.al('tarz', 0)), hiz: depo.al('hiz', 1), ogretmen: depo.al('ogretmen', true)
+    tarz: Math.min(3, depo.al('tarz', 0)), hiz: depo.al('hiz', 1), ogretmen: depo.al('ogretmen', true),
+    gorunum: depo.al('gorunum', 'figur')
   };
+  if (!/^(figur|foto|video)$/.test(ayar.gorunum)) ayar.gorunum = 'figur';
   if (!TAHTALAR[ayar.tahta]) ayar.tahta = 'beyaz';
   function kalemTuru() { return KALEMLER[ayar.kalem] ? ayar.kalem : TAHTALAR[ayar.tahta].kalem; }
 
@@ -1023,19 +1026,23 @@
   /* ================= mikrofon kaydı ================= */
   var Kaydedici = {
     var: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder),
-    basla: function () {
-      return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then(function (akis) {
+    basla: function (hazirAkis) { // hazirAkis: kamera açıkken aynı akışın mikrofonu kullanılır, akış burada kapatılmaz
+      var ac = hazirAkis && hazirAkis.getAudioTracks().length ? Promise.resolve(new MediaStream(hazirAkis.getAudioTracks()))
+        : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      return ac.then(function (akis) {
         var tip = ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].filter(function (t) { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } })[0];
         var secenek = { audioBitsPerSecond: 64000 }; if (tip) secenek.mimeType = tip;
         var mr; try { mr = new MediaRecorder(akis, secenek); } catch (e) { mr = tip ? new MediaRecorder(akis, { mimeType: tip }) : new MediaRecorder(akis); }
         var parcalar = [], t0 = performance.now();
         mr.ondataavailable = function (e) { if (e.data && e.data.size) parcalar.push(e.data); };
+        mr.onstart = function () { t0 = performance.now(); };
         mr.start(250);
         return {
+          t0: function () { return t0; },
           durdur: function () {
             return new Promise(function (res) {
               mr.onstop = function () {
-                akis.getTracks().forEach(function (t) { t.stop(); });
+                if (!hazirAkis) akis.getTracks().forEach(function (t) { t.stop(); });
                 var blob = new Blob(parcalar, { type: mr.mimeType || tip || 'audio/webm' });
                 res({ blob: blob, sure: (performance.now() - t0) / 1000, mime: blob.type });
               };
@@ -1047,6 +1054,95 @@
     }
   };
   function kayitUzanti(mime) { return /mp4|m4a|aac/.test(mime) ? 'm4a' : /ogg/.test(mime) ? 'ogg' : 'webm'; }
+
+  /* ================= öğretmenin yüzü: fotoğraf ve kamera kareleri (yalnızca bu cihazda) ================= */
+  var YUZ_FPS = 12, YUZ_BOY = 192;
+  function blobTampon(b) {
+    return b.arrayBuffer ? b.arrayBuffer() : new Promise(function (res, rej) { var fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = function () { rej(fr.error); }; fr.readAsArrayBuffer(b); });
+  }
+  function resimYap(blob) {
+    return new Promise(function (res) {
+      var u = URL.createObjectURL(blob), im = new Image();
+      im.onload = function () { res(im); setTimeout(function () { URL.revokeObjectURL(u); }, 0); };
+      im.onerror = function () { URL.revokeObjectURL(u); res(null); };
+      im.src = u;
+    });
+  }
+  function bitmapYap(blob) { return window.createImageBitmap ? createImageBitmap(blob).catch(function () { return resimYap(blob); }) : resimYap(blob); }
+  var YuzKayit = { // ön kameradan saniyede 12 kare: kare biçiminde küçük JPEG'ler, sesle aynı saatte
+    var: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder && window.HTMLCanvasElement && HTMLCanvasElement.prototype.toBlob),
+    basla: function (video, t0Al) {
+      var tv = document.createElement('canvas'); tv.width = tv.height = YUZ_BOY;
+      var c = tv.getContext('2d'), kareler = [], bekleyen = [], dur = false, son = -1e9, aralik = 1000 / YUZ_FPS;
+      var al = function () {
+        if (dur) return;
+        var simdi = performance.now();
+        if (simdi - son >= aralik - 4 && video.readyState >= 2 && video.videoWidth) {
+          son = simdi;
+          var w = video.videoWidth, h = video.videoHeight, k = Math.min(w, h), sx = (w - k) / 2, sy = (h - k) * 0.3, t = (simdi - t0Al()) / 1000;
+          try {
+            c.drawImage(video, sx, sy, k, k, 0, 0, YUZ_BOY, YUZ_BOY);
+            bekleyen.push(new Promise(function (res) { tv.toBlob(function (b) { if (b) kareler.push({ t: t, b: b }); res(); }, 'image/jpeg', 0.72); }));
+          } catch (e) {}
+        }
+        if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(al); else setTimeout(al, aralik / 2);
+      };
+      al();
+      return {
+        bitir: function () {
+          dur = true;
+          return Promise.all(bekleyen).then(function () {
+            if (kareler.length < 3) return null;
+            kareler.sort(function (a, b) { return a.t - b.t; });
+            var parca = [], dizin = [], ofs = 0;
+            kareler.forEach(function (x) { dizin.push([Math.round(x.t * 1000) / 1000, ofs, x.b.size]); parca.push(x.b); ofs += x.b.size; });
+            return blobTampon(new Blob(parca, { type: 'image/jpeg' })).then(function (buf) { return { fps: YUZ_FPS, boy: YUZ_BOY, dizin: dizin, veri: buf }; });
+          });
+        }
+      };
+    }
+  };
+  function yuzCoz(y) { // kayıttaki kareleri çizilebilir resimlere çevirir
+    if (!y || !y.veri || !y.dizin || !y.dizin.length) return Promise.resolve(null);
+    var blob = new Blob([y.veri], { type: 'image/jpeg' });
+    return Promise.all(y.dizin.map(function (d) { return bitmapYap(blob.slice(d[1], d[1] + d[2], 'image/jpeg')); }))
+      .then(function (l) { return { t: y.dizin.map(function (d) { return d[0]; }), r: l }; });
+  }
+  function yuzBirak(c) { if (c && c.r) c.r.forEach(function (b) { if (b && b.close) { try { b.close(); } catch (e) {} } }); }
+  function yuzKare(c, t) { // t saniyedeki ya da hemen önceki kare
+    if (!c || !c.r || !c.r.length) return null;
+    if (t <= c.t[0]) return c.r[0];
+    var lo = 0, hi = c.t.length - 1;
+    while (lo < hi) { var m = (lo + hi + 1) >> 1; if (c.t[m] <= t) lo = m; else hi = m - 1; }
+    return c.r[lo] || null;
+  }
+  function fotoKirp(dosya) { // kare kırpılmış 360 px JPEG
+    return resimYap(dosya).then(function (im) {
+      if (!im) throw new Error('foto');
+      var w = im.naturalWidth, h = im.naturalHeight, k = Math.min(w, h), sx = (w - k) / 2, sy = (h - k) * 0.25, tv = document.createElement('canvas');
+      tv.width = tv.height = 360; tv.getContext('2d').drawImage(im, sx, sy, k, k, 0, 0, 360, 360);
+      return new Promise(function (res, rej) { tv.toBlob(function (b) { if (b) res(b); else rej(new Error('foto')); }, 'image/jpeg', 0.86); });
+    });
+  }
+  var Foto = { // öğretmenin fotoğrafı, bu cihazda
+    url: null, resim: null, soz: null,
+    yukle: function () {
+      var self = this;
+      if (this.soz) return this.soz;
+      return (this.soz = Kayitlar.al('foto:ogretmen').then(function (v) {
+        if (!v || !v.veri) { self.url = null; self.resim = null; return null; }
+        var blob = new Blob([v.veri], { type: v.mime || 'image/jpeg' });
+        if (self.url) URL.revokeObjectURL(self.url);
+        self.url = URL.createObjectURL(blob);
+        return bitmapYap(blob).then(function (im) { self.resim = im; return self; });
+      }).catch(function () { return null; }));
+    },
+    koy: function (dosya) {
+      var self = this;
+      return fotoKirp(dosya).then(blobTampon).then(function (buf) { return Kayitlar.koy('foto:ogretmen', { mime: 'image/jpeg', veri: buf, tarih: Date.now() }); })
+        .then(function () { self.soz = null; return self.yukle(); });
+    }
+  };
   function indir(blob, ad) {
     var url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = ad; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
@@ -1173,6 +1269,10 @@
     '.sd-ogretmen{position:absolute;right:1cqw;bottom:0;width:17.5cqw;z-index:6;pointer-events:none}',
     '@container (min-width:640px){.sd-ogretmen{width:13.2cqw}}',
     '.sd-ogretmen svg{display:block;width:100%;height:auto;animation:nefes 4.2s ease-in-out infinite}',
+    '.sd-yuz{position:absolute;left:0;right:0;bottom:4%;aspect-ratio:1/1;border-radius:50%;overflow:hidden;background:#E9E2DA;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.22);display:none;transition:box-shadow .25s}',
+    '.sd-ogretmen.yuzlu svg{visibility:hidden}.sd-ogretmen.yuzlu .sd-yuz{display:block}',
+    '.sd-yuz img,.sd-yuz canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
+    '.sd-ogretmen.yuzlu.konus .sd-yuz{box-shadow:0 0 0 4px rgba(248,83,0,.55),0 4px 14px rgba(0,0,0,.22)}',
     '@keyframes nefes{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.2%)}}',
     '.sd-ogretmen .agiz-acik{display:none}.sd-ogretmen.agiz .agiz-acik{display:inline}.sd-ogretmen.agiz .agiz-kapali{display:none}',
     '.sd-ogretmen .gozler{transform-box:fill-box;transform-origin:center;animation:kirp 4.6s infinite}@keyframes kirp{0%,94%,100%{transform:scaleY(1)}96.5%{transform:scaleY(.1)}}',
@@ -1244,6 +1344,12 @@
     '.teleprompter{font-size:clamp(19px,4.6vw,26px);line-height:1.6;background:var(--kart);border:1px solid var(--cizgi);border-radius:12px;padding:16px;max-height:52vh;overflow:auto}',
     '.teleprompter p{margin:0 0 .9em}',
     '.kayit-isik{display:inline-block;width:10px;height:10px;border-radius:50%;background:#D3202E;animation:yanip 1s infinite}@keyframes yanip{50%{opacity:.25}}',
+    '.studyo-kamera{display:flex;gap:12px;align-items:center;margin-bottom:10px}',
+    '.kamera-kutu{position:relative;width:min(120px,30vw);aspect-ratio:1/1;border-radius:50%;overflow:hidden;background:#1D1A18;flex:none;box-shadow:0 2px 10px rgba(0,0,0,.2)}',
+    '.kamera-kutu video,.kamera-kutu canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.kamera-kutu video{transform:scaleX(-1)}',
+    '.kamera-kutu.kayitta{box-shadow:0 0 0 4px #D3202E}',
+    '.kamera-yazi{flex:1;min-width:0}.kamera-yazi .not{margin:4px 0 0}',
+    '.studyo-kamera.acik{position:sticky;top:0;z-index:2;background:var(--kagit);padding:12px 0 8px}.studyo-kamera.acik .not{display:none}',
     '@media (prefers-reduced-motion:reduce){.w.on,.sd-tahta[data-kalem="tebesir"] .w.on{animation:none}.sd-ogretmen svg,.sd-ogretmen .gozler,.sd-ogretmen.yaziyor .kol{animation:none}.sd-silgi.calis{animation-duration:.01s}.sd-kalem{transition:none}}'
   ].join('\n');
 
@@ -1303,7 +1409,7 @@
           '<div class="sd-sahne" data-r="sahne" aria-hidden="true"></div>' +
           '<div class="sd-kalem" data-r="kalem" aria-hidden="true"></div>' +
           '<div class="sd-silgi" data-r="silgi"><div></div></div>' +
-          '<div class="sd-ogretmen kadin" data-r="ogretmen">' + OGRETMEN_SVG + '<span class="sd-ogr-ad" data-r="ogrAd" hidden></span></div>' +
+          '<div class="sd-ogretmen kadin" data-r="ogretmen">' + OGRETMEN_SVG + '<div class="sd-yuz" data-r="yuz"><img data-r="yuzFoto" alt="" hidden><canvas data-r="yuzTuval" width="384" height="384" hidden></canvas></div><span class="sd-ogr-ad" data-r="ogrAd" hidden></span></div>' +
           '<div class="sd-perde" data-r="perde"><div class="sd-perde-ic"><button type="button" data-r="perdeDugme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="rgba(255,255,255,.22)"/><path d="M9.5 7.5 L17 12 L9.5 16.5 Z" fill="#fff"/></svg><span data-r="perdeYazi">Dersi başlat</span></button><small data-r="perdeAlt">Ses açıkken başlat. Tahtaya yazılanlar sesle birlikte ilerler.</small></div></div>' +
         '</div><div class="sd-raf" data-r="raf" aria-hidden="true"></div></div>' +
         '<div class="sd-bolum" data-r="bolumKutu" hidden><label for="sd-bolum-sec">Bölüm</label><select id="sd-bolum-sec" data-r="bolumSec" aria-label="Bölüm seç"></select></div>' +
@@ -1336,6 +1442,8 @@
           '<div class="alan"><span class="etiket">Anlatım tarzı</span><div class="secim" data-r="tarzlar"></div></div>' +
           '<div class="alan"><label>Hız</label><div class="satir"><input type="range" data-r="hiz" min="0.7" max="1.4" step="0.05" aria-label="Hız"><output data-r="hizDeger">1,00×</output></div></div>' +
           '<label class="anahtar"><input type="checkbox" data-r="ogrGoster"> Öğretmen figürünü göster</label>' +
+          '<div class="alan" data-r="gorunumAlan"><span class="etiket">Köşedeki öğretmen</span><div class="secim" data-r="gorunumler"><button type="button" data-gor="figur">Çizgi figür</button><button type="button" data-gor="foto">Fotoğrafım</button><button type="button" data-gor="video">Videom</button></div>' +
+            '<p class="not" data-r="gorunumNot"></p><button type="button" class="sd-kucuk" data-r="fotoDegistir" hidden>Fotoğrafı değiştir</button><input type="file" accept="image/*" data-r="fotoSec" hidden></div>' +
           '<p class="uyari" data-r="sesNot" hidden></p>' +
           '<button type="button" class="dugme ikincil" data-r="studyoAc">🎙️ Kendi sesinle kaydet</button>' +
         '</section>' +
@@ -1363,6 +1471,8 @@
         '<div class="sd-sekmeler" role="tablist"><button role="tab" data-st="ders" aria-selected="true">Ders cümleleri</button><button role="tab" data-st="ornek" aria-selected="false">Ses kopyası için örnek</button></div>' +
         '<div data-r="stDers">' +
           '<p class="not" style="margin-bottom:8px">Her cümleyi kendi sesinle oku: <b>● Kaydet</b>’e bas, cümleyi oku, <b>■ Bitir</b>’e bas. Sessiz bir odada, telefonu ağzından bir karış uzakta tut. Kayıtlar bu cihazda saklanır; ders “Öğretmen kaydı” seçiliyken senin sesinle oynar.</p>' +
+          '<div class="studyo-kamera"><div class="kamera-kutu" data-r="kameraKutu" hidden><video data-r="kameraVideo" playsinline muted autoplay></video><canvas data-r="kameraDinle" width="384" height="384" hidden></canvas></div>' +
+            '<div class="kamera-yazi"><label class="anahtar"><input type="checkbox" data-r="kameraAc"> 📷 Kamerayı aç: yüzün de kaydedilsin</label><p class="not">Ön kamera açılır. Böyle kaydettiğin cümlelerde dersin köşesinde senin yüzün görünür (Köşedeki öğretmen: Videom).</p></div></div>' +
           '<div class="satir" style="margin-bottom:10px"><button type="button" class="dugme" data-r="siraKaydet">● Sırayla kaydet</button><button type="button" class="dugme ikincil" data-r="studyoMp3">⬇ Kendi sesimle dersi indir</button><button type="button" class="dugme ikincil" data-r="paketIndir">Site paketi (JSON)</button></div>' +
           '<p class="uyari" data-r="studyoNot" hidden></p>' +
           '<ul class="studyo-liste" data-r="studyoListe"></ul>' +
@@ -1469,7 +1579,7 @@
     r.kalemler.addEventListener('click', function (e) { var b = e.target.closest('[data-kalem]'); if (!b) return; ayar.kalem = b.getAttribute('data-kalem'); ayar.renk = 0; depo.yaz('kalem', ayar.kalem); depo.yaz('renk', 0); Oynatici.hepsi.forEach(function (o) { o.gorunumUygula(); }); });
     r.renkler.addEventListener('click', function (e) { var b = e.target.closest('[data-renk]'); if (!b) return; ayar.renk = +b.getAttribute('data-renk'); depo.yaz('renk', ayar.renk); Oynatici.hepsi.forEach(function (o) { o.gorunumUygula(); }); });
     r.yaziSec.addEventListener('change', function () { ayar.yazi = r.yaziSec.value; depo.yaz('yazi', ayar.yazi); Oynatici.hepsi.forEach(function (o) { o.gorunumUygula(); }); });
-    r.kaynaklar.addEventListener('click', function (e) { var b = e.target.closest('[data-kaynak]'); if (!b) return; ayar.kaynak = b.getAttribute('data-kaynak'); depo.yaz('kaynak', ayar.kaynak); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); o.kayitDurumu(); o.bulutHazirla(); }); });
+    r.kaynaklar.addEventListener('click', function (e) { var b = e.target.closest('[data-kaynak]'); if (!b) return; ayar.kaynak = b.getAttribute('data-kaynak'); depo.yaz('kaynak', ayar.kaynak); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); o.kayitDurumu(); o.bulutHazirla(); o.gorunumNotYaz(); }); });
     r.cinsler.addEventListener('click', function (e) { var b = e.target.closest('[data-cins]'); if (!b) return; ayar.cins = b.getAttribute('data-cins'); ayar.sesAdi = ''; ayar.bulutSes = ''; depo.yaz('cins', ayar.cins); depo.yaz('ses', ''); depo.yaz('bulutSes', ''); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); o.gorunumUygula(); }); });
     r.sesSec.addEventListener('focus', function () { if (!Ses.tr.length) self.sesListesi(); });
     r.sesSec.addEventListener('change', function () {
@@ -1488,6 +1598,10 @@
     r.tarzlar.addEventListener('click', function (e) { var b = e.target.closest('[data-tarz]'); if (!b) return; ayar.tarz = +b.getAttribute('data-tarz'); depo.yaz('tarz', ayar.tarz); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); }); });
     r.hiz.addEventListener('input', function () { ayar.hiz = +r.hiz.value; depo.yaz('hiz', ayar.hiz); Oynatici.hepsi.forEach(function (o) { o.sesListesi(); }); });
     r.ogrGoster.addEventListener('change', function () { ayar.ogretmen = r.ogrGoster.checked; depo.yaz('ogretmen', ayar.ogretmen); Oynatici.hepsi.forEach(function (o) { o.gorunumUygula(); }); });
+    r.gorunumler.addEventListener('click', function (e) { var b = e.target.closest('[data-gor]'); if (b) self.gorunumSec(b.getAttribute('data-gor')); });
+    r.fotoDegistir.addEventListener('click', function () { r.fotoSec.click(); });
+    r.fotoSec.addEventListener('change', function () { var f = r.fotoSec.files && r.fotoSec.files[0]; r.fotoSec.value = ''; if (f) self.fotoYukle(f); });
+    r.kameraAc.addEventListener('change', function () { if (r.kameraAc.checked) self.kameraBaslat(); else self.kameraKapat(); });
     var ikiliYap = function (v) { ayar.ikili = !!v; depo.yaz('ikili', ayar.ikili); Oynatici.hepsi.forEach(function (o) { o.planYap(); o.sesListesi(); o.gorunumUygula(); }); };
     r.bicimler.addEventListener('click', function (e) { var b = e.target.closest('[data-ikili]'); if (b) ikiliYap(b.getAttribute('data-ikili') === '1'); });
     r.ikiliDugme.addEventListener('click', function () { ikiliYap(!ayar.ikili); });
@@ -1566,6 +1680,7 @@
     if (!ayar.ikili) this.ogretmenCins(ayar.cins);
     r.ogretmen.hidden = !ayar.ogretmen;
     r.ogrGoster.checked = !!ayar.ogretmen;
+    this.yuzGorunum();
     // seçim düğmeleri
     r.tahtalar.innerHTML = Object.keys(TAHTALAR).map(function (id) {
       var x = TAHTALAR[id]; return '<button type="button" data-tahta="' + id + '" aria-pressed="' + (id === ayar.tahta) + '"><span class="ornek-tahta" style="background:' + (x.izgara ? 'repeating-linear-gradient(0deg,#cfdbe7 0 1px,#fff 1px 4px)' : x.zemin) + '"></span>' + x.ad + '</button>';
@@ -1651,7 +1766,7 @@
   /* ---- öğretmen ---- */
   Oynatici.prototype.ogretmenCins = function (c) { var o = this.r.ogretmen; o.classList.toggle('kadin', c === 'k'); o.classList.toggle('erkek', c !== 'k'); };
   Oynatici.prototype.konusuyor = function (v) {
-    var o = this.r.ogretmen; clearInterval(this.agizSaat); o.classList.remove('agiz');
+    var o = this.r.ogretmen; clearInterval(this.agizSaat); o.classList.remove('agiz'); o.classList.toggle('konus', !!v);
     if (v && !AZ) this.agizSaat = setInterval(function () { o.classList.toggle('agiz', Math.random() < 0.62); }, 115);
   };
   Oynatici.prototype.yaziyor = function (v) { this.r.ogretmen.classList.toggle('yaziyor', !!v); };
@@ -1958,8 +2073,9 @@
     })(this.P.adimlar[k]);
     return zincir;
   };
-  Oynatici.prototype.seslendir = function (a, els, jeton, kayit, sesi, kim) {
+  Oynatici.prototype.seslendir = function (a, els, jeton, kayit, sesi, kim, yuz) {
     var self = this, kel = [];
+    if (yuz) this.yuzOynat(yuz, jeton, kayit.url); else this.yuzBekle();
     els.forEach(function (el) { kel.push.apply(kel, el.querySelectorAll('.w')); });
     var metin = a.s, uz = Math.max(1, metin.length);
     this.altyaziYaz(metin, kim);
@@ -1978,7 +2094,7 @@
     raf = requestAnimationFrame(tik);
     return Ses.konus(metin, { basla: function (s) { t0 = performance.now(); sure = s; }, sinir: function (i, l) { sinirVar = true; ci = i; cl = l || 1; } }, kayit, sesi).then(function (neden) {
       cancelAnimationFrame(raf);
-      self.konusuyor(false); self.yaziyor(false); self.kalemGoster(false);
+      self.konusuyor(false); self.yaziyor(false); self.kalemGoster(false); self.yuzDur();
       if (kayit && kayit.yerel) setTimeout(function () { URL.revokeObjectURL(kayit.url); }, 1000);
       if (jeton !== self.P.jeton) return neden;
       self.goster(kel, kel.length, false); self.altyaziVurgula(-1);
@@ -1994,17 +2110,20 @@
     if (kaynak === 'kayit') kayitSoz = this.kayitBul(a.s).then(function (k) { return k || (Bulut.hazir() ? bulutAl(a.s).catch(function () { return null; }) : null); });
     else if (kaynak === 'bulut') kayitSoz = bulutAl(a.s).catch(function () { self.bulutUyar(); return null; });
     else kayitSoz = Promise.resolve(null);
+    var yuzSoz = kaynak === 'kayit' && this.yuzModu() === 'video' ? Kayitlar.al('y:' + ozet(a.s)).then(yuzCoz).catch(function () { return null; }) : Promise.resolve(null);
     var onSoz = pl && pl.on ? (bulutVar ? bulutAl(pl.on).catch(function () { return null; }) : Promise.resolve(null)) : null;
     if (kim) { this.ogretmenCins(sesi.cins); this.konusmaciGoster(kim); }
     var hazir = a.sil ? this.sil(false) : Promise.resolve();
     var once = onSoz ? Promise.all([hazir, onSoz]).then(function (r) { if (jeton !== self.P.jeton) return; return self.araSoz(pl.on, r[1], sesi, kim, jeton); }) : hazir;
-    return Promise.all([once, kayitSoz]).then(function (sonuc) {
-      if (jeton !== self.P.jeton) return;
+    return Promise.all([once, kayitSoz, yuzSoz]).then(function (sonuc) {
+      var yuz = sonuc[1] && sonuc[1].url && !sonuc[1].bulut ? sonuc[2] : null;
+      if (!yuz) yuzBirak(sonuc[2]);
+      if (jeton !== self.P.jeton) { yuzBirak(yuz); return; }
       if ('sahne' in a) self.sahneGoster(a.sahne);
       return self.ekle(a.w || a.h || [], a.oto, false).then(function (els) {
         if (jeton !== self.P.jeton) return;
         var eylem = a.yap ? self.sahneYap(a.yap, false) : Promise.resolve();
-        return Promise.all([self.seslendir(a, els, jeton, sonuc[1], sesi, kim), eylem]);
+        return Promise.all([self.seslendir(a, els, jeton, sonuc[1], sesi, kim, yuz), eylem]);
       });
     });
   };
@@ -2048,7 +2167,7 @@
   };
   Oynatici.prototype.durdur = function () {
     this.P.jeton++; Ses.sus(); this.P.calisiyor = false;
-    this.konusuyor(false); this.yaziyor(false); this.kalemGoster(false); this.arayuz();
+    this.konusuyor(false); this.yaziyor(false); this.kalemGoster(false); this.yuzDur(); this.arayuz();
   };
   Oynatici.prototype.oynatDuraklat = function () {
     if (this.P.calisiyor) { this.durdur(); return; }
@@ -2075,6 +2194,7 @@
     if (this.r.bolumSec.value !== String(sec)) this.r.bolumSec.value = String(sec);
   };
   Oynatici.prototype.yukle = function (id, opt) {
+    if (this.yuzSifirla) this.yuzSifirla();
     opt = opt || {};
     this.durdur();
     if (!this.indiriliyor) this.indirSifirla();
@@ -2152,27 +2272,148 @@
     this.kur(Math.max(0, this.P.i)).then(function () { self.arayuz(); });
   };
 
+  /* ---- köşedeki öğretmen: çizgi figür, fotoğraf ya da kamerayla kaydedilmiş yüz ---- */
+  Oynatici.prototype.yuzModu = function () { return !ayar.ogretmen || ayar.ikili ? 'figur' : (ayar.gorunum || 'figur'); };
+  Oynatici.prototype.yuzGorunum = function () {
+    var self = this, r = this.r;
+    if (!r.gorunumler) return;
+    Array.prototype.forEach.call(r.gorunumler.querySelectorAll('[data-gor]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-gor') === ayar.gorunum)); });
+    r.gorunumAlan.hidden = !ayar.ogretmen;
+    Foto.yukle().then(function () {
+      if (Foto.url && r.yuzFoto.getAttribute('src') !== Foto.url) r.yuzFoto.setAttribute('src', Foto.url);
+      r.fotoDegistir.hidden = !Foto.url || ayar.gorunum === 'figur';
+      self.yuzKose(self.yuzSu || (self.yuzCizildi && !Foto.url) ? 'tuval' : null);
+      self.gorunumNotYaz();
+    });
+  };
+  Oynatici.prototype.gorunumNotYaz = function () {
+    var r = this.r, A = (this.P && this.P.adimlar) || [];
+    if (ayar.gorunum === 'figur' || ayar.ikili) { r.gorunumNot.textContent = ayar.ikili && ayar.gorunum !== 'figur' ? 'Karşılıklı anlatımda çizgi figürler görünür.' : ''; return; }
+    if (ayar.gorunum === 'foto') { r.gorunumNot.textContent = Foto.url ? 'Köşede fotoğrafın görünür; konuşurken çevresi parlar.' : 'Fotoğrafını seç: kare biçiminde kırpılır, yalnızca bu cihazda saklanır.'; return; }
+    Kayitlar.anahtarlar().then(function (l) {
+      var y = {}; l.forEach(function (x) { if (/^y:/.test(x)) y[x.slice(2)] = 1; });
+      var n = A.filter(function (a) { return y[ozet(a.s)]; }).length, yedek = Foto.url ? 'fotoğrafın' : 'çizgi figür';
+      r.gorunumNot.textContent = !n ? 'Bu derste henüz yüz videon yok. “Kendi sesinle kaydet” bölümünde 📷 Kamerayı aç ve cümleleri öyle oku.'
+        : 'Bu derste ' + n + ' cümlede yüz videon var' + (n < A.length ? '; diğerlerinde ' + yedek + ' görünür.' : '.') + (kaynakNe() !== 'kayit' ? ' Görünmesi için ses kaynağını “Öğretmen kaydı” yap.' : '');
+    });
+  };
+  Oynatici.prototype.yuzKose = function (tercih) { // 'tuval': kamera karesi; yoksa fotoğraf (varsa) ya da çizgi figür
+    var r = this.r, mod = this.yuzModu();
+    if (!r.yuzTuval) return;
+    var tuval = mod === 'video' && tercih === 'tuval', foto = !tuval && mod !== 'figur' && !!Foto.url;
+    r.ogretmen.classList.toggle('yuzlu', tuval || foto);
+    r.yuzTuval.hidden = !tuval; r.yuzFoto.hidden = !foto;
+  };
+  Oynatici.prototype.gorunumSec = function (g) {
+    if (!/^(figur|foto|video)$/.test(g)) return;
+    if (g === 'foto' && !Foto.url) { this.fotoBekleyen = true; this.r.fotoSec.click(); return; }
+    ayar.gorunum = g; depo.yaz('gorunum', g);
+    Oynatici.hepsi.forEach(function (o) { o.yuzGorunum(); });
+  };
+  Oynatici.prototype.fotoYukle = function (dosya) {
+    var self = this, r = this.r;
+    r.gorunumNot.textContent = 'Fotoğraf hazırlanıyor…';
+    Foto.koy(dosya).then(function () {
+      if (self.fotoBekleyen || ayar.gorunum === 'figur') { ayar.gorunum = 'foto'; depo.yaz('gorunum', 'foto'); }
+      self.fotoBekleyen = false;
+      Oynatici.hepsi.forEach(function (o) { o.yuzGorunum(); });
+    }).catch(function () { r.gorunumNot.textContent = 'Fotoğraf açılamadı. Başka bir fotoğraf dene.'; });
+  };
+  Oynatici.prototype.yuzOynat = function (yuz, jeton, url) { // cümlenin yüz kareleri, sesin kendi saatine göre
+    var self = this, r = this.r, c = r.yuzTuval.getContext('2d'), W = r.yuzTuval.width;
+    this.yuzDur();
+    if (this.yuzOnceki) { yuzBirak(this.yuzOnceki); this.yuzOnceki = null; }
+    this.yuzSu = yuz;
+    var ciz = function () {
+      if (self.yuzSu !== yuz || jeton !== self.P.jeton) return;
+      var el = Ses.ses, t = el && el.src === url ? el.currentTime : 0, k = yuzKare(yuz, t);
+      if (k) { try { c.drawImage(k, 0, 0, W, W); } catch (e) {} if (!self.yuzCizildi || r.yuzTuval.hidden) { self.yuzCizildi = true; self.yuzKose('tuval'); } }
+      self.yuzRaf = requestAnimationFrame(ciz);
+    };
+    ciz();
+  };
+  Oynatici.prototype.yuzDur = function () { // son kare tuvalde kalır; kareler bir sonraki cümlede bırakılır
+    if (this.yuzRaf) { cancelAnimationFrame(this.yuzRaf); this.yuzRaf = null; }
+    if (this.yuzSu) { if (this.yuzOnceki && this.yuzOnceki !== this.yuzSu) yuzBirak(this.yuzOnceki); this.yuzOnceki = this.yuzSu; this.yuzSu = null; }
+  };
+  Oynatici.prototype.yuzBekle = function () { // bu cümlenin yüz videosu yok
+    this.yuzDur();
+    if (this.yuzModu() === 'video') this.yuzKose(!Foto.url && this.yuzCizildi ? 'tuval' : null);
+  };
+  Oynatici.prototype.yuzSifirla = function () {
+    this.yuzDur();
+    if (this.yuzOnceki) { yuzBirak(this.yuzOnceki); this.yuzOnceki = null; }
+    this.yuzCizildi = false; this.yuzKose(null);
+  };
+  Oynatici.prototype.kameraBaslat = function () {
+    var self = this, r = this.r;
+    if (this.kameraAkis) return;
+    if (!YuzKayit.var) { r.kameraAc.checked = false; return; }
+    r.studyoNot.hidden = true;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } }, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then(function (akis) {
+      if (!r.kameraAc.checked || r.studyo.hidden) { akis.getTracks().forEach(function (t) { t.stop(); }); return; }
+      self.kameraAkis = akis;
+      r.kameraVideo.srcObject = akis; r.kameraKutu.hidden = false; r.kameraKutu.parentNode.classList.add('acik');
+      var p = r.kameraVideo.play(); if (p && p.catch) p.catch(function () {});
+      if (ayar.gorunum !== 'video') { ayar.gorunum = 'video'; depo.yaz('gorunum', 'video'); Oynatici.hepsi.forEach(function (o) { o.yuzGorunum(); }); }
+    }).catch(function () {
+      r.kameraAc.checked = false;
+      r.studyoNot.textContent = 'Kamera açılamadı. Tarayıcının bu site için kamera ve mikrofon iznini ver ve yeniden dene.'; r.studyoNot.hidden = false;
+    });
+  };
+  Oynatici.prototype.kameraKapat = function () {
+    var r = this.r;
+    if (this.kayitAktif && this.yuzAktif) this.kayitBitir();
+    if (this.kameraAkis) { this.kameraAkis.getTracks().forEach(function (t) { t.stop(); }); this.kameraAkis = null; }
+    try { r.kameraVideo.srcObject = null; } catch (e) {}
+    r.kameraAc.checked = false; r.kameraKutu.parentNode.classList.remove('acik');
+    if (!this.studyoYuz) r.kameraKutu.hidden = true;
+  };
+  Oynatici.prototype.studyoYuzOynat = function (yuz, au, url) { // "Dinle": kaydın yüz kareleri stüdyonun yuvarlağında
+    var self = this, r = this.r, tv = r.kameraDinle, c = tv.getContext('2d'), W = tv.width;
+    if (this.studyoYuz) { cancelAnimationFrame(this.studyoYuz.raf); yuzBirak(this.studyoYuz.yuz); }
+    var d = { yuz: yuz, raf: 0 }; this.studyoYuz = d;
+    r.kameraKutu.hidden = false; tv.hidden = false;
+    var bitir = function () {
+      cancelAnimationFrame(d.raf);
+      if (self.studyoYuz === d) { self.studyoYuz = null; tv.hidden = true; if (!self.kameraAkis) r.kameraKutu.hidden = true; }
+      yuzBirak(yuz);
+    };
+    var ciz = function () {
+      if (self.studyoYuz !== d) return;
+      if (au.src !== url) { bitir(); return; }
+      var k = yuzKare(yuz, au.currentTime); if (k) { try { c.drawImage(k, 0, 0, W, W); } catch (e) {} }
+      if (au.ended || (au.paused && au.currentTime > 0.05)) { bitir(); return; }
+      d.raf = requestAnimationFrame(ciz);
+    };
+    d.raf = requestAnimationFrame(ciz);
+  };
+
   /* ---- kayıt stüdyosu ---- */
   Oynatici.prototype.studyoAc = function () {
     this.durdur();
     this.r.studyo.hidden = false;
     this.r.studyoNot.hidden = true;
     if (!Kaydedici.var) { this.r.studyoNot.textContent = 'Bu tarayıcı ses kaydını desteklemiyor. Telefonda Safari ya da Chrome ile dene.'; this.r.studyoNot.hidden = false; }
+    this.r.kameraAc.checked = !!this.kameraAkis; this.r.kameraKutu.hidden = !this.kameraAkis; this.r.kameraAc.disabled = !YuzKayit.var;
     this.studyoCiz();
   };
   Oynatici.prototype.studyoKapat = function () {
     if (this.kayitAktif) { this.kayitAktif.durdur(); this.kayitAktif = null; }
     this.siraliDur = true;
-    this.r.studyo.hidden = true; this.kayitDurumu();
+    if (this.yuzAktif) { this.yuzAktif.bitir(); this.yuzAktif = null; }
+    this.kameraKapat();
+    this.r.studyo.hidden = true; this.kayitDurumu(); this.yuzGorunum();
   };
   Oynatici.prototype.studyoCiz = function () {
     var self = this, adimlar = this.P.adimlar;
-    Promise.all(adimlar.map(function (a) { return Kayitlar.al('k:' + ozet(a.s)); })).then(function (kayitlar) {
+    Promise.all([Promise.all(adimlar.map(function (a) { return Kayitlar.al('k:' + ozet(a.s)); })), Kayitlar.anahtarlar()]).then(function (s2) {
+      var kayitlar = s2[0], yuzlu = {}; s2[1].forEach(function (x) { if (/^y:/.test(x)) yuzlu[x.slice(2)] = 1; });
       self.r.studyoListe.innerHTML = adimlar.map(function (a, i) {
         var k = kayitlar[i], var_ = k && k.veri, yay = !var_ && Yayin.al(ozet(a.s));
         var kaydediyor = self.kayitIndex === i;
         return '<li data-i="' + i + '"' + (kaydediyor ? ' class="su"' : '') + '><span class="no">' + (i + 1) + '</span><div><div class="ct">' + esc(a.s) + '</div>' +
-          '<div class="durum">' + (kaydediyor ? '<span class="kayit-isik"></span> Kaydediliyor… okuyunca ■ Bitir’e bas' : var_ ? '<b>✓ Kaydın var</b> · ' + (k.sure || 0).toFixed(1) + ' sn' : yay ? 'Sitede yayımlanmış kayıt var' : 'Kayıt yok') + '</div></div>' +
+          '<div class="durum">' + (kaydediyor ? '<span class="kayit-isik"></span> Kaydediliyor… okuyunca ■ Bitir’e bas' : var_ ? '<b>✓ Kaydın var</b> · ' + (k.sure || 0).toFixed(1) + ' sn' + (yuzlu[ozet(a.s)] ? ' · 📷 yüzün de var' : '') : yay ? 'Sitede yayımlanmış kayıt var' : 'Kayıt yok') + '</div></div>' +
           '<div class="islem">' +
             '<button type="button" class="dugme' + (kaydediyor ? '' : ' ikincil') + '" data-is="kaydet" data-i="' + i + '">' + (kaydediyor ? '■ Bitir' : '● Kaydet') + '</button>' +
             '<button type="button" class="dugme ikincil" data-is="dinle" data-i="' + i + '"' + (var_ || yay ? '' : ' disabled') + '>▶ Dinle</button>' +
@@ -2185,20 +2426,27 @@
   Oynatici.prototype.kayitBaslat = function (i) {
     var self = this;
     if (!Kaydedici.var) return Promise.reject(new Error('destek yok'));
-    return Kaydedici.basla().then(function (k) { self.kayitAktif = k; self.kayitIndex = i; self.studyoCiz(); return k; })
+    var akis = this.kameraAkis;
+    return Kaydedici.basla(akis).then(function (k) {
+      self.kayitAktif = k; self.kayitIndex = i;
+      if (akis && YuzKayit.var) { self.yuzAktif = YuzKayit.basla(self.r.kameraVideo, k.t0); self.r.kameraKutu.classList.add('kayitta'); }
+      self.studyoCiz(); return k;
+    })
       .catch(function (e) {
         self.r.studyoNot.textContent = SesliDers.mikrofonNotu || 'Mikrofon açılamadı. Tarayıcının bu site için mikrofon iznini ver ve yeniden dene.';
         self.r.studyoNot.hidden = false; self.kayitIndex = null; self.studyoCiz(); throw e;
       });
   };
   Oynatici.prototype.kayitBitir = function () {
-    var self = this, k = this.kayitAktif, i = this.kayitIndex, a = this.P.adimlar[i];
-    this.kayitAktif = null; this.kayitIndex = null;
-    if (!k || !a) return Promise.resolve();
-    return k.durdur().then(function (s) {
+    var self = this, k = this.kayitAktif, i = this.kayitIndex, a = this.P.adimlar[i], yz = this.yuzAktif;
+    this.kayitAktif = null; this.kayitIndex = null; this.yuzAktif = null; this.r.kameraKutu.classList.remove('kayitta');
+    if (!k || !a) { if (yz) yz.bitir(); return Promise.resolve(); }
+    var h = ozet(a.s);
+    return Promise.all([k.durdur(), yz ? yz.bitir().catch(function () { return null; }) : null]).then(function (s2) {
+      var s = s2[0], yuz = s2[1];
       if (!s || !s.blob || s.blob.size < 800) { self.studyoCiz(); return; }
-      var oku = s.blob.arrayBuffer ? s.blob.arrayBuffer() : new Promise(function (res) { var fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.readAsArrayBuffer(s.blob); });
-      return oku.then(function (buf) { return Kayitlar.koy('k:' + ozet(a.s), { mime: s.mime, veri: buf, sure: s.sure, metin: a.s, tarih: Date.now() }); })
+      return blobTampon(s.blob).then(function (buf) { return Kayitlar.koy('k:' + h, { mime: s.mime, veri: buf, sure: s.sure, metin: a.s, tarih: Date.now() }); })
+        .then(function () { return yuz ? Kayitlar.koy('y:' + h, { fps: yuz.fps, boy: yuz.boy, dizin: yuz.dizin, veri: yuz.veri, metin: a.s, tarih: Date.now() }) : Kayitlar.sil('y:' + h); })
         .then(function () { self.studyoCiz(); self.kayitDurumu(); });
     });
   };
@@ -2211,9 +2459,14 @@
       this.kayitBaslat(i).catch(function () {});
     } else if (is === 'dinle') {
       Ses.kilidiAc();
-      this.kayitBul(a.s).then(function (k) { if (k) { var au = Ses.ortak(); au.onended = au.onerror = au.onloadedmetadata = null; au.src = k.url; var p = au.play(); if (p && p.catch) p.catch(function () {}); } });
+      Promise.all([this.kayitBul(a.s), Kayitlar.al('y:' + ozet(a.s)).then(yuzCoz).catch(function () { return null; })]).then(function (s2) {
+        var k = s2[0], yuz = s2[1];
+        if (!k) { yuzBirak(yuz); return; }
+        var au = Ses.ortak(); au.onended = au.onerror = au.onloadedmetadata = null; au.src = k.url; var p = au.play(); if (p && p.catch) p.catch(function () {});
+        if (yuz) self.studyoYuzOynat(yuz, au, k.url);
+      });
     } else if (is === 'sil') {
-      Kayitlar.sil('k:' + ozet(a.s)).then(function () { self.studyoCiz(); self.kayitDurumu(); });
+      Promise.all([Kayitlar.sil('k:' + ozet(a.s)), Kayitlar.sil('y:' + ozet(a.s))]).then(function () { self.studyoCiz(); self.kayitDurumu(); });
     }
   };
   Oynatici.prototype.siraliKayit = function () {
@@ -2296,6 +2549,7 @@
     for (i = 0; i < v.length; i++) { var x = v[i]; if (x > esik || x < -esik) { top += x * x; say++; } }
     var rms = say ? Math.sqrt(top / say) : 0, kazanc = rms ? Math.max(0.5, Math.min(kayitMi ? 4 : 2, 0.1 / rms)) : 1;
     if (Math.abs(kazanc - 1) > 0.02) { var w = new Float32Array(v.length); for (i = 0; i < v.length; i++) w[i] = v[i] * kazanc; v = w; }
+    v.kirpBas = Math.max(0, bas - pay) / ab.sampleRate; v.kendi = !!kayitMi; // yüz kareleri bu kaymayla eşlenir
     return v;
   }
   function int16Yap(f) { // yumuşak sınırlayıcıyla 16 bit tam sayıya
@@ -2729,6 +2983,7 @@
   function vKaynaklar(O) {
     var K = { ogretmen: {}, sahne: [] }, is = [], gor = O.gor, og = O.ogretmen, gw = Math.max(2, Math.round(og.g * 2)), gh = Math.max(2, Math.round(og.h * 2));
     is.push(vResim(TEBESIR_TOZ).then(function (im) { K.toz = im; }), vResim(TEBESIR_MASKE).then(function (im) { K.maske = im; }));
+    if (ayar.ogretmen && !ayar.ikili && ayar.gorunum !== 'figur') is.push(Foto.yukle().then(function () { K.foto = Foto.resim || null; }));
     if (ayar.ogretmen) ['k', 'e'].forEach(function (cins) {
       var p = vOgretmenSvg(cins, gor.anaRenk, gw, gh);
       is.push(Promise.all(p.govde.map(vSvgResim)).then(function (l) { if (l.every(Boolean)) K.ogretmen[cins] = l; }));
@@ -3043,7 +3298,9 @@
       if (ayar.ogretmen) {
         var kj = -1; for (i = 0; i < Z.length; i++) { if (Z[i].bas0 <= t) kj = i; else break; }
         var kim = kj >= 0 ? O.adimlar[kj].kim : null, cins = kim ? KONUSMACI[kim].cins : ayar.cins, set = K.ogretmen[cins === 'e' ? 'e' : 'k'];
-        if (set) {
+        var yz = K.yuzSec ? K.yuzSec(t, k) : null;
+        if (yz) vYuzDaire(c, O.ogretmen, yz.im, yz.konus, t);
+        else if (set) {
           var og = O.ogretmen, konus = (z && t >= z.bas && t < z.bas + z.sure) || (sn && sn.onBas != null && t >= sn.onBas && t < sn.onBas + sn.onSure);
           var agiz = konus && vRastgele(Math.floor(t / 0.115) + 11) < 0.62 ? 1 : 0, faz = (t % 4.6) / 4.6, kirp = faz > 0.95 && faz < 0.985 ? 2 : 0;
           var gy = og.y - 0.012 * og.h * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / 4.2));
@@ -3097,7 +3354,64 @@
     };
     return Promise.resolve().then(dene);
   }
-  function vVideoKodla(kod, kareSay, ciz, tuval, ilerle) {
+  // Videoda köşedeki öğretmen: yuvarlak çerçevede fotoğraf ya da kamerayla kaydedilmiş yüz
+  function vYuzDaire(c, og, im, konus, t) {
+    var d = og.g, cx = og.x + og.g / 2, cy = og.y + og.h - d / 2 - og.h * 0.04;
+    c.save();
+    if (konus) { c.beginPath(); c.arc(cx, cy, d / 2 + 5 + 1.5 * Math.sin(t * 9), 0, Math.PI * 2); c.fillStyle = 'rgba(248,83,0,.5)'; c.fill(); }
+    c.shadowColor = 'rgba(0,0,0,.25)'; c.shadowBlur = 10; c.shadowOffsetY = 3;
+    c.beginPath(); c.arc(cx, cy, d / 2 + 3, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill();
+    c.shadowColor = 'transparent'; c.shadowBlur = 0; c.shadowOffsetY = 0;
+    c.beginPath(); c.arc(cx, cy, d / 2, 0, Math.PI * 2); c.clip();
+    try { c.drawImage(im, cx - d / 2, cy - d / 2, d, d); } catch (e) {}
+    c.restore();
+  }
+  function vYuzOnbellek(A, sonuc, anahtar) { // adımların yüz kareleri sırası gelince çözülür, geride kalanlar bırakılır
+    var var_ = A.map(function (a, i) { var x = sonuc[i]; return !!(x && x.ana && x.ana.kendi && anahtar['y:' + ozet(a.s)]); });
+    var hazir = {}, soz = {};
+    return {
+      var: var_.some(Boolean),
+      vardir: function (k) { return !!var_[k]; },
+      hazirMi: function (k) { return !var_[k] || !!hazir[k]; },
+      kare: function (k, t) { return yuzKare(hazir[k], t); },
+      yukle: function (k) {
+        if (!var_[k] || hazir[k]) return Promise.resolve();
+        if (!soz[k]) soz[k] = Kayitlar.al('y:' + ozet(A[k].s)).then(yuzCoz).then(function (c) { hazir[k] = c || { t: [], r: [] }; delete soz[k]; }, function () { hazir[k] = { t: [], r: [] }; delete soz[k]; });
+        return soz[k];
+      },
+      birak: function (sinir) { Object.keys(hazir).forEach(function (k) { if (+k < sinir) { yuzBirak(hazir[k]); delete hazir[k]; } }); }
+    };
+  }
+  function vYuzSecici(Z, sonuc, yb, foto) { // o andaki köşe resmi: yüz karesi, fotoğraf ya da null (çizgi figür)
+    var tut = null, tutC = null;
+    var sakla = function (im) { // son kare ayrı tuvalde tutulur; aralarda o görünür
+      if (!tut) { tut = document.createElement('canvas'); tut.width = tut.height = YUZ_BOY; tutC = tut.getContext('2d'); }
+      try { tutC.drawImage(im, 0, 0, YUZ_BOY, YUZ_BOY); tut.dolu = true; } catch (e) {}
+    };
+    return function (t, k) {
+      var z = k >= 0 ? Z[k] : null, konus = !!(z && t >= z.bas && t < z.bas + z.sure);
+      if (yb && yb.var) {
+        var kk = Math.max(0, k), zk = Z[kk];
+        yb.birak(kk - 1);
+        if (kk + 1 < Z.length && yb.vardir(kk + 1) && t >= Z[kk + 1].bas0 - 1.5) yb.yukle(kk + 1);
+        if (yb.vardir(kk)) {
+          var x = sonuc[kk] && sonuc[kk].ana, ft = Math.max(0, Math.min(t, zk.bas + zk.sure) - zk.bas) + (x && x.kirpBas || 0);
+          var im = yb.hazirMi(kk) ? yb.kare(kk, ft) : (yb.yukle(kk), null);
+          if (im) { sakla(im); return { im: tut, konus: konus }; }
+        }
+        if (!foto && tut && tut.dolu) return { im: tut, konus: konus };
+      }
+      return foto ? { im: foto, konus: konus } : null;
+    };
+  }
+  function vYuzHazirla(Z, yb) { // kodlarken: o adımın yüz kareleri çözülmeden kare çizilmez
+    return function (t) {
+      var k = -1; for (var i = 0; i < Z.length; i++) { if (Z[i].bas <= t) k = i; else break; }
+      var kk = Math.max(0, k);
+      return yb.vardir(kk) && !yb.hazirMi(kk) ? yb.yukle(kk) : null;
+    };
+  }
+  function vVideoKodla(kod, kareSay, ciz, tuval, ilerle, hazirla) { // hazirla(t): o kare için beklenecek iş varsa söz döner
     return new Promise(function (ok, red) {
       var ornekler = [], tanim = null, hata = null, ANAHTAR = VID_FPS * 3, i = 0;
       var enc = new VideoEncoder({
@@ -3110,6 +3424,8 @@
         try {
           var bitis = performance.now() + 28;
           while (i < kareSay && performance.now() < bitis && enc.encodeQueueSize < 6) {
+            var bek = hazirla ? hazirla(i / VID_FPS) : null;
+            if (bek) { bek.then(adim, red); return; }
             ciz(i / VID_FPS);
             var kare = new VideoFrame(tuval, { timestamp: Math.round(i * 1e6 / VID_FPS), duration: Math.round(1e6 / VID_FPS) });
             enc.encode(kare, { keyFrame: i % ANAHTAR === 0 }); kare.close(); i++;
@@ -3330,9 +3646,13 @@
     });
   };
   Oynatici.prototype.videoUret = function (A, plan, sonuc, oran, ad, durum, canli, altyazi, baslik) {
-    var self = this, O, Z;
+    var self = this, O, Z, yb = null, mod = ayar.ogretmen && !ayar.ikili ? (ayar.gorunum || 'figur') : 'figur';
     durum('Tahta hazırlanıyor…', 0.31);
-    return this.videoOlc(A, plan, altyazi).then(function (o) { O = o; Z = vZaman(O, sonuc, oran); return vKaynaklar(O); }).then(function (K) {
+    return this.videoOlc(A, plan, altyazi).then(function (o) { O = o; Z = vZaman(O, sonuc, oran); return Promise.all([vKaynaklar(O), mod === 'video' ? Kayitlar.anahtarlar() : []]); }).then(function (kk) {
+      var K = kk[0], anah = {};
+      kk[1].forEach(function (x) { anah[x] = 1; });
+      if (mod === 'video') yb = vYuzOnbellek(A, sonuc, anah);
+      K.yuzSec = mod === 'figur' ? null : vYuzSecici(Z.adimlar, sonuc, yb, K.foto || null);
       var n = Math.ceil(Z.toplam * oran), ses = new Float32Array(n);
       var koy = function (p, t) { if (!p || t == null) return; var bas = Math.round(t * oran), m = Math.min(p.length, n - bas); if (m > 0) ses.set(m < p.length ? p.subarray(0, m) : p, bas); };
       Z.adimlar.forEach(function (z, i) { var x = sonuc[i]; if (!x) return; koy(x.on, z.onBas); koy(x.ana, z.bas); });
@@ -3341,7 +3661,8 @@
       ciz.kare(0); self.indirOnizle(tuval);
       return Promise.all([videoKodlayiciSec(), sesKodlayiciSec(oran)]).then(function (kd) {
         if (kd[0] && kd[1]) {
-          return vVideoKodla(kd[0], kareSay, ciz.kare, tuval, function (o) { durum('Video çiziliyor… %' + Math.round(o * 100), 0.32 + o * 0.6); }).then(function (v) {
+          return vVideoKodla(kd[0], kareSay, ciz.kare, tuval, function (o) { durum('Video çiziliyor… %' + Math.round(o * 100), 0.32 + o * 0.6); }, yb && yb.var ? vYuzHazirla(Z.adimlar, yb) : null).then(function (v) {
+            if (yb) yb.birak(Infinity);
             durum('Ses ekleniyor…', 0.93);
             return vSesKodla(ses, oran, kd[1], function (o) { durum('Ses ekleniyor… %' + Math.round(o * 100), 0.93 + o * 0.05); }).then(function (s) {
               durum('Dosya birleştiriliyor…', 0.99);

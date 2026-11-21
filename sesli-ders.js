@@ -1503,7 +1503,9 @@
         '<section class="kart" data-r="indirKart"><h3>Dersi indir</h3>' +
           '<p class="not">Dersin anlatımı ses ya da video dosyası olarak iner. Telefonda açabilir, öğrencilerinle paylaşabilirsin.</p>' +
           '<div class="alan"><span class="etiket">Biçim</span><div class="secim" data-r="indirBicimler"><button type="button" data-ibic="mp3">MP3 ses</button><button type="button" data-ibic="m4a">MP4 ses</button><button type="button" data-ibic="mp4">MP4 video</button></div><p class="not" data-r="indirBicimNot"></p>' +
-            '<div class="alan" data-r="indirPlatAlan" hidden><span class="etiket">Nerede paylaşacaksın?</span><div class="secim" data-r="indirPlatlar"></div><span class="etiket" style="margin-top:10px">Yerleşim</span><div class="secim" data-r="indirYerler"></div><p class="not" data-r="indirPlatNot"></p></div>' +
+            '<div class="alan" data-r="indirPlatAlan" hidden><span class="etiket">Nerede paylaşacaksın?</span><div class="secim" data-r="indirPlatlar"></div><span class="etiket" style="margin-top:10px">Yerleşim</span><div class="secim" data-r="indirYerler"></div>' +
+              '<span class="etiket" style="margin-top:10px" data-r="indirGorEtiket">Görünüm</span><div class="secim" data-r="indirArkalar"><button type="button" data-arka="yok">Olduğu gibi</button><button type="button" data-arka="bulanik">Arka plan bulanık</button><button type="button" data-arka="studyo">Stüdyo fonu</button></div>' +
+              '<label class="anahtar" data-r="indirIsikSatir" style="margin-top:4px"><input type="checkbox" data-r="indirIsik"> Stüdyo ışığı ve renk</label><p class="not" data-r="indirPlatNot"></p></div>' +
             '<label class="anahtar" data-r="indirAltyaziSatir" hidden><input type="checkbox" data-r="indirAltyazi" checked> Videoda altyazı olsun</label><div class="secim" data-r="indirAltStiller" hidden><button type="button" data-astil="buyuk">Büyük altyazı</button><button type="button" data-astil="klasik">Klasik şerit</button></div></div>' +
           '<div class="alan"><span class="etiket">Hangi sesle?</span><div class="secim" data-r="indirSesler"><button type="button" data-isec="bulut">Doğal ses</button><button type="button" data-isec="kayit">Kendi sesim</button></div><p class="not" data-r="indirSesNot"></p></div>' +
           '<button type="button" class="dugme" data-r="indirHazirla">Ses dosyasını hazırla</button>' +
@@ -1584,6 +1586,8 @@
     this.kayitVar = {};
     this.indirBicim = depo.al('indirBicim', 'mp3'); if (!/^(mp3|m4a|mp4)$/.test(this.indirBicim)) this.indirBicim = 'mp3';
     this.indirPlat = depo.al('indirPlat', 'reels'); this.indirYer = depo.al('indirYer', 'bolunmus'); this.indirAltStil = depo.al('indirAltStil', 'buyuk');
+    this.indirArka = depo.al('indirArka', 'bulanik'); if (!/^(yok|bulanik|studyo)$/.test(this.indirArka)) this.indirArka = 'bulanik';
+    this.r.indirIsik.checked = depo.al('indirIsik', true) !== false;
     if (window.SesliStudyo) { var BC = window.SesliStudyo.BICIMLER; if (!BC[this.indirPlat]) this.indirPlat = 'reels'; if (BC[this.indirPlat].yer.indexOf(this.indirYer) < 0) this.indirYer = BC[this.indirPlat].yer[0]; }
     this.r.indirAltyazi.checked = depo.al('videoAltyazi', true) !== false;
     Oynatici.hepsi.push(this);
@@ -1631,6 +1635,8 @@
       self.indirSifirla(); self.indirCiz();
     });
     r.indirYerler.addEventListener('click', function (e) { var b = e.target.closest('[data-yer]'); if (!b || self.indiriliyor) return; self.indirYer = b.getAttribute('data-yer'); depo.yaz('indirYer', self.indirYer); self.indirSifirla(); self.indirCiz(); });
+    r.indirArkalar.addEventListener('click', function (e) { var b = e.target.closest('[data-arka]'); if (!b || self.indiriliyor) return; self.indirArka = b.getAttribute('data-arka'); depo.yaz('indirArka', self.indirArka); self.indirSifirla(); self.indirCiz(); });
+    r.indirIsik.addEventListener('change', function () { depo.yaz('indirIsik', !!r.indirIsik.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
     r.indirAltStiller.addEventListener('click', function (e) { var b = e.target.closest('[data-astil]'); if (!b || self.indiriliyor) return; self.indirAltStil = b.getAttribute('data-astil'); depo.yaz('indirAltStil', self.indirAltStil); self.indirSifirla(); self.indirCiz(); });
     r.indirAltyazi.addEventListener('change', function () { depo.yaz('videoAltyazi', !!r.indirAltyazi.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
     r.indirHazirla.addEventListener('click', function () { self.sesDosyasi(); });
@@ -3200,8 +3206,11 @@
     r.indirYerler.innerHTML = P.yer.map(function (y) { return '<button type="button" data-yer="' + y + '" aria-pressed="' + (y === self.indirYer) + '">' + ST.YERLESIM_ADI[y] + '</button>'; }).join('');
     Array.prototype.forEach.call(r.indirAltStiller.querySelectorAll('[data-astil]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-astil') === self.indirAltStil)); });
     var yuzlu = ayar.ogretmen && !ayar.ikili && ayar.gorunum !== 'figur';
+    r.indirGorEtiket.hidden = r.indirArkalar.hidden = r.indirIsikSatir.hidden = !yuzlu || !ST.gorunum;
+    Array.prototype.forEach.call(r.indirArkalar.querySelectorAll('[data-arka]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-arka') === self.indirArka)); });
     r.indirPlatNot.textContent = P.G + '×' + P.Y + ', saniyede ' + P.fps + ' kare. ' +
-      (this.indirYer === 'kose' ? 'Yüzün tahtanın köşesinde yuvarlak çerçevede görünür.' : yuzlu ? 'Tahta yazılan yeri izleyerek yakınlaşır; yüzün ayrı bir alanda büyük görünür.' : 'Yüz videon ya da fotoğrafın yoksa tahta tek başına, yakın çekimle gösterilir.');
+      (this.indirYer === 'kose' ? 'Yüzün tahtanın köşesinde yuvarlak çerçevede görünür.' : yuzlu ? 'Tahta yazılan yeri izleyerek yakınlaşır; yüzün ayrı bir alanda büyük görünür.' : 'Yüz videon ya da fotoğrafın yoksa tahta tek başına, yakın çekimle gösterilir.') +
+      (yuzlu && this.indirArka !== 'yok' ? ' Arka planı ayırmak için ilk seferde birkaç MB’lık bir model indirilir (internet gerekir).' : '');
   };
   Oynatici.prototype.indirAc = function (secim, basla) {
     var r = this.r;
@@ -4300,6 +4309,21 @@
         if (mod === 'video') yb = vYuzOnbellek(A, sonuc, anah);
         K.yuzSec = mod === 'figur' || !kose ? null : vYuzSecici(Z.adimlar, sonuc, yb, K.foto || null);
       }
+      // stüdyo görünümü: yüzün ışığı, rengi ve arka planı (arka plan için kişi maskesi gerekir)
+      var yuzVarMi = !!(sb && sb.var) || (mod !== 'figur' && !!K.foto), gorA = { isik: !!(self.r.indirIsik && self.r.indirIsik.checked), arka: self.indirArka || 'bulanik' }, gorNot = '';
+      var ayiriciSoz = ST && ST.gorunum && yuzVarMi && gorA.arka !== 'yok' ? (durum('Arka plan ayırıcı hazırlanıyor…', 0.315), Promise.race([ST.ayiriciYukle(), sleep(30000).then(function () { throw new Error('zaman aşımı'); })]).catch(function (e) {
+        gorNot = 'Arka plan ayrılamadı (ilk seferde internet gerekir); yüzün arka planıyla birlikte kullanıldı.'; if (window.console) console.warn('Arka plan ayırıcı:', e); return null;
+      })) : Promise.resolve(null);
+      return ayiriciSoz.then(function (ayirici) {
+      var GR = ST && ST.gorunum && yuzVarMi && (gorA.isik || ayirici) ? ST.gorunum({ isik: gorA.isik, arka: ayirici ? gorA.arka : 'yok', ayirici: ayirici }) : null;
+      if (GR && K.yuzSec) { // köşedeki yuvarlak için kare biçiminde işlenir
+        var yuzSec0 = K.yuzSec;
+        K.yuzSec = function (t, k) {
+          var s0 = yuzSec0(t, k); if (!s0 || !s0.im) return s0;
+          var im0 = s0.im, w0 = s0.g || im0.displayWidth || im0.videoWidth || im0.naturalWidth || im0.width, h0 = s0.y || im0.displayHeight || im0.videoHeight || im0.naturalHeight || im0.height;
+          return w0 && h0 ? { im: GR.isle(im0, w0, h0, 400, 400, 0.5, 0.36, t), g: 400, y: 400, konus: s0.konus } : s0;
+        };
+      }
       var n = Math.ceil(Z.toplam * oran), ses = new Float32Array(n);
       var koy = function (p, t) { if (!p || t == null) return; var bas = Math.round(t * oran), m = Math.min(p.length, n - bas); if (m > 0) ses.set(m < p.length ? p.subarray(0, m) : p, bas); };
       Z.adimlar.forEach(function (z, i) { var x = sonuc[i]; if (!x) return; koy(x.on, z.onBas); koy(x.ana, z.bas); });
@@ -4312,7 +4336,7 @@
       if (!hizli && ST) {
         var foto = K.foto || null;
         ciz = ST.kompozitor({
-          bicim: P, yer: yer, fps: P.fps, tahta: cizT, stil: stil, klasikTahtada: klasikTahtada,
+          bicim: P, yer: yer, fps: P.fps, tahta: cizT, stil: stil, klasikTahtada: klasikTahtada, gorunum: GR,
           yuzVar: !!(sb && sb.var) || (mod !== 'figur' && !!foto),
           yuz: function (t) { if (sb) return sb.kaynak(t, adimNo(t)); if (mod !== 'figur' && foto) return { im: foto, g: foto.width || foto.naturalWidth, y: foto.height || foto.naturalHeight, foto: true }; return null; },
           altyazi: function (t) { var k = adimNo(t), z = Z.adimlar[k]; if (k < 0 || !z.sure || t > z.bas + z.sure + 0.15 || O.adimlar[k].gorsel) return null; return { metin: O.adimlar[k].s, p: Math.max(0, Math.min(1, (t - z.bas) / z.sure)) }; }
@@ -4327,7 +4351,7 @@
           durum('Ses ekleniyor…', 0.93);
           return vSesKodla(ses, oran, kd[1], function (o) { durum('Ses ekleniyor… %' + Math.round(o * 100), 0.93 + o * 0.05); }).then(function (s) {
             durum('Dosya birleştiriliyor…', 0.99);
-            return { blob: mp4Yap([videoIzi(v, P.G, P.Y), sesIzi(s, 2)], 'isom', 'video/mp4'), ad: ad + '.mp4', tur: 'MP4 video', sure: sure };
+            return { blob: mp4Yap([videoIzi(v, P.G, P.Y), sesIzi(s, 2)], 'isom', 'video/mp4'), ad: ad + '.mp4', tur: 'MP4 video', sure: sure, not: gorNot };
           });
         }, function (e) { bitir(); throw e; });
       }
@@ -4335,7 +4359,8 @@
       if (!mime || !canli || !tuval.captureStream) { bitir(); throw kHata('Bu tarayıcı video hazırlayamıyor. Safari ya da Chrome’un güncel sürümünü dene.'); }
       var webm = /webm/.test(mime);
       return vCanliKayit({ ctx: canli, tuval: tuval, ciz: ciz.kare, ses: ses, oran: oran, mime: mime, toplam: sure, fps: P.fps, bit: P.bit, ilerle: function (o, t) { durum('Video kaydediliyor… ' + saatYazi(t) + ' / ' + saatYazi(sure) + ' · ekranı açık tut', 0.32 + o * 0.67); } })
-        .then(function (blob) { bitir(); return { blob: blob, ad: ad + (webm ? '.webm' : '.mp4'), tur: webm ? 'WebM video' : 'MP4 video', sure: sure, not: webm ? 'Bu tarayıcı MP4 kaydedemediği için video WebM biçiminde hazırlandı.' : '' }; }, function (e) { bitir(); throw e; });
+        .then(function (blob) { bitir(); return { blob: blob, ad: ad + (webm ? '.webm' : '.mp4'), tur: webm ? 'WebM video' : 'MP4 video', sure: sure, not: [webm ? 'Bu tarayıcı MP4 kaydedemediği için video WebM biçiminde hazırlandı.' : '', gorNot].filter(Boolean).join(' ') }; }, function (e) { bitir(); throw e; });
+      });
     });
   };
   Oynatici.prototype.kalemVerileri = function (A, sonuc) { // kendi sesiyle kaydedilmiş adımların kalem izleri

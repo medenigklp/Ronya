@@ -190,27 +190,55 @@
       if (!Kaynak.destek() || !m.kod) throw hata('Bu tarayıcı videoyu çözemiyor.');
       return VideoDecoder.isConfigSupported(cfg).then(function (s) {
         if (!s || !s.supported) throw hata('Bu kaydın biçimi (' + (m.kod.split('.')[0] === 'avc1' ? 'H.264' : 'HEVC') + ') bu tarayıcıda çözülemiyor.');
-        var uyan = function () { if (self.bekleyen) { var b = self.bekleyen; self.bekleyen = null; b(); } };
-        self.dec = new VideoDecoder({ output: function (f) { self.cikan++; self.kuyruk.push(f); uyan(); }, error: function (e) { self.hata = e || new Error('çözme hatası'); uyan(); } });
-        self.dec.configure(cfg);
+        self.cozucuKur();
         self.i = self.anahtarOnce(t0);
       });
     }));
+  };
+  function kuyrugaKoy(q, f) { var i = q.length; while (i > 0 && q[i - 1].timestamp > f.timestamp) i--; q.splice(i, 0, f); } // çözücü kareleri karışık sırada verse de
+  Kaynak.prototype.cozucuKur = function () { // (yeniden) çözücü kurar; hatadan sonra eskisi kapanmış olur, onun geç gelen kareleri atılır
+    var self = this, dec = null, uyan = function () { if (self.bekleyen) { var b = self.bekleyen; self.bekleyen = null; b(); } };
+    try { if (this.dec && this.dec.state !== 'closed') this.dec.close(); } catch (e) {}
+    dec = new VideoDecoder({
+      output: function (f) { if (dec !== self.dec) { try { f.close(); } catch (e) {} return; } self.cikan++; kuyrugaKoy(self.kuyruk, f); uyan(); },
+      error: function (e) { if (dec !== self.dec) return; self.hata = e || new Error('çözme hatası'); uyan(); }
+    });
+    dec.configure(Kaynak.yapilandir(this.m));
+    this.dec = dec;
   };
   Kaynak.prototype.anahtarOnce = function (t0) { // t0'dan önceki son anahtar karenin sırası
     var o = this.m.ornekler, i = 0;
     if (t0 > 0) for (var j = 0; j < o.length; j++) { if (o[j].anahtar && this.zaman(o[j]) <= t0 + 0.001) i = j; if (this.zaman(o[j]) > t0 + 2 && i) break; }
     return i;
   };
-  // Çözücü yeni kare vermez olursa (iPhone'da donanım çözücüsü bazen takılır) sonsuza dek beklenmez:
-  // önce çözücü sıfırlanıp t'den önceki anahtar kareden yeniden başlanır; yine olmazsa kayıt orada biter (son kare kalır).
-  Kaynak.prototype.kurtar = function (t) {
+  Kaynak.prototype.anahtarSonra = function (t0) { // t0'dan sonraki ilk anahtar kare (yoksa son örnek: kayıt orada biter)
+    var o = this.m.ornekler;
+    for (var j = 0; j < o.length; j++) if (o[j].anahtar && this.zaman(o[j]) > t0 + 0.001) return j;
+    return o.length;
+  };
+  Kaynak.prototype.bastan = function (i) { // kuyruğu bırakıp yeni çözücüyle i. örnekten başlar
     this.kuyruk.forEach(function (f) { try { f.close(); } catch (e) {} }); this.kuyruk = [];
-    this.tampon = null; this.bosalt = null;
-    if (++this.sifir > 2) { this.bitti = true; if (window.console) console.warn('Video çözücü takıldı; kaydın son karesi kullanılıyor (' + t.toFixed(2) + ' sn).'); return; }
-    try { this.dec.reset(); this.dec.configure(Kaynak.yapilandir(this.m)); } catch (e) { this.bitti = true; return; }
-    this.i = this.anahtarOnce(t); this.bitti = false;
+    this.tampon = null; this.bosalt = null; this.bitti = false; this.hata = null;
+    this.cozucuKur(); this.i = i;
+  };
+  // Çözücü yeni kare vermez olursa (iPhone'da donanım çözücüsü bazen takılır) sonsuza dek beklenmez:
+  // yeni çözücüyle t'den önceki anahtar kareden yeniden başlanır; üçüncüde kayıt orada biter (son kare kalır).
+  Kaynak.prototype.kurtar = function (t) {
+    if (++this.sifir > 2) {
+      this.kuyruk.forEach(function (f) { try { f.close(); } catch (e) {} }); this.kuyruk = []; this.bitti = true;
+      this.sorun = this.sorun || { t: t, neden: 'çözücü yanıt vermedi' };
+      if (window.console) console.warn('Video çözücü takıldı; kaydın son karesi kullanılıyor (' + t.toFixed(2) + ' sn).'); return;
+    }
+    try { this.bastan(this.anahtarOnce(t)); } catch (e) { this.bitti = true; return; }
     if (window.console) console.warn('Video çözücü takıldı; yeniden başlatıldı (' + t.toFixed(2) + ' sn).');
+  };
+  // Çözme hatasında da durulmaz: önce aynı yerden, sonra bir sonraki anahtar kareden yeni çözücüyle denenir; üçüncüde hata kalıcıdır.
+  Kaynak.prototype.hataKurtar = function (t) {
+    var e0 = this.hata; this.hataSay = (this.hataSay || 0) + 1;
+    if (this.hataSay > 2) { this.kalici = true; this.sorun = this.sorun || { t: t, neden: hataYazi(e0) }; return false; }
+    if (window.console) console.warn('Video çözme hatası (' + t.toFixed(2) + ' sn), yeni çözücüyle deneniyor:', e0);
+    try { this.bastan(this.hataSay === 1 ? this.anahtarOnce(t) : this.anahtarSonra(t)); } catch (e) { this.hata = e0; this.kalici = true; this.sorun = { t: t, neden: hataYazi(e) }; return false; }
+    return true;
   };
   Kaynak.prototype.parcaOku = function (i) { // i. örnekten başlayıp en çok ~4 MB: aradaki ses verisi de okunur
     var self = this, o = this.m.ornekler, bas = o[i].ofs, son = bas + o[i].boy, j = i + 1;
@@ -224,7 +252,7 @@
   Kaynak.prototype.ilerle = function (t) { // t saniyesindeki kare çözülene dek
     var self = this, us = t * 1e6 + PAY, imza = '', an = 0;
     var dongu = function () {
-      if (self.hata) throw self.hata;
+      if (self.hata) { if (!self.hataKurtar(t)) throw self.hata; imza = ''; }
       while (self.kuyruk.length > 1 && self.kuyruk[1].timestamp <= us) self.kuyruk.shift().close();
       var son = self.kuyruk[self.kuyruk.length - 1];
       if ((son && son.timestamp > us) || self.bitti) return null;
@@ -234,7 +262,8 @@
       var o = self.m.ornekler;
       if (self.i < o.length) {
         if (!self.tampon || self.i < self.tampon.ilk || self.i >= self.tampon.son) return self.parcaOku(self.i).then(dongu);
-        while (self.i < self.tampon.son && self.dec.decodeQueueSize < 6) self.besle(self.i++);
+        try { while (self.i < self.tampon.son && self.dec.decodeQueueSize < 6) self.besle(self.i++); }
+        catch (e) { self.hata = self.hata || e; return dongu(); } // kapanmış çözücü: hata yoluna
         return new Promise(function (r) { self.bekleyen = r; setTimeout(r, 25); }).then(dongu);
       }
       if (!self.bosalt) self.bosalt = zamanla(self.dec.flush(), 3000).then(function () { self.bitti = true; }, function () { self.bitti = true; }); // Safari'de flush bazen hiç bitmiyor
@@ -243,7 +272,7 @@
     return this.hazirla(t).then(dongu);
   };
   Kaynak.prototype.hazirMi = function (t) {
-    if (this.hata) return true; if (!this.dec) return false;
+    if (this.hata) return !!this.kalici; if (!this.dec) return false; // geçici hatada ilerle() kurtarsın diye 'hazır değil'
     var son = this.kuyruk[this.kuyruk.length - 1]; return this.bitti || !!(son && son.timestamp > t * 1e6 + PAY);
   };
   Kaynak.prototype.kare = function (t) {
@@ -304,7 +333,7 @@
         if (self.asim < 2) return null;
         // art arda iki atlama yanıtsız kaldı: oynatıcı bir kez baştan açılır, yine olmazsa bırakılır
         self.asim = 0;
-        if (self.yeniden) { self.bozuk = true; if (window.console) console.warn('Video oynatıcısı yanıt vermiyor; son kare kullanılıyor.'); return null; }
+        if (self.yeniden) { self.bozuk = true; self.sorun = { t: t, neden: 'oynatıcı yanıt vermedi' }; if (window.console) console.warn('Video oynatıcısı yanıt vermiyor; son kare kullanılıyor.'); return null; }
         self.yeniden = true; self.kapat(); self.soz = null; self.son = -1;
         return self.ilerle(t);
       });
@@ -355,7 +384,7 @@
   // Sonra Kaynak bu çevrilmiş kaydı sırayla ve hızlıca çözer. Olmazsa (ör. oynatma izni yoksa) eski yola dönülür.
   function bayt(x) { return x instanceof ArrayBuffer ? new Uint8Array(x.slice(0)) : new Uint8Array(x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength)); }
   function kodlayiciBul(W, H) { // çevirme için H.264 kodlayıcısı: önce gecikmesiz (gerçek zamanlı) kip
-    var l = ['avc1.640033', 'avc1.64002a', 'avc1.640028', 'avc1.4d0033', 'avc1.4d0028', 'avc1.42e033', 'avc1.42e01f'], bit = Math.round(Math.min(10e6, Math.max(1.5e6, W * H * 30 * 0.08)));
+    var l = ['avc1.640033', 'avc1.64002a', 'avc1.640028', 'avc1.4d0033', 'avc1.4d0028', 'avc1.42e033', 'avc1.42e01f'], bit = Math.round(Math.min(10e6, Math.max(1.5e6, W * H * 30 * 0.06)));
     var ara = function (gz) {
       var i = 0, dene = function () {
         if (i >= l.length) return null;
@@ -366,6 +395,7 @@
     };
     return ara(true).then(function (c) { return c || ara(false); });
   }
+  S.hevcMi = function (d) { return !!(d && d.video && /^(hvc1|hev1)/.test(d.video.kod || '')); };
   S.cevirebilir = function () { return !!(window.VideoEncoder && window.VideoFrame && window.VideoDecoder && window.HTMLVideoElement && HTMLVideoElement.prototype.requestVideoFrameCallback); };
   // kap: videonun oynarken görüneceği yer (iPhone görünmeyen videoyu oynatmayabilir). Dokunuşun içinde çağrılmalı: oynatma izni o anda alınır.
   S.cevirici = function (d, kap) {
@@ -651,6 +681,7 @@
         c.fillStyle = an.zemin || '#FFFFFF'; c.fillRect(0, 0, tv.width, tv.height); // görüş kaydın dışına taşarsa sayfanın rengi
         if (sx1 > sx0 && sy1 > sy0) yonluCiz(c, f, don, b[0], b[1], kx + sx0, ky + sy0, sx1 - sx0, sy1 - sy0, (sx0 - v.x) * olc, (sy0 - v.y) * olc, (sx1 - sx0) * olc, (sy1 - sy0) * olc);
       },
+      durum: function () { return K.sorun ? { t: K.sorun.t - o.bas, neden: K.sorun.neden } : null; },
       kapat: function () { K.kapat(); }
     };
   };
@@ -659,7 +690,7 @@
     var d = o.d, don = d.video.donus || 0, K = S.kaynak(d), tut = document.createElement('canvas'), tc = tut.getContext('2d'), dolu = false, bozuk = false;
     var an = function (t) { return o.bas + t + o.ofs; };
     var sakla = function (f) {
-      var b = boyut(f), g = gorunenBoyut(f, don), k = Math.min(1, 1280 / Math.max(g[0], g[1])), W = Math.max(2, Math.round(g[0] * k)), H = Math.max(2, Math.round(g[1] * k));
+      var b = boyut(f), g = gorunenBoyut(f, don), k = Math.min(1, 1920 / Math.max(g[0], g[1])), W = Math.max(2, Math.round(g[0] * k)), H = Math.max(2, Math.round(g[1] * k));
       if (tut.width !== W || tut.height !== H) { tut.width = W; tut.height = H; }
       yonluCiz(tc, f, don, b[0], b[1], 0, 0, g[0], g[1], 0, 0, W, H); dolu = true;
     };
@@ -670,6 +701,7 @@
         if (!bozuk && a >= 0 && a <= d.sure + 0.5) { var f = K.kare(a); if (f) sakla(f); }
         return dolu ? { im: tut, g: tut.width, y: tut.height, canli: true } : null;
       },
+      durum: function () { return K.sorun ? { t: K.sorun.t - o.bas - o.ofs, neden: K.sorun.neden } : null; }, // okunamaz olduysa: içerikteki anı ve sebebi
       kapat: function () { K.kapat(); }
     };
   };

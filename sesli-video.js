@@ -64,7 +64,7 @@
     var moov = kutu(0, N); if (!moov || moov.t !== 'moov') throw new Error('moov yok');
     var mc = cocuk(moov.ic, moov.son), mvhd = bul(mc, 'mvhd'), filmOlcek = 600;
     if (mvhd) filmOlcek = v.getUint32(mvhd.ic + (v.getUint8(mvhd.ic) === 1 ? 20 : 12)) || 600;
-    var sonuc = { video: null, ses: null, parcali: !!bul(mc, 'mvex') };
+    var sonuc = { video: null, ses: null, sesler: [], parcali: !!bul(mc, 'mvex') };
     var tablo = function (st) { // örnek tablosu: dosyadaki yeri, boyu, zamanı
       var ornek = [], i, j, stsz = bul(st, 'stsz'), say = stsz ? v.getUint32(stsz.ic + 8) : 0;
       if (!say) return ornek;
@@ -113,7 +113,7 @@
       var md = cocuk(mdia.ic, mdia.son), hdlr = bul(md, 'hdlr'), mdhd = bul(md, 'mdhd'); if (!hdlr || !mdhd) return;
       var tur = tip(hdlr.ic + 8), mv = v.getUint8(mdhd.ic), olcek = v.getUint32(mdhd.ic + (mv === 1 ? 20 : 12));
       if ((tur !== 'vide' && tur !== 'soun') || !olcek) return;
-      if ((tur === 'vide' && sonuc.video) || (tur === 'soun' && sonuc.ses)) return;
+      if (tur === 'vide' && sonuc.video) return;
       var minf = bul(md, 'minf'), stbl = minf && bul(cocuk(minf.ic, minf.son), 'stbl'); if (!stbl) return;
       var st = cocuk(stbl.ic, stbl.son), stsd = bul(st, 'stsd'), giris = stsd && kutu(stsd.ic + 8, stsd.son); if (!giris) return;
       // düzenleme listesi: baştaki boşluk ve atlanan kısım (ör. AAC'nin ön dolgusu)
@@ -150,7 +150,8 @@
           if (HIZ[sfi]) oran = HIZ[sfi]; var ck = (asc[1] >> 3) & 15; if (ck >= 1 && ck <= 2) kanal = ck;
         }
         if (!ornek.length || !oran) return;
-        sonuc.ses = { asc: asc, kanal: kanal || 1, oran: oran || olcek, olcek: olcek, kayma: kayma, ornekler: ornek };
+        sonuc.sesler.push({ asc: asc, kanal: kanal || 1, oran: oran || olcek, olcek: olcek, kayma: kayma, ornekler: ornek });
+        if (!sonuc.ses) sonuc.ses = sonuc.sesler[0];
       }
     });
     return sonuc;
@@ -203,7 +204,7 @@
   };
   Kaynak.prototype.besle = function (i) {
     var o = this.m.ornekler[i], T = this.tampon, ol = this.m.olcek;
-    this.dec.decode(new EncodedVideoChunk({ type: o.anahtar ? 'key' : 'delta', timestamp: Math.round(this.zaman(o) * 1e6), duration: Math.round((o.sure || 0) / ol * 1e6), data: new Uint8Array(T.veri, o.ofs - T.bas, o.boy) }));
+    this.dec.decode(new EncodedVideoChunk({ type: o.anahtar ? 'key' : 'delta', timestamp: Math.round(this.zaman(o) * 1e6), duration: Math.round((o.sure || 0) / ol * 1e6), data: new Uint8Array(T.veri, o.ofs - T.bas, o.boy).slice() }));
   };
   Kaynak.prototype.ilerle = function (t) { // t saniyesindeki kare çözülene dek
     var self = this, us = t * 1e6;
@@ -238,9 +239,90 @@
   };
   S.Kaynak = Kaynak;
 
+  /* ================= yedek yol: cihazın kendi oynatıcısı (<video>) ================= */
+  // WebCodecs kaydı çözemezse ya da dosya ayrıştırılamazsa: her kare için videoda o ana gidilir.
+  // Daha yavaş ama cihazın oynatabildiği her videoyla çalışır; görüntü zaten doğru yönde gelir.
+  function Oge(d) { this.d = d; this.v = null; this.url = null; this.soz = null; this.son = -1; }
+  Oge.prototype.hazirla = function () {
+    var self = this;
+    if (this.soz) return this.soz;
+    return (this.soz = new Promise(function (ok, red) {
+      var v = document.createElement('video'), bitti = false;
+      self.v = v; self.url = URL.createObjectURL(self.d.dosya);
+      v.muted = true; v.defaultMuted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.preload = 'auto';
+      v.style.cssText = 'position:fixed;left:-8px;top:-8px;width:4px;height:4px;opacity:0;pointer-events:none;z-index:-1';
+      var son = function (e) { if (bitti) return; bitti = true; clearTimeout(zs); if (e) red(e); else { try { v.pause(); } catch (x) {} ok(); } };
+      var zs = setTimeout(function () { son(hata('Video açılamadı (süre doldu).')); }, 25000);
+      v.addEventListener('loadeddata', function () { son(); });
+      v.addEventListener('error', function () { son(hata('Bu video bu cihazda açılamıyor' + (v.error && v.error.code ? ' (hata ' + v.error.code + ')' : '') + '.')); });
+      try { (document.body || document.documentElement).appendChild(v); } catch (e) {}
+      v.src = self.url;
+      try { v.load(); } catch (e) {}
+      try { var p = v.play(); if (p && p.then) p.then(function () { if (bitti) v.pause(); }, function () {}); } catch (e) {} // iPhone'da veri oynatılınca yüklenir
+    }));
+  };
+  Oge.prototype.hedef = function (t) { var v = this.v, s = v && isFinite(v.duration) ? v.duration : t + 1; return Math.max(0, Math.min(t, s - 0.002)); };
+  Oge.prototype.ilerle = function (t) {
+    var self = this;
+    return this.hazirla().then(function () {
+      var v = self.v, h = self.hedef(t);
+      if (Math.abs(self.son - h) < 0.004 && !v.seeking) return null;
+      return new Promise(function (ok) {
+        var bitti = false, zs = null;
+        var tamam = function () {
+          if (bitti) return; bitti = true; clearTimeout(zs); v.removeEventListener('seeked', gitti); self.son = h; ok(null);
+        };
+        var gitti = function () { // kare ekrana gelince (destekleniyorsa) çizilir
+          if (v.requestVideoFrameCallback) { var zk = setTimeout(tamam, 120); v.requestVideoFrameCallback(function () { clearTimeout(zk); tamam(); }); }
+          else tamam();
+        };
+        v.addEventListener('seeked', gitti); zs = setTimeout(tamam, 5000);
+        try { v.currentTime = h; } catch (e) { tamam(); }
+      });
+    });
+  };
+  Oge.prototype.hazirMi = function (t) { var v = this.v; return !!v && v.readyState >= 2 && !v.seeking && Math.abs(this.son - this.hedef(t)) < 0.004; };
+  Oge.prototype.kare = function () { var v = this.v; return v && v.readyState >= 2 ? v : null; };
+  Oge.prototype.kapat = function () {
+    var v = this.v; this.v = null;
+    if (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {} if (v.parentNode) v.parentNode.removeChild(v); }
+    if (this.url) { URL.revokeObjectURL(this.url); this.url = null; }
+  };
+  S.Oge = Oge;
+  S.kaynak = function (d) { return d.oge ? new Oge(d) : new Kaynak(d); };
+  function hataYazi(e) { if (!e) return 'bilinmeyen'; var m = e.message || String(e); return ((e.name && e.name !== 'Error' && m.indexOf(e.name) < 0 ? e.name + ': ' : '') + m).slice(0, 160); }
+  S.hataYazi = hataYazi;
+  function onizlemeAni(d) { return Math.max(0, Math.min(d.sure - 0.3, d.sure * 0.8)); }
+  S.ogeAc = function (dosya, d0) { // yalnız cihazın oynatıcısıyla: boyut ve süre oynatıcıdan, ses izleri (varsa) ayrıştırıcıdan
+    var d = { dosya: dosya, oge: true, yol: 'oge', video: { g: 0, y: 0, donus: 0, sure: 0, kod: null }, ses: d0 ? d0.ses : null, sesler: d0 ? d0.sesler || [] : [], sure: 0 }, K = new Oge(d);
+    return K.hazirla().then(function () {
+      var v = K.v; d.video.g = v.videoWidth; d.video.y = v.videoHeight;
+      d.sure = d.video.sure = isFinite(v.duration) && v.duration > 0 ? v.duration : d0 ? d0.sure : 0;
+      K.kapat();
+      if (!d.video.g || !d.video.y) throw hata('Videoda görüntü bulunamadı.');
+      if (!d.sure) throw hata('Videonun süresi okunamadı.');
+      return S.kare(d, onizlemeAni(d), 960);
+    }).then(function (tv) { d.onizleme = tv; return d; }, function (e) { K.kapat(); throw e; });
+  };
+  S.ac = function (dosya) { // önce WebCodecs (hızlı yol), olmazsa cihazın oynatıcısı; sonuçta önizleme karesi de vardır
+    var neden = '';
+    var ogeyle = function (d0) {
+      return S.ogeAc(dosya, d0).then(function (d) { d.neden = neden; return d; }, function (e2) {
+        var m = hataYazi(e2); if (neden && neden !== m) m = neden + ' / ' + m;
+        throw hata(e2 && e2.kullanici && !neden ? e2.message : 'Kayıt okunamadı. Ayrıntı: ' + m);
+      });
+    };
+    return S.dosyaAc(dosya).then(function (d) {
+      return Kaynak.uygunMu(d.video).then(function (ok) {
+        if (!ok) throw new Error('çözücü desteklemiyor: ' + (d.video.kod || d.video.tur));
+        return S.kare(d, onizlemeAni(d), 960);
+      }).then(function (tv) { d.onizleme = tv; d.yol = 'kod'; return d; }, function (e1) { neden = hataYazi(e1); return ogeyle(d); });
+    }, function (e0) { neden = hataYazi(e0); return ogeyle(null); });
+  };
+
   /* ================= ses: AAC örnekleri ================= */
-  S.sesOrnekleri = function (d) { // [{ veri: Uint8Array, sure: örnek sayısı (ses hızında) }] — art arda gelenler tek okumada
-    var s = d.ses; if (!s) return Promise.resolve(null);
+  S.sesOrnekleri = function (d, iz) { // [{ veri: Uint8Array, sure: örnek sayısı (ses hızında) }] — art arda gelenler tek okumada
+    var s = iz || d.ses; if (!s) return Promise.resolve(null);
     var o = s.ornekler, gruplar = [], i = 0;
     while (i < o.length) { var j = i + 1, son = o[i].ofs + o[i].boy; while (j < o.length && o[j].ofs === son && son - o[i].ofs < 1048576) { son += o[j].boy; j++; } gruplar.push([i, j, o[i].ofs, son]); i = j; }
     var sonuc = new Array(o.length), k = 0, olc = s.oran / s.olcek;
@@ -277,7 +359,7 @@
   S.yonluCiz = yonluCiz;
 
   S.kare = function (d, t, enBuyuk) { // t saniyesindeki kare, görüntü yönünde, uzun kenarı en çok enBuyuk
-    var K = new Kaynak(d), don = d.video.donus || 0;
+    var K = S.kaynak(d), don = d.video.donus || 0;
     t = Math.max(0, Math.min(t, d.sure - 0.05));
     return K.ilerle(t).then(function () {
       var f = K.kare(t); if (!f) throw new Error('kare yok');
@@ -293,7 +375,7 @@
   // o: { bas, son, kirp: { x, y, g, h } (0–1, görüntü yönünde), adim (sn), ilerle(p) }
   // → { adim, kayit: [{ n, kesir, x0, y0, x1, y1 }] (kırpılmış alanda 0–1), zemin: sayfanın rengi }
   S.incele = function (d, o) {
-    var K = new Kaynak(d), don = d.video.donus || 0, A = o.adim || 0.1, kayit = [], onceki = null, zemin = null, W = 0, H = 0, c = null, iptal = false;
+    var K = S.kaynak(d), don = d.video.donus || 0, A = o.adim || 0.1, kayit = [], onceki = null, zemin = null, W = 0, H = 0, c = null, iptal = false;
     var t = o.bas, toplam = Math.max(0.1, o.son - o.bas);
     var adim = function () {
       if (iptal) throw new Error('iptal');
@@ -378,7 +460,7 @@
   /* ================= kompozitör için tahta ve yüz ================= */
   // o: { d, bas (kaydın içerik başlangıcı, sn), kirp, analiz, G, Y (tahta çerçevesinin pikseli) }
   S.tahta = function (o) {
-    var d = o.d, don = d.video.donus || 0, K = new Kaynak(d), tv = document.createElement('canvas');
+    var d = o.d, don = d.video.donus || 0, K = S.kaynak(d), tv = document.createElement('canvas');
     tv.width = Math.max(2, Math.round(o.G)); tv.height = Math.max(2, Math.round(o.Y));
     var c = tv.getContext('2d'), an = o.analiz || { kayit: [], adim: 0.1, zemin: '#FFFFFF' }, kam = S.kamera({ kayit: an.kayit, adim: an.adim, oran: tv.width / tv.height });
     c.fillStyle = an.zemin || '#FFFFFF'; c.fillRect(0, 0, tv.width, tv.height);
@@ -399,7 +481,7 @@
   };
   // o: { d, bas, ofs: yüz kaydının zamanı = tahta zamanı + ofs }
   S.yuz = function (o) {
-    var d = o.d, don = d.video.donus || 0, K = new Kaynak(d), tut = document.createElement('canvas'), tc = tut.getContext('2d'), dolu = false, bozuk = false;
+    var d = o.d, don = d.video.donus || 0, K = S.kaynak(d), tut = document.createElement('canvas'), tc = tut.getContext('2d'), dolu = false, bozuk = false;
     var an = function (t) { return o.bas + t + o.ofs; };
     var sakla = function (f) {
       var b = boyut(f), g = gorunenBoyut(f, don), k = Math.min(1, 1280 / Math.max(g[0], g[1])), W = Math.max(2, Math.round(g[0] * k)), H = Math.max(2, Math.round(g[1] * k));

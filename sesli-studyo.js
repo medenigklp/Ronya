@@ -300,7 +300,7 @@
   // kutu: { x, y, g, h }; tahta kutusunda takip: yazılan yeri izleyen yakın çekim
   S.yerlesim = function (ad, G, Y, yuzVar) {
     var L = { ad: ad, arka: '#14110F' };
-    if (!yuzVar && ad !== 'kose') ad = G > Y ? 'tam' : 'tahta';
+    if (!yuzVar && ad !== 'kose' && ad !== 'uzun') ad = G > Y ? 'tam' : 'tahta';
     if (ad === 'kose' || ad === 'tam') { L.tahta = { x: 0, y: 0, g: G, h: Y, tam: true }; L.alt = { cx: G / 2, y: Y - Math.round(Y * 0.13), fs: Math.round(Y * (G > Y ? 0.046 : 0.034)), g: G * 0.8, serit: true }; }
     else if (ad === 'yan') {
       var tg = Math.round(G * 0.66);
@@ -323,6 +323,10 @@
       L.yuz = { x: 0, y: ky + kh - Math.round(Y * 0.02), g: G, h: Y - (ky + kh) + Math.round(Y * 0.02), ay: 0.34, solma: true };
       L.tahta = { x: m, y: ky, g: G - 2 * m, h: kh, takip: true, yak: 1.25, r: Math.round(G * 0.03), golge: true };
       L.alt = { cx: G / 2, y: Math.round(Y * 0.74), fs: Math.round(G * 0.064), g: G * 0.9 };
+    } else if (ad === 'uzun') { // yüzsüz dikey ekran kaydı: sayfa ekranın büyük kısmını kaplar
+      var uy = Math.round(Y * 0.085), ua = Math.round(Y * 0.055);
+      L.tahta = { x: 0, y: uy, g: G, h: Y - uy - ua, takip: true, yak: 1 };
+      L.alt = { cx: G / 2, y: Y - ua - Math.round(Y * 0.06), fs: Math.round(G * 0.06), g: G * 0.9, serit: true };
     } else { // tahta: yüz yokken dikey video
       var hy = Math.round(Y * 0.16), hh = Math.min(Y - hy - Math.round(Y * 0.22), Math.round(G * 1.05));
       L.tahta = { x: 0, y: hy, g: G, h: hh, takip: true, yak: 1 };
@@ -538,6 +542,13 @@
     };
     var tahtaCiz = function (R) {
       if (R.tam) { c.drawImage(BT, 0, 0, BW, BH, R.x, R.y, R.g, R.h); return; }
+      if (o.tahta.kendi) { // tahta çerçevesini kendisi kurar (ekran kaydının sanal kamerası): olduğu gibi yerleşir
+        c.save();
+        if (R.golge) { c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = R.r * 1.4; c.shadowOffsetY = R.r * 0.4; yuvarlak(c, R.x, R.y, R.g, R.h, R.r); c.fillStyle = '#fff'; c.fill(); c.shadowColor = 'transparent'; }
+        if (R.r) { yuvarlak(c, R.x, R.y, R.g, R.h, R.r); c.clip(); }
+        c.drawImage(BT, 0, 0, BW, BH, R.x, R.y, R.g, R.h);
+        c.restore(); return;
+      }
       var k = kirpBoyu(R), cw = k[0], ch = k[1], hedef = o.tahta.kalem();
       if (!kam) kam = { x: (B ? B.x : 0) + cw / 2 - (B ? B.x * 0.4 : 0), y: ch / 2, hx: null, hy: null };
       if (o.tahta.sil && o.tahta.sil()) { kam.hx = (B ? B.x : 0) + cw / 2 - (B ? B.x * 0.4 : 0); kam.hy = ch / 2; }

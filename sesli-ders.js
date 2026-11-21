@@ -1362,6 +1362,8 @@
     '.blok.b-sayfa{text-align:center;margin:0}.blok.b-sayfa img{max-width:none;max-height:none;vertical-align:top;background:#DDE2E7;padding:1px;border-radius:3px}',
     '.sd-yazi:has(.b-sayfa) .sd-yer1,.sd-yazi:has(.b-sayfa) .sd-yer2{display:none}',
     '.belge-liste{list-style:none;margin:0;padding:0;display:grid;gap:6px}.belge-liste:empty{display:none}',
+    '.sunum-alan{margin-top:10px;padding-top:10px;border-top:1px solid var(--cizgi)}.sunum-ic{display:grid;gap:8px;padding:2px 0 6px 28px}.sunum-ic .sd-kucuk{justify-self:start}',
+    '.sunum-etiket{display:grid;gap:4px;font-size:13px;font-weight:600;color:var(--gri)}.sunum-etiket input,.sunum-etiket select{color:var(--murekkep);font-weight:400}',
     '.belge-liste li{display:flex;gap:6px;align-items:center;font-size:14px}.belge-liste li span{flex:1;min-width:0;overflow-wrap:anywhere}',
     /* kalem stüdyosu */
     '.kalem-tanit{display:grid;gap:6px;padding:12px 14px;border-radius:12px;background:var(--turuncu-y);border:1px solid var(--cizgi);margin-bottom:10px}.kalem-tanit .dugme{justify-self:start}',
@@ -1506,7 +1508,18 @@
             '<div class="alan" data-r="indirPlatAlan" hidden><span class="etiket">Nerede paylaşacaksın?</span><div class="secim" data-r="indirPlatlar"></div><span class="etiket" style="margin-top:10px">Yerleşim</span><div class="secim" data-r="indirYerler"></div>' +
               '<span class="etiket" style="margin-top:10px" data-r="indirGorEtiket">Görünüm</span><div class="secim" data-r="indirArkalar"><button type="button" data-arka="yok">Olduğu gibi</button><button type="button" data-arka="bulanik">Arka plan bulanık</button><button type="button" data-arka="studyo">Stüdyo fonu</button></div>' +
               '<label class="anahtar" data-r="indirIsikSatir" style="margin-top:4px"><input type="checkbox" data-r="indirIsik"> Stüdyo ışığı ve renk</label><p class="not" data-r="indirPlatNot"></p></div>' +
-            '<label class="anahtar" data-r="indirAltyaziSatir" hidden><input type="checkbox" data-r="indirAltyazi" checked> Videoda altyazı olsun</label><div class="secim" data-r="indirAltStiller" hidden><button type="button" data-astil="buyuk">Büyük altyazı</button><button type="button" data-astil="klasik">Klasik şerit</button></div></div>' +
+            '<label class="anahtar" data-r="indirAltyaziSatir" hidden><input type="checkbox" data-r="indirAltyazi" checked> Videoda altyazı olsun</label><div class="secim" data-r="indirAltStiller" hidden><button type="button" data-astil="buyuk">Büyük altyazı</button><button type="button" data-astil="klasik">Klasik şerit</button></div>' +
+            '<div class="alan sunum-alan" data-r="sunumAlan" hidden><span class="etiket">Giriş ve marka</span>' +
+              '<label class="anahtar"><input type="checkbox" data-r="girisAc"> 5 saniyelik giriş: konuya göre animasyon ve ses</label>' +
+              '<div class="sunum-ic" data-r="girisAyrinti"><label class="sunum-etiket">Başlık<input type="text" data-r="girisBaslik" maxlength="70"></label>' +
+                '<label class="sunum-etiket">Alt başlık<input type="text" data-r="girisAlt" maxlength="60" placeholder="ör. 9. sınıf kimya · 2. bölüm"></label>' +
+                '<label class="sunum-etiket">Animasyon<select data-r="girisMotif"></select></label>' +
+                '<button type="button" class="sd-kucuk" data-r="girisOnizle">▶ Girişi önizle</button></div>' +
+              '<label class="anahtar"><input type="checkbox" data-r="kapanisAc"> Sonda takip kartı</label>' +
+              '<label class="anahtar"><input type="checkbox" data-r="filigranAc"> Köşede “Instagram’da @kanal” yazısı</label>' +
+              '<div class="sunum-ic"><label class="sunum-etiket">Kanal adı<input type="text" data-r="kanalAd" maxlength="40" placeholder="@kimyamed"></label>' +
+                '<label class="sunum-etiket">Alt bantta adın (isteğe bağlı)<input type="text" data-r="altBantAd" maxlength="40" placeholder="ör. Ad Soyad"></label>' +
+                '<label class="sunum-etiket">Unvanın<input type="text" data-r="altBantUnvan" maxlength="40" placeholder="ör. Kimya öğretmeni"></label></div></div></div>' +
           '<div class="alan"><span class="etiket">Hangi sesle?</span><div class="secim" data-r="indirSesler"><button type="button" data-isec="bulut">Doğal ses</button><button type="button" data-isec="kayit">Kendi sesim</button></div><p class="not" data-r="indirSesNot"></p></div>' +
           '<button type="button" class="dugme" data-r="indirHazirla">Ses dosyasını hazırla</button>' +
           '<div class="indir-onizleme" data-r="indirOnizleme" hidden></div>' +
@@ -1588,6 +1601,13 @@
     this.indirPlat = depo.al('indirPlat', 'reels'); this.indirYer = depo.al('indirYer', 'bolunmus'); this.indirAltStil = depo.al('indirAltStil', 'buyuk');
     this.indirArka = depo.al('indirArka', 'bulanik'); if (!/^(yok|bulanik|studyo)$/.test(this.indirArka)) this.indirArka = 'bulanik';
     this.r.indirIsik.checked = depo.al('indirIsik', true) !== false;
+    if (window.SesliSunum) {
+      var rr = this.r;
+      rr.girisMotif.innerHTML = window.SesliSunum.MOTIFLER.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join('');
+      rr.girisAc.checked = depo.al('girisAc', true) !== false; rr.kapanisAc.checked = depo.al('kapanisAc', true) !== false; rr.filigranAc.checked = depo.al('filigranAc', true) !== false;
+      rr.kanalAd.value = depo.al('kanalAd', '@kimyamed'); rr.girisAlt.value = depo.al('girisAlt', ''); rr.altBantAd.value = depo.al('altBantAd', ''); rr.altBantUnvan.value = depo.al('altBantUnvan', '');
+      rr.girisMotif.value = depo.al('girisMotif', 'otomatik') || 'otomatik';
+    }
     if (window.SesliStudyo) { var BC = window.SesliStudyo.BICIMLER; if (!BC[this.indirPlat]) this.indirPlat = 'reels'; if (BC[this.indirPlat].yer.indexOf(this.indirYer) < 0) this.indirYer = BC[this.indirPlat].yer[0]; }
     this.r.indirAltyazi.checked = depo.al('videoAltyazi', true) !== false;
     Oynatici.hepsi.push(this);
@@ -1635,6 +1655,14 @@
       self.indirSifirla(); self.indirCiz();
     });
     r.indirYerler.addEventListener('click', function (e) { var b = e.target.closest('[data-yer]'); if (!b || self.indiriliyor) return; self.indirYer = b.getAttribute('data-yer'); depo.yaz('indirYer', self.indirYer); self.indirSifirla(); self.indirCiz(); });
+    if (window.SesliSunum) { // giriş ve marka ayarları saklanır; değişince hazırlanmış dosya geçersiz olur
+      var sunumDegisti = function () { if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } };
+      [['girisAc', 'checked'], ['kapanisAc', 'checked'], ['filigranAc', 'checked'], ['kanalAd', 'value'], ['girisAlt', 'value'], ['altBantAd', 'value'], ['altBantUnvan', 'value'], ['girisMotif', 'value']].forEach(function (x) {
+        r[x[0]].addEventListener('change', function () { depo.yaz(x[0], r[x[0]][x[1]]); sunumDegisti(); });
+      });
+      r.girisBaslik.addEventListener('change', function () { self.sunumBaslik = { id: self.P.id, yazi: r.girisBaslik.value }; sunumDegisti(); });
+      r.girisOnizle.addEventListener('click', function () { self.girisOnizle(); });
+    }
     r.indirArkalar.addEventListener('click', function (e) { var b = e.target.closest('[data-arka]'); if (!b || self.indiriliyor) return; self.indirArka = b.getAttribute('data-arka'); depo.yaz('indirArka', self.indirArka); self.indirSifirla(); self.indirCiz(); });
     r.indirIsik.addEventListener('change', function () { depo.yaz('indirIsik', !!r.indirIsik.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
     r.indirAltStiller.addEventListener('click', function (e) { var b = e.target.closest('[data-astil]'); if (!b || self.indiriliyor) return; self.indirAltStil = b.getAttribute('data-astil'); depo.yaz('indirAltStil', self.indirAltStil); self.indirSifirla(); self.indirCiz(); });
@@ -3161,7 +3189,28 @@
       } catch (e) { red(e); }
     });
   }
+  /* ---- giriş ve marka ---- */
+  Oynatici.prototype.varsayilanBaslik = function () { // videonun girişindeki başlık: dersin adı, kendi metninde ilk satır
+    var b = this.P.ders && this.P.ders.baslik;
+    if (this.P.id === 'metin' && this.r.metin) { var ilk = (this.r.metin.value || '').split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean)[0] || ''; if (ilk) b = ilk.length <= 70 ? ilk.replace(/[.:]$/, '') : ilk.split(/\s+/).slice(0, 7).join(' ') + '…'; }
+    return b || 'Kimya';
+  };
+  Oynatici.prototype.sunumAyar = function () {
+    var r = this.r, SU = window.SesliSunum; if (!SU || !r.girisAc) return null;
+    var kanal = (r.kanalAd.value || '').trim().replace(/\s+/g, ''); if (kanal && kanal.charAt(0) !== '@') kanal = '@' + kanal;
+    var baslik = (r.girisBaslik.value || '').trim() || this.varsayilanBaslik(), alt = (r.girisAlt.value || '').trim(), motif = r.girisMotif.value || 'otomatik';
+    if (motif === 'otomatik') motif = SU.motifBul(baslik + ' ' + alt) || SU.motifBul((this.P.adimlar || []).slice(0, 4).map(function (a) { return a.s; }).join(' ')) || 'atom';
+    var ad = (r.altBantAd.value || '').trim(), fil = !!r.filigranAc.checked && !!kanal;
+    return { giris: !!r.girisAc.checked, baslik: baslik, alt: alt, motif: motif, kapanis: !!r.kapanisAc.checked && !!kanal, kanal: kanal,
+      filigran: fil ? 'Instagram’da ' + kanal : '', altBant: ad ? { ad: ad, unvan: (r.altBantUnvan.value || '').trim() } : null };
+  };
+  Oynatici.prototype.girisOnizle = function () {
+    var SU = window.SesliSunum, A = this.sunumAyar(), ST = window.SesliStudyo; if (!SU || !A || this.indiriliyor) return;
+    var P = ST && this.indirPlat !== 'hizli' ? ST.BICIMLER[this.indirPlat] : { G: VID_G, Y: VID_Y };
+    SU.onizle(this.r.indirOnizleme, { G: P.G, Y: P.Y, baslik: A.baslik, alt: A.alt, kullanici: A.kanal, motif: A.motif });
+  };
   Oynatici.prototype.indirSifirla = function () {
+    if (window.SesliSunum && window.SesliSunum.onizlemeDur) window.SesliSunum.onizlemeDur();
     var r = this.r;
     if (this.indirUrl) { URL.revokeObjectURL(this.indirUrl); this.indirUrl = null; }
     this.indirDosya = null;
@@ -3200,6 +3249,14 @@
     var self = this, r = this.r, ST = window.SesliStudyo, video = bicim === 'mp4' && !!ST;
     r.indirPlatAlan.hidden = !video;
     r.indirAltStiller.hidden = !video || !r.indirAltyazi.checked || this.indirPlat === 'hizli';
+    if (r.sunumAlan) {
+      r.sunumAlan.hidden = !video || !window.SesliSunum;
+      if (!r.sunumAlan.hidden) {
+        if (!this.sunumBaslik || this.sunumBaslik.id !== this.P.id) { this.sunumBaslik = { id: this.P.id, yazi: this.varsayilanBaslik() }; }
+        if (document.activeElement !== r.girisBaslik && this.kok.activeElement !== r.girisBaslik) r.girisBaslik.value = this.sunumBaslik.yazi;
+        r.girisAyrinti.hidden = !r.girisAc.checked;
+      }
+    }
     if (!video) return;
     var B = ST.BICIMLER, P = B[this.indirPlat] || B.reels;
     r.indirPlatlar.innerHTML = Object.keys(B).map(function (k) { return '<button type="button" data-plat="' + k + '" aria-pressed="' + (k === self.indirPlat) + '">' + B[k].ad + ' <small style="opacity:.7">' + B[k].alt + '</small></button>'; }).join('');
@@ -4324,9 +4381,13 @@
           return w0 && h0 ? { im: GR.isle(im0, w0, h0, 400, 400, 0.5, 0.36, t), g: 400, y: 400, konus: s0.konus } : s0;
         };
       }
-      var n = Math.ceil(Z.toplam * oran), ses = new Float32Array(n);
-      var koy = function (p, t) { if (!p || t == null) return; var bas = Math.round(t * oran), m = Math.min(p.length, n - bas); if (m > 0) ses.set(m < p.length ? p.subarray(0, m) : p, bas); };
+      var SU = window.SesliSunum, SA = SU ? self.sunumAyar() : null, GI = SA && SA.giris ? SU.GIRIS_SURE : 0, GO = SA && SA.kapanis ? SU.KAPANIS_SURE : 0;
+      var n = Math.ceil((GI + Z.toplam + GO) * oran), ses = new Float32Array(n);
+      var koy = function (p, t) { if (!p || t == null) return; var bas = Math.round((t + GI) * oran), m = Math.min(p.length, n - bas); if (m > 0) ses.set(m < p.length ? p.subarray(0, m) : p, bas); };
+      var kat = function (p, t) { if (!p) return; var bas = Math.round(t * oran); for (var i = 0; i < p.length && bas + i < n; i++) ses[bas + i] += p[i]; };
       Z.adimlar.forEach(function (z, i) { var x = sonuc[i]; if (!x) return; koy(x.on, z.onBas); koy(x.ana, z.bas); });
+      if (GI) kat(SU.girisSesi(oran), 0);
+      if (GO) kat(SU.kapanisSesi(oran), GI + Z.toplam);
       vSinirla(ses);
       var TB = O.G.tahta, mur = KL && KV.some(Boolean) ? KL.cizici({ RS: RS, g: TB.g, h: TB.h, koyu: !!O.gor.t.koyu, adimlar: O.adimlar.map(function (Ka, i) {
         var v = KV[i], z = Z.adimlar[i];
@@ -4342,11 +4403,19 @@
           altyazi: function (t) { var k = adimNo(t), z = Z.adimlar[k]; if (k < 0 || !z.sure || t > z.bas + z.sure + 0.15 || O.adimlar[k].gorsel) return null; return { metin: O.adimlar[k].s, p: Math.max(0, Math.min(1, (t - z.bas) / z.sure)) }; }
         });
       }
-      var tuval = ciz.tuval, sure = Z.toplam, kareSay = Math.ceil(sure * P.fps), bitir = function () { if (sb) sb.kapat(); if (yb) yb.birak(Infinity); };
-      ciz.kare(0); self.indirOnizle(tuval);
+      var cikti = ciz;
+      if (SA && (GI || GO || SA.filigran || SA.altBant)) { // giriş, kapanış, köşede kanal adı, alt bant
+        cikti = SU.sunum({ G: P.G, Y: P.Y, icerik: ciz, icerikSure: Z.toplam,
+          giris: GI ? SU.giris({ G: P.G, Y: P.Y, baslik: SA.baslik, alt: SA.alt, kullanici: SA.kanal, motif: SA.motif }) : null,
+          kapanis: GO ? SU.kapanis({ G: P.G, Y: P.Y, kullanici: SA.kanal, foto: mod !== 'figur' ? (K.foto || null) : null, motif: SA.motif }) : null,
+          ust: SA.filigran || SA.altBant ? SU.ustKatman({ G: P.G, Y: P.Y, filigran: SA.filigran, altBant: SA.altBant }) : null });
+      }
+      var tuval = cikti.tuval, sure = GI + Z.toplam + GO, kareSay = Math.ceil(sure * P.fps), bitir = function () { if (sb) sb.kapat(); if (yb) yb.birak(Infinity); };
+      cikti.kare(GI ? Math.min(2.6, GI) : 0); self.indirOnizle(tuval);
       if (kd[0] && kd[1]) {
-        var hazirla = sb && sb.var ? function (t) { return sb.hazirla(t); } : yb && yb.var ? vYuzHazirla(Z.adimlar, yb) : null;
-        return vVideoKodla(kd[0], kareSay, ciz.kare, tuval, function (o) { durum('Video çiziliyor… %' + Math.round(o * 100), 0.32 + o * 0.6); }, hazirla, P.fps).then(function (v) {
+        var hazirla0 = sb && sb.var ? function (t) { return sb.hazirla(t); } : yb && yb.var ? vYuzHazirla(Z.adimlar, yb) : null;
+        var hazirla = hazirla0 && (GI || GO) ? function (t) { var ti = t - GI; return ti < -0.6 ? null : hazirla0(Math.min(Math.max(0, ti), Z.toplam)); } : hazirla0;
+        return vVideoKodla(kd[0], kareSay, cikti.kare, tuval, function (o) { durum('Video çiziliyor… %' + Math.round(o * 100), 0.32 + o * 0.6); }, hazirla, P.fps).then(function (v) {
           bitir();
           durum('Ses ekleniyor…', 0.93);
           return vSesKodla(ses, oran, kd[1], function (o) { durum('Ses ekleniyor… %' + Math.round(o * 100), 0.93 + o * 0.05); }).then(function (s) {
@@ -4358,7 +4427,7 @@
       var mime = vKayitTuru(['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']);
       if (!mime || !canli || !tuval.captureStream) { bitir(); throw kHata('Bu tarayıcı video hazırlayamıyor. Safari ya da Chrome’un güncel sürümünü dene.'); }
       var webm = /webm/.test(mime);
-      return vCanliKayit({ ctx: canli, tuval: tuval, ciz: ciz.kare, ses: ses, oran: oran, mime: mime, toplam: sure, fps: P.fps, bit: P.bit, ilerle: function (o, t) { durum('Video kaydediliyor… ' + saatYazi(t) + ' / ' + saatYazi(sure) + ' · ekranı açık tut', 0.32 + o * 0.67); } })
+      return vCanliKayit({ ctx: canli, tuval: tuval, ciz: cikti.kare, ses: ses, oran: oran, mime: mime, toplam: sure, fps: P.fps, bit: P.bit, ilerle: function (o, t) { durum('Video kaydediliyor… ' + saatYazi(t) + ' / ' + saatYazi(sure) + ' · ekranı açık tut', 0.32 + o * 0.67); } })
         .then(function (blob) { bitir(); return { blob: blob, ad: ad + (webm ? '.webm' : '.mp4'), tur: webm ? 'WebM video' : 'MP4 video', sure: sure, not: [webm ? 'Bu tarayıcı MP4 kaydedemediği için video WebM biçiminde hazırlandı.' : '', gorNot].filter(Boolean).join(' ') }; }, function (e) { bitir(); throw e; });
       });
     });

@@ -294,7 +294,7 @@
   S.hataYazi = hataYazi;
   function onizlemeAni(d) { return Math.max(0, Math.min(d.sure - 0.3, d.sure * 0.8)); }
   S.ogeAc = function (dosya, d0) { // yalnız cihazın oynatıcısıyla: boyut ve süre oynatıcıdan, ses izleri (varsa) ayrıştırıcıdan
-    var d = { dosya: dosya, oge: true, yol: 'oge', video: { g: 0, y: 0, donus: 0, sure: 0, kod: null }, ses: d0 ? d0.ses : null, sesler: d0 ? d0.sesler || [] : [], sure: 0 }, K = new Oge(d);
+    var d = { dosya: dosya, oge: true, yol: 'oge', ayristi: !!d0, video: { g: 0, y: 0, donus: 0, sure: 0, kod: null }, ses: d0 ? d0.ses : null, sesler: d0 ? d0.sesler || [] : [], sure: 0 }, K = new Oge(d);
     return K.hazirla().then(function () {
       var v = K.v; d.video.g = v.videoWidth; d.video.y = v.videoHeight;
       d.sure = d.video.sure = isFinite(v.duration) && v.duration > 0 ? v.duration : d0 ? d0.sure : 0;

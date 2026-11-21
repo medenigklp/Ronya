@@ -1560,7 +1560,8 @@
             '<div class="kisim-satir"><label class="sunum-etiket">Başlangıç<select data-r="kisimBas"></select></label><label class="sunum-etiket">Bitiş<select data-r="kisimSon"></select></label></div><p class="not" data-r="kisimNot"></p></div>' +
           '<button type="button" class="dugme" data-r="indirHazirla">Ses dosyasını hazırla</button>' +
           '<div class="indir-onizleme" data-r="indirOnizleme" hidden></div>' +
-          '<div class="sd-ilerleme indir-ilerleme" data-r="indirIlerleme" hidden><div class="cubuk"><i data-r="indirCubuk"></i></div><span data-r="indirYazi" aria-live="polite"></span></div>' +
+          '<div class="sd-ilerleme indir-ilerleme" data-r="indirIlerleme" hidden><div class="cubuk"><i data-r="indirCubuk"></i></div><span data-r="indirYazi" aria-live="polite"></span>' +
+          '<button type="button" data-r="indirIptal" hidden style="display:block;margin-top:10px;padding:8px 16px;border-radius:999px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-weight:600;opacity:.8">Vazgeç</button></div>' +
           '<div class="satir" data-r="indirSonuc" hidden><a class="dugme" data-r="indirLink" href="#" download>⬇ İndir</a><button type="button" class="dugme ikincil" data-r="indirPaylas" hidden>Paylaş</button><a class="dugme ikincil" data-r="indirSrt" href="#" download hidden title="YouTube’a yüklerken altyazı dosyası olarak ekleyebilirsin">Altyazı dosyası (.srt)</a></div>' +
           '<div class="paylasim" data-r="paylasimKutu" hidden><span class="etiket">Paylaşım metni</span>' +
             '<div class="paylasim-baslik" data-r="paylasimBaslikSatir" hidden><label class="sunum-etiket">YouTube başlığı<input type="text" readonly data-r="paylasimBaslik"></label><button type="button" class="sd-kucuk" data-kopyala="paylasimBaslik">Kopyala</button></div>' +
@@ -1727,6 +1728,10 @@
     });
     Kayitlar.al('muzik:kendi').then(function (v) { if (v && v.veri) { self.kendiMuzik = { ad: v.ad || 'müzik' }; if (!self.indiriliyor) self.indirCiz(); } });
     r.indirArkalar.addEventListener('click', function (e) { var b = e.target.closest('[data-arka]'); if (!b || self.indiriliyor) return; self.indirArka = b.getAttribute('data-arka'); depo.yaz('indirArka', self.indirArka); self.indirSifirla(); self.indirCiz(); });
+    r.indirIptal.addEventListener('click', function () { // video hazırlamayı durdur: çevirme, inceleme ya da çizim neredeyse orada kesilir
+      if (!self.indiriliyor) return; self.iptalIstek = true; r.indirIptal.disabled = true; r.indirYazi.textContent = 'Durduruluyor…';
+      (self.aktifIsler || []).forEach(function (x) { try { if (x && x.iptal) x.iptal(); } catch (e) {} });
+    });
     r.indirCerceveler.addEventListener('click', function (e) { var b = e.target.closest('[data-cerceve]'); if (!b || self.indiriliyor) return; self.indirCerceve = b.getAttribute('data-cerceve'); depo.yaz('indirCerceve', self.indirCerceve); self.indirSifirla(); self.indirCiz(); });
     r.indirIsik.addEventListener('change', function () { depo.yaz('indirIsik', !!r.indirIsik.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
     r.indirAltStiller.addEventListener('click', function (e) { var b = e.target.closest('[data-astil]'); if (!b || self.indiriliyor) return; self.indirAltStil = b.getAttribute('data-astil'); depo.yaz('indirAltStil', self.indirAltStil); self.indirSifirla(); self.indirCiz(); });
@@ -3769,6 +3774,8 @@
     if (!E) { this.indirHata('Önce ekran kaydını seç.'); return; }
     var ctx = cozucuYap(); if (!ctx) { this.indirHata('Bu tarayıcı video hazırlayamıyor. Safari ya da Chrome’un güncel sürümünü dene.'); return; }
     this.indirSifirla(); this.indiriliyor = true; this.indirCiz();
+    this.iptalIstek = false; this.aktifIsler = []; r.indirIptal.hidden = false; r.indirIptal.disabled = false;
+    var iptalMi = function () { return !!self.iptalIstek; }, iptalBak = function (x) { if (self.iptalIstek) throw kHata('Video hazırlama durduruldu.'); return x; };
     var basAn = performance.now();
     var durum = function (yazi, oran) { r.indirYazi.textContent = yazi; if (oran != null) r.indirCubuk.style.width = Math.round(Math.max(0, Math.min(1, oran)) * 100) + '%'; };
     var kilit = null; if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(function (k) { kilit = k; }, function () {});
@@ -3806,24 +3813,34 @@
         return function () {
           var goster = function (x, hiz) { durum(ad + ' hızlı okunacak biçime çevriliyor… %' + Math.round(x * 100) + (hiz ? ' (' + String(hiz).replace('.', ',') + ' kat hızda)' : '') + (n > 1 ? ' · ' + (bitenSay + 1) + '/' + n : ''), 0.01 + (bitenSay + x) / n * 0.1); };
           goster(0, 0);
-          return cv.cevir({ bas: a[0], son: a[1], enBuyuk: ayar0.enBuyuk, bpp: ayar0.bpp, dogrudan: ayar0.dogrudan, kapsam: ayar0.kapsam, hiz: ayar0.hiz, ilerle: goster })
-            .then(function (d2) { K.cev = { d: d2, bas: a[0], son: a[1] }; }, function (e) { if (window.console) console.warn(ad + ' çevrilemedi:', e); K.cevHata = window.SesliVideo.hataYazi(e); })
-            .then(function () { cv.kapat(); bitenSay++; });
+          var dene = function (ay) { iptalBak(); return cv.cevir({ bas: a[0], son: a[1], enBuyuk: ay.enBuyuk, bpp: ay.bpp, dogrudan: ay.dogrudan, kapsam: ay.kapsam, hiz: ay.hiz, ilerle: goster }); };
+          return dene(ayar0).catch(function (e) {
+            if (self.iptalIstek || !ayar0.yedek) throw e;
+            if (window.console) console.warn(ad + ' ilk yolla çevrilemedi, yedek yolla deneniyor:', e);
+            K.cevHata1 = window.SesliVideo.hataYazi(e); return dene(ayar0.yedek);
+          }).then(function (d2) { K.cev = { d: d2, bas: a[0], son: a[1] }; }, function (e) { if (window.console) console.warn(ad + ' çevrilemedi:', e); K.cevHata = window.SesliVideo.hataYazi(e); })
+            .then(function () { cv.kapat(); bitenSay++; iptalBak(); });
         };
       };
       // ekran kaydı: kare oynatıcıdan doğrudan (tuvalsiz) ve 2 kat hızda; sayfada az şey değiştiğinden karelerin yarısı yeter
-      if (cevE) sira.push(is(cevE, E, aralikE, { enBuyuk: 2048, bpp: 0.06, dogrudan: true, kapsam: 0.5 }, 'Ekran kaydı'));
+      // olmazsa yedek: tuval kipi, 2048 piksel (bu telefonda çalıştığı görülen yol)
+      if (cevE) sira.push(is(cevE, E, aralikE, { enBuyuk: 2048, bpp: 0.06, dogrudan: true, kapsam: 0.5, yedek: { enBuyuk: 2048, bpp: 0.08, dogrudan: false, kapsam: 0.5, hiz: 2 } }, 'Ekran kaydı'));
       // yüz: kare zamanları tam olsun diye gösterilen karelerin %90'ı yakalanmalı (yetişemezse 1 kat hıza iner): yüz akıcı oynar
       if (cevY) sira.push(is(cevY, Y, aralikY, { enBuyuk: 1280, bpp: 0.12, dogrudan: false, kapsam: 0.9, hiz: 1.5 }, 'Yüz videosu'));
-      return sira.reduce(function (z, f) { return z.then(f); }, Promise.resolve()).then(function () { r.indirOnizleme.innerHTML = ''; });
+      self.aktifIsler = [cevE, cevY].filter(Boolean);
+      return sira.reduce(function (z, f) { return z.then(f); }, Promise.resolve()).then(function () { r.indirOnizleme.innerHTML = ''; self.aktifIsler = []; });
     };
     var dE = function () { return kapsar(E, aralikE) ? E.cev.d : E.d; }, dY = function () { return Y && kapsar(Y, aralikY) ? Y.cev.d : Y ? Y.d : null; };
     var ib = cevE || cevY ? 0.11 : 0.01;
     cevirme().then(function () {
+      iptalBak();
       durum('Kayıt inceleniyor…', ib);
-      return E.analiz && E.analizImza === imza ? E.analiz : SV.incele(dE(), { bas: E.bas, son: E.son, kirp: E.kirp, adim: 0.1, ilerle: function (p) { durum('Kayıt inceleniyor: kalemin yazdığı yerler… %' + Math.round(p * 100), ib + p * (0.22 - ib)); } })
-        .then(function (a) { E.analiz = a; E.analizImza = imza; return a; });
+      if (E.analiz && E.analizImza === imza) return E.analiz;
+      var ins = SV.incele(dE(), { bas: E.bas, son: E.son, kirp: E.kirp, adim: 0.1, ilerle: function (p) { durum('Kayıt inceleniyor: kalemin yazdığı yerler… %' + Math.round(p * 100), ib + p * (0.22 - ib)); } });
+      self.aktifIsler = [ins];
+      return ins.then(function (a) { self.aktifIsler = []; E.analiz = a; E.analizImza = imza; return a; });
     }).then(function (a) {
+      iptalBak();
       an = a;
       return Promise.all([self.muzikHazirla(ctx), videoKodlayiciSec(P.G, P.Y, P.fps, P.bit), sesKodlayiciSec(oran), !Y && mod !== 'figur' ? Foto.yukle().then(function () { return Foto.resim || null; }) : null]);
     }).then(function (x) {
@@ -3891,8 +3908,9 @@
         var gecen = (an - cizBas) / 1000, kalan = o > 0.02 && gecen > 6 ? gecen * (1 - o) / o : 0;
         // yavaşlarsa hangi adımın yavaşladığı ekran görüntüsünden okunabilsin diye kısa döküm
         var dokum = ol && ks > 30 ? ' · kare ' + Math.round((ol.bekle + ol.ciz + ol.kare + ol.kodla) / ks) + ' ms (bekleme ' + Math.round(ol.bekle / ks) + ', çizim ' + Math.round(ol.ciz / ks) + ', alma ' + Math.round(ol.kare / ks) + ', kodlama ' + Math.round(ol.kodla / ks) + ') · ekran: ' + yolKisa(E, dE()) + (Y ? ', yüz: ' + yolKisa(Y, dY()) : '') : '';
-        durum('Video çiziliyor… %' + Math.round(o * 100) + (kalan >= 5 ? ' · yaklaşık ' + kalanYazi(kalan) + ' kaldı' : '') + dokum, 0.25 + o * 0.68);
-      }, hazirla, P.fps).then(function (v) {
+        var yavas = kalan > 900 && gecen > 20 ? ' · Bu hızla çok uzun sürecek' + (E.d.oge && !dE().cevrildi ? ' (ekran kaydı hızlı biçime çevrilemedi' + (E.cevHata ? ': ' + E.cevHata : '') + ')' : Y && Y.d.oge && !dY().cevrildi ? ' (yüz videosu hızlı biçime çevrilemedi' + (Y.cevHata ? ': ' + Y.cevHata : '') + ')' : '') + '. İstersen Vazgeç’e basıp bu yazının ekran görüntüsünü gönder.' : '';
+        durum('Video çiziliyor… %' + Math.round(o * 100) + (kalan >= 5 ? ' · yaklaşık ' + kalanYazi(kalan) + ' kaldı' : '') + dokum + yavas, 0.25 + o * 0.68);
+      }, hazirla, P.fps, iptalMi).then(function (v) {
         var okunamadi = [[tahta, 'Ekran kaydı'], [yuzS, 'Yüz videosu']].map(function (x) {
           var s0 = x[0] && x[0].durum ? x[0].durum() : null;
           return s0 ? x[1] + ' ' + sureYazi(Math.max(0, s0.t)) + ' civarından sonra okunamadı (' + s0.neden + '); oradan sonra son karesi görünüyor.' : '';
@@ -3903,7 +3921,7 @@
           durum('Dosya birleştiriliyor…', 0.995);
           var ol = v.olcum, ks = Math.max(1, kareSay), yol = function (K, d) {
             var c = d.cevirme; // çevirme: süresi, son hızı, gösterilen karelerin ne kadarı yakalandı
-            return (d.cevrildi ? 'çevrilerek' + (c ? ' [' + Math.round(c.sn) + ' sn, ' + String(c.hiz).replace('.', ',') + ' kat, %' + Math.round(c.kapsam * 100) + ', ' + c.g + '×' + c.y + (c.dog ? ', doğrudan' : '') + ']' : '') : d.oge ? 'oynatıcı' : 'hızlı yol') + (K.cevHata && !d.cevrildi ? ' (çevrilemedi: ' + K.cevHata + ')' : '');
+            return (d.cevrildi ? 'çevrilerek' + (c ? ' [' + Math.round(c.sn) + ' sn, ' + String(c.hiz).replace('.', ',') + ' kat, %' + Math.round(c.kapsam * 100) + ', ' + c.g + '×' + c.y + (c.dog ? ', doğrudan' : '') + (K.cevHata1 ? ', ilk deneme olmadı: ' + K.cevHata1 : '') + ']' : '') : d.oge ? 'oynatıcı' : 'hızlı yol') + (K.cevHata && !d.cevrildi ? ' (çevrilemedi: ' + K.cevHata + ')' : '');
           };
           var teknik = 'Hazırlama ' + sureYazi((performance.now() - basAn) / 1000) + ' sürdü (kare başına ' + Math.round(ol.sure / ks) + ' ms: bekleme ' + Math.round(ol.bekle / ks) + ', çizim ' + Math.round(ol.ciz / ks) +
             ', kare alma ' + Math.round(ol.kare / ks) + ', kodlama ' + Math.round(ol.kodla / ks) + ' · ekran kaydı: ' + yol(E, dE()) + (Y ? ', yüz videosu: ' + yol(Y, dY()) : '') + (ol.atla ? ' · ' + ol.atla + ' kez takıldı' : '') + ').';
@@ -3920,6 +3938,8 @@
     }).then(function () {
       if (kilit && kilit.release) { try { kilit.release(); } catch (e) {} }
       r.indirOnizleme.hidden = true; r.indirOnizleme.innerHTML = '';
+      r.indirIptal.hidden = true; self.aktifIsler = [];
+      [cevE, cevY].forEach(function (cv) { if (cv) { try { cv.kapat(); } catch (e) {} } });
     });
   };
   /* ---- giriş ve marka ---- */
@@ -4936,7 +4956,7 @@
   }
   // hazirla(t): o kare için beklenecek iş varsa söz döner. Bir kaynak takılırsa sonsuza dek beklenmez: 15 sn sonra
   // var olan kareyle devam edilir (sonraki beklemeler 2 sn); üç kez olursa artık beklenmez. olcum: sürelerin dökümü (ms)
-  function vVideoKodla(kod, kareSay, ciz, tuval, ilerle, hazirla, fps) {
+  function vVideoKodla(kod, kareSay, ciz, tuval, ilerle, hazirla, fps, iptal) {
     fps = fps || VID_FPS;
     return new Promise(function (ok, red) {
       var ornekler = [], tanim = null, hata = null, ANAHTAR = fps * 2, i = 0, sabir = 15000, zorla = false, beklemeYok = false, doluAn = 0;
@@ -4959,6 +4979,7 @@
       };
       var adim = function () {
         if (hata) { red(hata); return; }
+        if (iptal && iptal()) { try { enc.close(); } catch (e) {} red(kHata('Video hazırlama durduruldu.')); return; }
         try {
           var bitis = performance.now() + 28;
           while (i < kareSay && performance.now() < bitis && enc.encodeQueueSize < 6) {

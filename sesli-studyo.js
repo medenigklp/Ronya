@@ -430,7 +430,7 @@
   // o: { isik: bool, arka: 'yok' | 'bulanik' | 'studyo', ayirici }
   // isle(...) → yüz alanının (G×Y) ışığı, rengi ve arka planı düzenlenmiş tuvali (her karede aynı tuval kullanılır)
   S.gorunum = function (o) {
-    var T = {}, fonlar = {}, gecmis = null;
+    var T = {}, fonlar = {}, gecmis = null, sonMaske = null, sonMaskeT = -9, sonMaskeB = '';
     var tv = function (ad, g, y) { var c = T[ad] || (T[ad] = document.createElement('canvas')); if (c.width !== g) c.width = g; if (c.height !== y) c.height = y; return c; };
     var studyoFonu = function (G, Y) { // koyu stüdyo zemini: arkada sıcak bir spot, yanda soğuk ışık, yumuşak ışık lekeleri
       var k = G + 'x' + Y; if (fonlar[k]) return fonlar[k];
@@ -461,7 +461,7 @@
       var mc = tv('maske', W, H), mx = mc.getContext('2d'), id = mx.createImageData(W, H), d = id.data;
       for (i = 0; i < n; i++) {
         var a = ters ? 1 - v[i] : v[i];
-        a = gecmis[i] = yeni ? a : gecmis[i] * 0.35 + a * 0.65;
+        a = gecmis[i] = yeni ? a : gecmis[i] * 0.25 + a * 0.75;
         var s = (a - 0.3) / 0.42; s = s <= 0 ? 0 : s >= 1 ? 1 : s * s * (3 - 2 * s);
         d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255; d[i * 4 + 3] = Math.round(s * 255);
       }
@@ -475,7 +475,6 @@
       g.addColorStop(0, 'rgba(255,248,240,.32)'); g.addColorStop(0.55, 'rgba(255,248,240,.1)'); g.addColorStop(1, 'rgba(255,248,240,0)');
       x.globalCompositeOperation = 'soft-light'; x.fillStyle = g; x.fillRect(0, 0, G, Y);
       x.fillStyle = 'rgba(255,170,110,.12)'; x.fillRect(0, 0, G, Y);
-      x.globalCompositeOperation = 'overlay'; x.globalAlpha = 0.12; x.drawImage(c, 0, 0); x.globalAlpha = 1;
       x.globalCompositeOperation = 'multiply';
       var v = x.createRadialGradient(cx, Y * 0.45, Math.min(G, Y) * 0.34, cx, Y * 0.45, M * 0.8);
       v.addColorStop(0, 'rgb(255,255,255)'); v.addColorStop(1, 'rgb(168,168,176)'); x.fillStyle = v; x.fillRect(0, 0, G, Y);
@@ -491,7 +490,10 @@
         try { kx.drawImage(im, (sg - w) * (ax == null ? 0.5 : ax), (sy - h) * (ay == null ? 0.5 : ay), w, h, 0, 0, G, Y); } catch (e) {}
         var cik = kare;
         if (o.ayirici && o.arka && o.arka !== 'yok') {
-          var mk = maskeYap(kare, G, Y);
+          // kişi maskesi saniyede 10 kez yenilenir (her karede çıkarmak telefonda en pahalı iş); aradaki karelerde son maske kullanılır
+          var mb = G + 'x' + Y, mk;
+          if (t != null && sonMaske && sonMaskeB === mb && t >= sonMaskeT && t - sonMaskeT < 0.095) mk = sonMaske;
+          else { mk = maskeYap(kare, G, Y); sonMaske = mk; sonMaskeT = t != null ? t : -9; sonMaskeB = mb; }
           if (mk) {
             var son = tv('son', G, Y), sx = son.getContext('2d');
             sx.globalCompositeOperation = 'source-over'; sx.globalAlpha = 1; sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = 'high';

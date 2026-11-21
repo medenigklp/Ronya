@@ -1526,7 +1526,7 @@
           '<button type="button" class="dugme" data-r="indirHazirla">Ses dosyasını hazırla</button>' +
           '<div class="indir-onizleme" data-r="indirOnizleme" hidden></div>' +
           '<div class="sd-ilerleme indir-ilerleme" data-r="indirIlerleme" hidden><div class="cubuk"><i data-r="indirCubuk"></i></div><span data-r="indirYazi" aria-live="polite"></span></div>' +
-          '<div class="satir" data-r="indirSonuc" hidden><a class="dugme" data-r="indirLink" href="#" download>⬇ İndir</a><button type="button" class="dugme ikincil" data-r="indirPaylas" hidden>Paylaş</button></div>' +
+          '<div class="satir" data-r="indirSonuc" hidden><a class="dugme" data-r="indirLink" href="#" download>⬇ İndir</a><button type="button" class="dugme ikincil" data-r="indirPaylas" hidden>Paylaş</button><a class="dugme ikincil" data-r="indirSrt" href="#" download hidden title="YouTube’a yüklerken altyazı dosyası olarak ekleyebilirsin">Altyazı dosyası (.srt)</a></div>' +
           '<p class="uyari" data-r="indirUyari" hidden></p>' +
         '</section>' +
         '<section class="kart"><h3>Cümle ya da metin ekle</h3>' +
@@ -1688,6 +1688,7 @@
     r.indirHazirla.addEventListener('click', function () { self.sesDosyasi(); });
     r.indirPaylas.addEventListener('click', function () { self.indirPaylas(); });
     r.indirLink.addEventListener('click', function (e) { if (r.indirLink.getAttribute('href') === '#') e.preventDefault(); });
+    r.indirSrt.addEventListener('click', function (e) { if (r.indirSrt.getAttribute('href') === '#') e.preventDefault(); });
     r.studyoMp3.addEventListener('click', function () { self.studyoKapat(); self.indirAc('kayit', true); });
     r.ayarDugme.addEventListener('click', function () {
       var acik = !self.kokEl.classList.contains('ayar-acik');
@@ -3233,6 +3234,8 @@
     if (window.SesliSunum && window.SesliSunum.onizlemeDur) window.SesliSunum.onizlemeDur();
     var r = this.r;
     if (this.indirUrl) { URL.revokeObjectURL(this.indirUrl); this.indirUrl = null; }
+    if (this.srtUrl) { URL.revokeObjectURL(this.srtUrl); this.srtUrl = null; }
+    if (r.indirSrt) { r.indirSrt.hidden = true; r.indirSrt.setAttribute('href', '#'); }
     this.indirDosya = null;
     r.indirSonuc.hidden = true; r.indirLink.setAttribute('href', '#'); r.indirPaylas.hidden = true; r.indirUyari.hidden = true;
     r.indirIlerleme.hidden = true; r.indirCubuk.style.width = '0';
@@ -3451,6 +3454,63 @@
   function vSvgResim(metin) { return vResim('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(metin)).then(function (im) { return im && vTemiz(im) ? im : null; }); }
   function vSinirla(f) { for (var i = 0; i < f.length; i++) { var x = f[i]; if (x > 0.95) f[i] = 0.95 + 0.05 * Math.tanh((x - 0.95) / 0.05); else if (x < -0.95) f[i] = -0.95 - 0.05 * Math.tanh((-x - 0.95) / 0.05); } return f; }
   function saatYazi(sn) { sn = Math.max(0, Math.round(sn)); return Math.floor(sn / 60) + ':' + ('0' + sn % 60).slice(-2); }
+  /* ---- altyazı: formüller simgeli, ilerleme konuşmaya göre, YouTube için .srt ---- */
+  function formulUnicode(f) {
+    var g = f.govde.replace(/\d/g, function (r) { return ALT_RAKAM.charAt(+r); });
+    var y = f.yuk ? f.yuk.yazi.replace(/\d/g, function (r) { return UST_RAKAM.charAt(+r); }).replace('+', '⁺').replace(/[−-]/, '⁻') : '';
+    return (f.kat || '') + g + y + (f.hal || '');
+  }
+  function altyaziMetni(metin) { // H2SO4 → H₂SO₄, Fe3+ → Fe³⁺, -> → →
+    return String(metin || '').split(/(\s+)/).map(function (tok) {
+      if (!tok || /^\s+$/.test(tok)) return tok;
+      if (tok === '->') return '→'; if (tok === '<=>') return '⇌';
+      var p = sozcukAyir(tok), f = p.ic && formulCoz(p.ic);
+      return f ? p.on + formulUnicode(f) + (p.ek ? '’' + p.ek : '') + p.son : tok;
+    }).join('');
+  }
+  function konusmaIlerleme(v, oran) { // her 10 ms'de cümlenin ne kadarı söylendi (0–1): duraklamalarda altyazı bekler
+    var A = Math.max(1, Math.round(oran * 0.01)), F = Math.max(1, Math.ceil(v.length / A)), e = new Float32Array(F), i, j;
+    for (i = 0; i < F; i++) { var t = 0, b = i * A, son = Math.min(v.length, b + A); for (j = b; j < son; j++) t += v[j] * v[j]; e[i] = Math.sqrt(t / Math.max(1, son - b)); }
+    var sirali = Array.prototype.slice.call(e).sort(function (a, b) { return a - b; }), esik = Math.max(0.004, sirali[Math.floor(F * 0.5)] * 0.25);
+    var kum = new Float32Array(F + 1), top = 0;
+    for (i = 0; i < F; i++) { top += e[i] > esik ? 1 : 0.15; kum[i + 1] = top; }
+    for (i = 0; i <= F; i++) kum[i] /= top || 1;
+    return {
+      ileri: function (yer) { var f = yer / 0.01; if (f <= 0) return 0; var k = Math.floor(f); if (k >= F) return 1; return kum[k] + (kum[k + 1] - kum[k]) * (f - k); },
+      geri: function (p) { var lo = 0, hi = F; if (p <= 0) return 0; if (p >= 1) return F * 0.01; while (hi - lo > 1) { var m = (lo + hi) >> 1; if (kum[m] < p) lo = m; else hi = m; } var a = kum[lo], b = kum[hi]; return (lo + (b > a ? (p - a) / (b - a) : 0)) * 0.01; }
+    };
+  }
+  function altyaziHazirla(O, Z, sonuc, oran) {
+    Z.adimlar.forEach(function (z, i) {
+      z.alt = altyaziMetni(O.adimlar[i].s);
+      var x = sonuc[i] && sonuc[i].ana;
+      if (x && x.length && z.sure) { var k = konusmaIlerleme(x, oran); z.ilerleme = k.ileri; z.ilerlemeTers = k.geri; }
+    });
+  }
+  function srtZaman(t) { var ms = Math.max(0, Math.round(t * 1000)), p = function (x, n) { return ('000' + x).slice(-n); }; return p(Math.floor(ms / 3600000), 2) + ':' + p(Math.floor(ms / 60000) % 60, 2) + ':' + p(Math.floor(ms / 1000) % 60, 2) + ',' + p(ms % 1000, 3); }
+  function srtYap(O, Z, ofset) { // YouTube altyazı dosyası: en çok iki satır, satırda ~42 harf, konuşmayla eş zamanlı
+    var parca = [], no = 0, sonT = 0;
+    Z.adimlar.forEach(function (z, i) {
+      if (!z.sure || O.adimlar[i].gorsel) return;
+      var metin = String(z.alt || O.adimlar[i].s || '').replace(/\s+/g, ' ').trim(); if (!metin) return;
+      var gruplar = [], su = [], uz = 0;
+      metin.split(' ').forEach(function (w) {
+        if (su.length && uz + 1 + w.length > 84) { gruplar.push(su); su = []; uz = 0; }
+        su.push(w); uz += (uz ? 1 : 0) + w.length;
+        if (/[.!?;:]$/.test(w) && uz > 34) { gruplar.push(su); su = []; uz = 0; }
+      });
+      if (su.length) gruplar.push(su);
+      var bas = 0;
+      gruplar.forEach(function (g) {
+        var yazi = g.join(' '), p0 = bas / metin.length, p1 = Math.min(1, (bas + yazi.length) / metin.length); bas += yazi.length + 1;
+        var t0 = z.bas + (z.ilerlemeTers ? z.ilerlemeTers(p0) : p0 * z.sure) + ofset, t1 = z.bas + (z.ilerlemeTers ? z.ilerlemeTers(p1) : p1 * z.sure) + ofset;
+        t0 = Math.max(t0, sonT + 0.01); if (t1 < t0 + 0.8) t1 = t0 + 0.8; sonT = t1;
+        if (yazi.length > 42) { var orta = yazi.length / 2, en = -1, fark = 1e9; for (var j = 0; j < yazi.length; j++) if (yazi.charAt(j) === ' ' && Math.abs(j - orta) < fark) { fark = Math.abs(j - orta); en = j; } if (en > 0) yazi = yazi.slice(0, en) + '\n' + yazi.slice(en + 1); }
+        parca.push((++no) + '\n' + srtZaman(t0) + ' --> ' + srtZaman(t1) + '\n' + yazi + '\n');
+      });
+    });
+    return parca.join('\n');
+  }
   function vGeometri(altyazi, cerceve) {
     var kenar = 16, ust = 14, altH = altyazi ? 84 : 0, ara = altyazi ? 10 : 0;
     var cer = { x: kenar, y: ust, g: VID_G - 2 * kenar, h: VID_Y - ust - 14 - altH - ara };
@@ -4025,7 +4085,7 @@
       if (A2) {
         var d = null, p = -1;
         if (sn && sn.onBas != null && t >= sn.onBas) { d = altDuzen('o' + (k + 1), O.adimlar[k + 1].on, O.adimlar[k + 1].kim); p = (t - sn.onBas) / sn.onSure; }
-        else if (k >= 0 && !Ka.gorsel) { d = altDuzen('a' + k, Ka.s, Ka.kim); p = z.sure ? (t - z.bas) / z.sure : -1; }
+        else if (k >= 0 && !Ka.gorsel) { d = altDuzen('a' + k, z.alt || Ka.s, Ka.kim); p = z.ilerleme ? (t < z.bas + z.sure ? Math.min(0.999, z.ilerleme(t - z.bas)) : 1) : z.sure ? (t - z.bas) / z.sure : -1; }
         altyaziCiz(d, p);
       }
     };
@@ -4325,6 +4385,7 @@
       self.indirUrl = URL.createObjectURL(d.blob); self.indirDosya = d;
       r.indirLink.setAttribute('href', self.indirUrl); r.indirLink.setAttribute('download', d.ad);
       r.indirLink.textContent = '⬇ İndir (' + d.tur + ', ' + boyutYazi(d.blob.size) + ')';
+      if (d.srt && r.indirSrt) { self.srtUrl = URL.createObjectURL(new Blob(['\ufeff' + d.srt], { type: 'application/x-subrip;charset=utf-8' })); r.indirSrt.setAttribute('href', self.srtUrl); r.indirSrt.setAttribute('download', d.ad.replace(/\.[a-z0-9]+$/i, '') + '.srt'); r.indirSrt.hidden = false; }
       r.indirSonuc.hidden = false;
       var dosya = null; try { dosya = new File([d.blob], d.ad, { type: d.blob.type }); } catch (e) {}
       var paylas = false; try { paylas = !!(dosya && navigator.share && navigator.canShare && navigator.canShare({ files: [dosya] })); } catch (e) {}
@@ -4382,6 +4443,7 @@
     return Promise.all([this.videoOlc(A, plan, klasikTahtada), this.kalemVerileri(A, sonuc)]).then(function (s0) {
       var o = s0[0]; KV = s0[1];
       O = o; Z = vZaman(O, sonuc, oran, { kalem: KV.map(function (v) { return v && KL ? KL.sinirlar(v) : null; }) });
+      altyaziHazirla(O, Z, sonuc, oran);
       return Promise.all([vKaynaklar(O), mod === 'video' ? Kayitlar.anahtarlar() : [], videoKodlayiciSec(P.G, P.Y, P.fps, P.bit), sesKodlayiciSec(oran)]);
     }).then(function (kk) {
       K = kk[0]; kd = [kk[2], kk[3]];
@@ -4439,7 +4501,7 @@
           bicim: P, yer: yer, fps: P.fps, tahta: cizT, stil: stil, klasikTahtada: klasikTahtada, gorunum: GR,
           yuzVar: !!(sb && sb.var) || (mod !== 'figur' && !!foto),
           yuz: function (t) { if (sb) return sb.kaynak(t, adimNo(t)); if (mod !== 'figur' && foto) return { im: foto, g: foto.width || foto.naturalWidth, y: foto.height || foto.naturalHeight, foto: true }; return null; },
-          altyazi: function (t) { var k = adimNo(t), z = Z.adimlar[k]; if (k < 0 || !z.sure || t > z.bas + z.sure + 0.15 || O.adimlar[k].gorsel) return null; return { metin: O.adimlar[k].s, p: Math.max(0, Math.min(1, (t - z.bas) / z.sure)) }; }
+          altyazi: function (t) { var k = adimNo(t), z = Z.adimlar[k]; if (k < 0 || !z.sure || t > z.bas + z.sure + 0.15 || O.adimlar[k].gorsel) return null; return { metin: z.alt || O.adimlar[k].s, p: z.ilerleme ? z.ilerleme(t - z.bas) : Math.max(0, Math.min(1, (t - z.bas) / z.sure)) }; }
         });
       }
       var cikti = ciz;
@@ -4459,7 +4521,7 @@
           durum('Ses ekleniyor…', 0.93);
           return vSesKodla(ses, oran, kd[1], function (o) { durum('Ses ekleniyor… %' + Math.round(o * 100), 0.93 + o * 0.05); }).then(function (s) {
             durum('Dosya birleştiriliyor…', 0.99);
-            return { blob: mp4Yap([videoIzi(v, P.G, P.Y), sesIzi(s, 2)], 'isom', 'video/mp4'), ad: ad + '.mp4', tur: 'MP4 video', sure: sure, not: gorNot };
+            return { blob: mp4Yap([videoIzi(v, P.G, P.Y), sesIzi(s, 2)], 'isom', 'video/mp4'), ad: ad + '.mp4', tur: 'MP4 video', sure: sure, not: gorNot, srt: srtYap(O, Z, GI) };
           });
         }, function (e) { bitir(); throw e; });
       }
@@ -4467,7 +4529,7 @@
       if (!mime || !canli || !tuval.captureStream) { bitir(); throw kHata('Bu tarayıcı video hazırlayamıyor. Safari ya da Chrome’un güncel sürümünü dene.'); }
       var webm = /webm/.test(mime);
       return vCanliKayit({ ctx: canli, tuval: tuval, ciz: cikti.kare, ses: ses, oran: oran, mime: mime, toplam: sure, fps: P.fps, bit: P.bit, ilerle: function (o, t) { durum('Video kaydediliyor… ' + saatYazi(t) + ' / ' + saatYazi(sure) + ' · ekranı açık tut', 0.32 + o * 0.67); } })
-        .then(function (blob) { bitir(); return { blob: blob, ad: ad + (webm ? '.webm' : '.mp4'), tur: webm ? 'WebM video' : 'MP4 video', sure: sure, not: [webm ? 'Bu tarayıcı MP4 kaydedemediği için video WebM biçiminde hazırlandı.' : '', gorNot].filter(Boolean).join(' ') }; }, function (e) { bitir(); throw e; });
+        .then(function (blob) { bitir(); return { blob: blob, ad: ad + (webm ? '.webm' : '.mp4'), tur: webm ? 'WebM video' : 'MP4 video', sure: sure, srt: srtYap(O, Z, GI), not: [webm ? 'Bu tarayıcı MP4 kaydedemediği için video WebM biçiminde hazırlandı.' : '', gorNot].filter(Boolean).join(' ') }; }, function (e) { bitir(); throw e; });
       });
     });
   };

@@ -438,19 +438,19 @@
           return x || kodlayiciBul(W, H, o.bpp).then(function (c) { return c ? { cfg: c, W: W, H: H, dog: false } : null; });
         }).then(function (x) {
           if (!x) throw new Error('H.264 kodlayıcısı yok');
-          return yakala(x.cfg, x.W, x.H, bas, son, o.ilerle, x.dog, o.kapsam || 0.8);
+          return yakala(x.cfg, x.W, x.H, bas, son, o.ilerle, x.dog, o.kapsam || 0.8, o.hiz || 2);
         });
       }).then(function (d2) {
         return Kaynak.uygunMu(d2.video).then(function (ok) { if (!ok) throw new Error('çevrilen kayıt çözülemiyor'); return d2; });
       });
     };
     // dog: kare oynatıcıdan doğrudan alınır; kapsamAlt: gösterilen karelerin en az bu kadarı yakalanmalı (az ise hız düşer)
-    var yakala = function (cfg, W, H, bas, son, ilerle, dog, kapsamAlt) {
+    var yakala = function (cfg, W, H, bas, son, ilerle, dog, kapsamAlt, hiz0) {
       return new Promise(function (ok, red) {
         var tv = null, c = null, tuvalKur = function () { if (!tv) { tv = document.createElement('canvas'); tv.width = W; tv.height = H; c = tv.getContext('2d'); } };
         if (!dog) tuvalKur();
         var parcalar = [], ornekler = [], ofs = 0, aciklama = null, hata = null, sonM = -1, sonAnahtar = -9, bitti = false;
-        var hiz = 2, pencere = [], kalite = null, dur = false, sonCb = performance.now(), takilma = 0, bekci = null, basAn = performance.now();
+        var hiz = hiz0, pencere = [], kalite = null, dur = false, sonCb = performance.now(), takilma = 0, bekci = null, basAn = performance.now();
         var sonPF = -1, yakalanan = 0, kacan = 0, pfVar = false, topYak = 0, topKac = 0; // oynatıcının gösterdiği karelerden kaçı yakalandı
         var enc = new VideoEncoder({
           output: function (ch, meta) {

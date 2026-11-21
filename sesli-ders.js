@@ -1536,6 +1536,7 @@
               '</div></div>' +
             '<div class="alan" data-r="indirPlatAlan" hidden><span class="etiket">Nerede paylaşacaksın?</span><div class="secim" data-r="indirPlatlar"></div><span class="etiket" style="margin-top:10px">Yerleşim</span><div class="secim" data-r="indirYerler"></div>' +
               '<span class="etiket" style="margin-top:10px" data-r="indirGorEtiket">Görünüm</span><div class="secim" data-r="indirArkalar"><button type="button" data-arka="yok">Olduğu gibi</button><button type="button" data-arka="bulanik">Arka plan bulanık</button><button type="button" data-arka="studyo">Stüdyo fonu</button></div>' +
+              '<span class="etiket" style="margin-top:10px" data-r="indirCerEtiket">Yüz çerçevesi</span><div class="secim" data-r="indirCerceveler"><button type="button" data-cerceve="yakin">Yakın</button><button type="button" data-cerceve="orta">Orta</button><button type="button" data-cerceve="genis">Geniş</button></div>' +
               '<label class="anahtar" data-r="indirIsikSatir" style="margin-top:4px"><input type="checkbox" data-r="indirIsik"> Stüdyo ışığı ve renk</label><p class="not" data-r="indirPlatNot"></p></div>' +
             '<label class="anahtar" data-r="indirAltyaziSatir" hidden><input type="checkbox" data-r="indirAltyazi" checked> Videoda altyazı olsun</label><div class="secim" data-r="indirAltStiller" hidden><button type="button" data-astil="buyuk">Büyük altyazı</button><button type="button" data-astil="klasik">Klasik şerit</button></div>' +
             '<div class="alan sunum-alan" data-r="sunumAlan" hidden><span class="etiket">Giriş ve marka</span>' +
@@ -1641,6 +1642,7 @@
     this.indirBicim = depo.al('indirBicim', 'mp3'); if (!/^(mp3|m4a|mp4)$/.test(this.indirBicim)) this.indirBicim = 'mp3';
     this.indirPlat = depo.al('indirPlat', 'reels'); this.indirYer = depo.al('indirYer', 'bolunmus'); this.indirAltStil = depo.al('indirAltStil', 'buyuk');
     this.indirArka = depo.al('indirArka', 'bulanik'); if (!/^(yok|bulanik|studyo)$/.test(this.indirArka)) this.indirArka = 'bulanik';
+    this.indirCerceve = depo.al('indirCerceve', 'orta'); if (!/^(yakin|orta|genis)$/.test(this.indirCerceve)) this.indirCerceve = 'orta';
     this.vidKaynak = 'ders'; this.ekranSes = 'tahta'; this.ekran = null; this.yuzVid = null;
     this.r.indirIsik.checked = depo.al('indirIsik', true) !== false;
     this.muzikTur = depo.al('fonMuzik', 'yok'); if (!/^(yok|sakin|enerjik|kendi)$/.test(this.muzikTur)) this.muzikTur = 'yok';
@@ -1725,6 +1727,7 @@
     });
     Kayitlar.al('muzik:kendi').then(function (v) { if (v && v.veri) { self.kendiMuzik = { ad: v.ad || 'müzik' }; if (!self.indiriliyor) self.indirCiz(); } });
     r.indirArkalar.addEventListener('click', function (e) { var b = e.target.closest('[data-arka]'); if (!b || self.indiriliyor) return; self.indirArka = b.getAttribute('data-arka'); depo.yaz('indirArka', self.indirArka); self.indirSifirla(); self.indirCiz(); });
+    r.indirCerceveler.addEventListener('click', function (e) { var b = e.target.closest('[data-cerceve]'); if (!b || self.indiriliyor) return; self.indirCerceve = b.getAttribute('data-cerceve'); depo.yaz('indirCerceve', self.indirCerceve); self.indirSifirla(); self.indirCiz(); });
     r.indirIsik.addEventListener('change', function () { depo.yaz('indirIsik', !!r.indirIsik.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
     r.indirAltStiller.addEventListener('click', function (e) { var b = e.target.closest('[data-astil]'); if (!b || self.indiriliyor) return; self.indirAltStil = b.getAttribute('data-astil'); depo.yaz('indirAltStil', self.indirAltStil); self.indirSifirla(); self.indirCiz(); });
     r.indirAltyazi.addEventListener('change', function () { depo.yaz('videoAltyazi', !!r.indirAltyazi.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
@@ -3484,7 +3487,7 @@
   };
   Oynatici.prototype.kapakImza = function () { // kapağı değiştiren ayarlar: biri değişince hazırlanmış kapak eskir
     var A = this.sunumAyar() || {};
-    return JSON.stringify([this.P.id, this.indirPlat, A.baslik, A.alt, A.kanal, A.motif, ayar.ogretmen, ayar.ikili, ayar.gorunum, this.indirArka, !!(this.r.indirIsik && this.r.indirIsik.checked)]);
+    return JSON.stringify([this.P.id, this.indirPlat, A.baslik, A.alt, A.kanal, A.motif, ayar.ogretmen, ayar.ikili, ayar.gorunum, this.indirArka, this.indirCerceve, !!(this.r.indirIsik && this.r.indirIsik.checked)]);
   };
   Oynatici.prototype.kapakSifirla = function () {
     var r = this.r;
@@ -3803,14 +3806,15 @@
         return function () {
           var goster = function (x, hiz) { durum(ad + ' hızlı okunacak biçime çevriliyor… %' + Math.round(x * 100) + (hiz ? ' (' + String(hiz).replace('.', ',') + ' kat hızda)' : '') + (n > 1 ? ' · ' + (bitenSay + 1) + '/' + n : ''), 0.01 + (bitenSay + x) / n * 0.1); };
           goster(0, 0);
-          return cv.cevir({ bas: a[0], son: a[1], enBuyuk: ayar0.enBuyuk, bpp: ayar0.bpp, dogrudan: ayar0.dogrudan, kapsam: ayar0.kapsam, ilerle: goster })
+          return cv.cevir({ bas: a[0], son: a[1], enBuyuk: ayar0.enBuyuk, bpp: ayar0.bpp, dogrudan: ayar0.dogrudan, kapsam: ayar0.kapsam, hiz: ayar0.hiz, ilerle: goster })
             .then(function (d2) { K.cev = { d: d2, bas: a[0], son: a[1] }; }, function (e) { if (window.console) console.warn(ad + ' çevrilemedi:', e); K.cevHata = window.SesliVideo.hataYazi(e); })
             .then(function () { cv.kapat(); bitenSay++; });
         };
       };
       // ekran kaydı: kare oynatıcıdan doğrudan (tuvalsiz) ve 2 kat hızda; sayfada az şey değiştiğinden karelerin yarısı yeter
       if (cevE) sira.push(is(cevE, E, aralikE, { enBuyuk: 2048, bpp: 0.06, dogrudan: true, kapsam: 0.5 }, 'Ekran kaydı'));
-      if (cevY) sira.push(is(cevY, Y, aralikY, { enBuyuk: 1280, bpp: 0.12, dogrudan: false, kapsam: 0.8 }, 'Yüz videosu'));
+      // yüz: kare zamanları tam olsun diye gösterilen karelerin %90'ı yakalanmalı (yetişemezse 1 kat hıza iner): yüz akıcı oynar
+      if (cevY) sira.push(is(cevY, Y, aralikY, { enBuyuk: 1280, bpp: 0.12, dogrudan: false, kapsam: 0.9, hiz: 1.5 }, 'Yüz videosu'));
       return sira.reduce(function (z, f) { return z.then(f); }, Promise.resolve()).then(function () { r.indirOnizleme.innerHTML = ''; });
     };
     var dE = function () { return kapsar(E, aralikE) ? E.cev.d : E.d; }, dY = function () { return Y && kapsar(Y, aralikY) ? Y.cev.d : Y ? Y.d : null; };
@@ -3846,7 +3850,7 @@
         if (yuzS) { var s0 = yuzS.kaynak(t); if (s0) return s0; }
         return foto ? { im: foto, g: foto.width || foto.naturalWidth, y: foto.height || foto.naturalHeight, foto: true } : null;
       };
-      var ciz = ST.kompozitor({ bicim: P, yer: yer, fps: P.fps, tahta: tahta, stil: 'yok', gorunum: GR, yuzVar: yuzVar, yuz: yuzAl, altyazi: function () { return null; } });
+      var ciz = ST.kompozitor({ bicim: P, yer: yer, fps: P.fps, tahta: tahta, stil: 'yok', gorunum: GR, yuzVar: yuzVar, yuz: yuzAl, cerceve: (ST.CERCEVE || {})[self.indirCerceve] || 1, altyazi: function () { return null; } });
       if (yer === 'kose' && yuzVar) { // köşede yuvarlak yüz: kompozitör çizmez, burada eklenir
         var ciz0 = ciz, kc = ciz0.tuval.getContext('2d');
         ciz = { tuval: ciz0.tuval, yerlesim: ciz0.yerlesim, kare: function (t) {
@@ -4019,6 +4023,8 @@
     var ekranM = this.ekranModu(), yuzlu = ekranM ? !!this.yuzVid || (ayar.ogretmen && !ayar.ikili && ayar.gorunum !== 'figur' && !!Foto.url) : ayar.ogretmen && !ayar.ikili && ayar.gorunum !== 'figur';
     r.indirGorEtiket.hidden = r.indirArkalar.hidden = r.indirIsikSatir.hidden = !yuzlu || !ST.gorunum;
     Array.prototype.forEach.call(r.indirArkalar.querySelectorAll('[data-arka]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-arka') === self.indirArka)); });
+    r.indirCerEtiket.hidden = r.indirCerceveler.hidden = !yuzlu || !ST.CERCEVE;
+    Array.prototype.forEach.call(r.indirCerceveler.querySelectorAll('[data-cerceve]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-cerceve') === self.indirCerceve)); });
     r.indirPlatNot.textContent = P.G + '×' + P.Y + ', saniyede ' + P.fps + ' kare. ' +
       (ekranM ? 'Görüntü kalemin yazdığı yere yaklaşır' + (yuzlu ? (this.indirYer === 'kose' ? '; yüzün köşede yuvarlak çerçevede görünür.' : '; yüzün ayrı bir alanda görünür.') : '.') :
         this.indirYer === 'kose' ? 'Yüzün tahtanın köşesinde yuvarlak çerçevede görünür.' : yuzlu ? 'Tahta yazılan yeri izleyerek yakınlaşır; yüzün ayrı bir alanda büyük görünür.' : 'Yüz videon ya da fotoğrafın yoksa tahta tek başına, yakın çekimle gösterilir.') +
@@ -5328,7 +5334,7 @@
       if (!hizli && ST) {
         var foto = K.foto || null;
         ciz = ST.kompozitor({
-          bicim: P, yer: yer, fps: P.fps, tahta: cizT, stil: stil, klasikTahtada: klasikTahtada, gorunum: GR,
+          bicim: P, yer: yer, fps: P.fps, tahta: cizT, stil: stil, klasikTahtada: klasikTahtada, gorunum: GR, cerceve: (ST.CERCEVE || {})[self.indirCerceve] || 1,
           yuzVar: !!(sb && sb.var) || (mod !== 'figur' && !!foto),
           yuz: function (t) { if (sb) return sb.kaynak(t, adimNo(t)); if (mod !== 'figur' && foto) return { im: foto, g: foto.width || foto.naturalWidth, y: foto.height || foto.naturalHeight, foto: true }; return null; },
           altyazi: function (t) { var k = adimNo(t), z = Z.adimlar[k]; if (k < 0 || !z.sure || t > z.bas + z.sure + 0.15 || O.adimlar[k].gorsel) return null; return { metin: z.alt || O.adimlar[k].s, p: z.ilerleme ? z.ilerleme(t - z.bas) : Math.max(0, Math.min(1, (t - z.bas) / z.sure)) }; }

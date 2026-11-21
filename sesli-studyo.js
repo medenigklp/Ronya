@@ -229,7 +229,7 @@
   S.yuzSaglayici = function (o) {
     var Z = o.Z, oturum = {}, sozler = {};
     var tut = document.createElement('canvas'), tutC = tut.getContext('2d'), tutDolu = false;
-    var adim = function (t) { var k = -1; for (var i = 0; i < Z.length; i++) { if (Z[i].bas <= t) k = i; else break; } return Math.max(0, k); };
+    var adim = function (t) { var k = -1; for (var i = 0; i < Z.length; i++) { if ((Z[i].gor != null ? Z[i].gor : Z[i].bas) <= t) k = i; else break; } return Math.max(0, k); };
     var anda = function (kk, t) { // kalemle kaydedilmiş adımda sessiz çizilen anlar da (öncesi, sonrası) videodan gelir
       var z = Z[kk], x = o.sonuc[kk] && o.sonuc[kk].ana, kb = x && x.kirpBas || 0;
       if (z.kalemli) return Math.max(0, Math.min(t, z.bas + z.sure + (z.ek || 0)) - z.bas + kb);
@@ -248,11 +248,16 @@
     };
     var birak = function (sinir) { Object.keys(oturum).forEach(function (k) { if (+k < sinir) { if (oturum[k]) oturum[k].kapat(); delete oturum[k]; } }); };
     var boyut = function (im) { return im.displayWidth ? [im.displayWidth, im.displayHeight] : im.videoWidth ? [im.videoWidth, im.videoHeight] : [im.naturalWidth || im.width, im.naturalHeight || im.height]; };
-    var sakla = function (im) { // son kare kalıcı bir tuvale kopyalanır: VideoFrame'ler hemen bırakılabilir, aralarda o görünür
-      var b = boyut(im), k = Math.min(1, 1280 / Math.max(b[0], b[1]));
-      var w = Math.max(2, Math.round(b[0] * k)), h = Math.max(2, Math.round(b[1] * k));
-      if (tut.width !== w || tut.height !== h) { tut.width = w; tut.height = h; }
-      try { tutC.drawImage(im, 0, 0, w, h); tutDolu = true; } catch (e) {}
+    var sakla = function (im, donus) { // son kare kalıcı bir tuvale kopyalanır: VideoFrame'ler hemen bırakılabilir, aralarda o görünür
+      var b = boyut(im), k = Math.min(1, 1280 / Math.max(b[0], b[1])), yan = donus === 90 || donus === 270; // donus: kayıttaki döndürme bilgisi
+      var w = Math.max(2, Math.round(b[0] * k)), h = Math.max(2, Math.round(b[1] * k)), W = yan ? h : w, H = yan ? w : h;
+      if (tut.width !== W || tut.height !== H) { tut.width = W; tut.height = H; }
+      try {
+        tutC.setTransform(1, 0, 0, 1, 0, 0);
+        if (donus) { tutC.translate(W / 2, H / 2); tutC.rotate(donus * Math.PI / 180); tutC.drawImage(im, -w / 2, -h / 2, w, h); tutC.setTransform(1, 0, 0, 1, 0, 0); }
+        else tutC.drawImage(im, 0, 0, w, h);
+        tutDolu = true;
+      } catch (e) {}
     };
     return {
       var: o.var.some(Boolean),
@@ -274,7 +279,7 @@
         if (o.var[kk]) {
           var s = oturum[kk];
           if (s === undefined) ac(kk);
-          else if (s) { var f = s.kare(anda(kk, t) + s.fark); if (f) { sakla(f); return { im: tut, g: tut.width, y: tut.height, konus: konus, canli: true }; } }
+          else if (s) { var f = s.kare(anda(kk, t) + s.fark); if (f) { sakla(f, (s.m && s.m.donus) || 0); return { im: tut, g: tut.width, y: tut.height, konus: konus, canli: true }; } }
         }
         if (o.foto) { var b = boyut(o.foto); return { im: o.foto, g: b[0], y: b[1], konus: konus, foto: true }; }
         if (tutDolu) return { im: tut, g: tut.width, y: tut.height, konus: konus };
@@ -382,9 +387,140 @@
     };
   };
 
+  /* ================= stüdyo görünümü: ışık, renk, arka plan =================
+     Arka planı ayırmak için kişi maskesi gerekir: MediaPipe'ın selfie modeli (ilk kullanımda indirilir).
+     Maske alınamazsa yalnız ışık ve renk düzenlenir. */
+  var MP_SURUMLER = ['0.10.14', '0.10.21', '0.10.18']; // biri açılmazsa ötekisi
+  var MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+  var ayiriciSoz = null;
+  function dinamikYukle(u) { return (new Function('u', 'return import(u)'))(u); }
+  S.ayiriciYukle = function () { // { maske(tuval) → { veri: Float32Array (0–1), g, y } | null }
+    if (window.SesliStudyoTestAyirici) return Promise.resolve(window.SesliStudyoTestAyirici);
+    if (ayiriciSoz) return ayiriciSoz;
+    var kok = '';
+    ayiriciSoz = MP_SURUMLER.reduce(function (zincir, sr) {
+      return zincir.catch(function () { kok = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + sr; return dinamikYukle(kok + '/vision_bundle.mjs'); });
+    }, Promise.reject(new Error('başla'))).then(function (m) {
+      return m.FilesetResolver.forVisionTasks(kok + '/wasm').then(function (fs) {
+        var ac = function (d) { return m.ImageSegmenter.createFromOptions(fs, { baseOptions: { modelAssetPath: MP_MODEL, delegate: d }, runningMode: 'VIDEO', outputCategoryMask: false, outputConfidenceMasks: true }); };
+        return ac('GPU').catch(function () { return ac('CPU'); });
+      });
+    }).then(function (seg) {
+      var ts = 0;
+      return {
+        maske: function (kaynak) {
+          var out = null;
+          ts = Math.max(ts + 1, Math.round(performance.now()));
+          seg.segmentForVideo(kaynak, ts, function (r) {
+            var L = r && r.confidenceMasks; if (!L || !L.length) return;
+            var mk = L[L.length - 1]; // tek kanal: kişi; iki kanal: [arka plan, kişi]
+            out = { veri: mk.getAsFloat32Array().slice(0), g: mk.width, y: mk.height };
+          });
+          return out;
+        }
+      };
+    });
+    ayiriciSoz.catch(function () { ayiriciSoz = null; });
+    return ayiriciSoz;
+  };
+  // o: { isik: bool, arka: 'yok' | 'bulanik' | 'studyo', ayirici }
+  // isle(...) → yüz alanının (G×Y) ışığı, rengi ve arka planı düzenlenmiş tuvali (her karede aynı tuval kullanılır)
+  S.gorunum = function (o) {
+    var T = {}, fonlar = {}, gecmis = null;
+    var tv = function (ad, g, y) { var c = T[ad] || (T[ad] = document.createElement('canvas')); if (c.width !== g) c.width = g; if (c.height !== y) c.height = y; return c; };
+    var studyoFonu = function (G, Y) { // koyu stüdyo zemini: arkada sıcak bir spot, yanda soğuk ışık, yumuşak ışık lekeleri
+      var k = G + 'x' + Y; if (fonlar[k]) return fonlar[k];
+      var c = document.createElement('canvas'); c.width = G; c.height = Y;
+      var x = c.getContext('2d'), M = Math.max(G, Y), g = x.createLinearGradient(0, 0, 0, Y);
+      g.addColorStop(0, '#2A3442'); g.addColorStop(0.6, '#161C25'); g.addColorStop(1, '#0D1117'); x.fillStyle = g; x.fillRect(0, 0, G, Y);
+      var s = x.createRadialGradient(G * 0.5, Y * 0.36, 0, G * 0.5, Y * 0.36, M * 0.56);
+      s.addColorStop(0, 'rgba(255,170,110,.32)'); s.addColorStop(0.5, 'rgba(255,140,80,.10)'); s.addColorStop(1, 'rgba(255,140,80,0)'); x.fillStyle = s; x.fillRect(0, 0, G, Y);
+      var m = x.createRadialGradient(G * 0.04, Y * 0.24, 0, G * 0.04, Y * 0.24, M * 0.5);
+      m.addColorStop(0, 'rgba(90,150,255,.18)'); m.addColorStop(1, 'rgba(90,150,255,0)'); x.fillStyle = m; x.fillRect(0, 0, G, Y);
+      [[0.16, 0.2, 0.07, 'rgba(255,200,150,.11)'], [0.84, 0.16, 0.05, 'rgba(160,200,255,.11)'], [0.9, 0.56, 0.08, 'rgba(255,180,120,.07)'], [0.1, 0.64, 0.06, 'rgba(140,190,255,.07)'], [0.7, 0.07, 0.035, 'rgba(255,230,200,.13)']].forEach(function (b) {
+        var r = M * b[2], bx = G * b[0], by = Y * b[1], gg = x.createRadialGradient(bx, by, 0, bx, by, r);
+        gg.addColorStop(0, b[3]); gg.addColorStop(0.72, b[3]); gg.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gg; x.beginPath(); x.arc(bx, by, r, 0, Math.PI * 2); x.fill();
+      });
+      return (fonlar[k] = c);
+    };
+    var maskeYap = function (kare, G, Y) { // kişi maskesi: yumuşak kenarlı, kareler arasında titremesin diye ortalanır
+      var oc = 256 / Math.max(G, Y), gw = Math.max(16, Math.round(G * oc)), gh = Math.max(16, Math.round(Y * oc));
+      var gc = tv('giris', gw, gh); gc.getContext('2d').drawImage(kare, 0, 0, gw, gh);
+      var m = null; try { m = o.ayirici.maske(gc); } catch (e) { m = null; }
+      if (!m || !m.veri || !m.g || !m.y || m.veri.length < m.g * m.y) return null;
+      var v = m.veri, W = m.g, H = m.y, n = W * H, i, x, y, orta = 0, ks = 0, kose = 0, ss = 0;
+      for (y = Math.floor(H * 0.3); y < H * 0.7; y += 2) for (x = Math.floor(W * 0.35); x < W * 0.65; x += 2) { orta += v[y * W + x]; ks++; }
+      for (y = 0; y < H * 0.15; y += 2) for (x = 0; x < W * 0.15; x += 2) { kose += v[y * W + x] + v[y * W + (W - 1 - x)]; ss += 2; }
+      var ters = ks && ss && kose / ss > orta / ks + 0.1; // modelin çıktısı arka plan olasılığıysa çevrilir
+      var yeni = !gecmis || gecmis.length !== n;
+      if (yeni) gecmis = new Float32Array(n);
+      var mc = tv('maske', W, H), mx = mc.getContext('2d'), id = mx.createImageData(W, H), d = id.data;
+      for (i = 0; i < n; i++) {
+        var a = ters ? 1 - v[i] : v[i];
+        a = gecmis[i] = yeni ? a : gecmis[i] * 0.35 + a * 0.65;
+        var s = (a - 0.3) / 0.42; s = s <= 0 ? 0 : s >= 1 ? 1 : s * s * (3 - 2 * s);
+        d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255; d[i * 4 + 3] = Math.round(s * 255);
+      }
+      mx.putImageData(id, 0, 0);
+      return mc;
+    };
+    var isikVer = function (c, G, Y) { // ana ışık yüzde, sıcak ton, hafif kontrast ve kenarlarda vinyet
+      var x = c.getContext('2d'), cx = G * 0.5, cy = Y * 0.4, M = Math.max(G, Y);
+      x.save();
+      var g = x.createRadialGradient(cx, cy, 0, cx, cy, M * 0.62);
+      g.addColorStop(0, 'rgba(255,248,240,.32)'); g.addColorStop(0.55, 'rgba(255,248,240,.1)'); g.addColorStop(1, 'rgba(255,248,240,0)');
+      x.globalCompositeOperation = 'soft-light'; x.fillStyle = g; x.fillRect(0, 0, G, Y);
+      x.fillStyle = 'rgba(255,170,110,.12)'; x.fillRect(0, 0, G, Y);
+      x.globalCompositeOperation = 'overlay'; x.globalAlpha = 0.12; x.drawImage(c, 0, 0); x.globalAlpha = 1;
+      x.globalCompositeOperation = 'multiply';
+      var v = x.createRadialGradient(cx, Y * 0.45, Math.min(G, Y) * 0.34, cx, Y * 0.45, M * 0.8);
+      v.addColorStop(0, 'rgb(255,255,255)'); v.addColorStop(1, 'rgb(168,168,176)'); x.fillStyle = v; x.fillRect(0, 0, G, Y);
+      x.restore();
+    };
+    return {
+      isle: function (im, sg, sy, G, Y, ax, ay, t, olcek) {
+        G = Math.max(2, Math.round(G)); Y = Math.max(2, Math.round(Y));
+        var kare = tv('kare', G, Y), kx = kare.getContext('2d'), rs = G / Y, w, h;
+        if (sg / sy > rs) { h = sy; w = h * rs; } else { w = sg; h = w / rs; }
+        if (olcek && olcek > 1) { w /= olcek; h /= olcek; }
+        kx.globalCompositeOperation = 'source-over'; kx.globalAlpha = 1;
+        try { kx.drawImage(im, (sg - w) * (ax == null ? 0.5 : ax), (sy - h) * (ay == null ? 0.5 : ay), w, h, 0, 0, G, Y); } catch (e) {}
+        var cik = kare;
+        if (o.ayirici && o.arka && o.arka !== 'yok') {
+          var mk = maskeYap(kare, G, Y);
+          if (mk) {
+            var son = tv('son', G, Y), sx = son.getContext('2d');
+            sx.globalCompositeOperation = 'source-over'; sx.globalAlpha = 1; sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = 'high';
+            if (o.arka === 'studyo') sx.drawImage(studyoFonu(G, Y), 0, 0);
+            else { // bulanık: küçültüp büyütmek pahalı objektiflerdeki alan derinliği gibi yumuşatır
+              var b1 = tv('b1', Math.max(8, Math.round(G / 6)), Math.max(8, Math.round(Y / 6))), b2 = tv('b2', Math.max(4, Math.round(G / 18)), Math.max(4, Math.round(Y / 18)));
+              var b1x = b1.getContext('2d'), b2x = b2.getContext('2d');
+              b1x.imageSmoothingQuality = b2x.imageSmoothingQuality = 'high';
+              b1x.drawImage(kare, 0, 0, b1.width, b1.height); b2x.drawImage(b1, 0, 0, b2.width, b2.height); b1x.drawImage(b2, 0, 0, b1.width, b1.height);
+              sx.drawImage(b1, 0, 0, G, Y); sx.fillStyle = 'rgba(12,14,20,.24)'; sx.fillRect(0, 0, G, Y);
+            }
+            var pr = tv('parla', Math.max(8, Math.round(G / 8)), Math.max(8, Math.round(Y / 8))), px = pr.getContext('2d'); // arkadan ışık: kenarlarda sıcak parıltı
+            px.globalCompositeOperation = 'source-over'; px.clearRect(0, 0, pr.width, pr.height); px.drawImage(mk, 0, 0, pr.width, pr.height);
+            px.globalCompositeOperation = 'source-in'; px.fillStyle = o.arka === 'studyo' ? '#FFC48C' : '#FFDCB4'; px.fillRect(0, 0, pr.width, pr.height);
+            sx.save(); sx.globalCompositeOperation = 'screen'; sx.globalAlpha = o.arka === 'studyo' ? 0.6 : 0.3; sx.drawImage(pr, G * 0.012, -Y * 0.012, G, Y); sx.restore();
+            var ki = tv('kisi', G, Y), kix = ki.getContext('2d');
+            kix.globalCompositeOperation = 'source-over'; kix.clearRect(0, 0, G, Y); kix.drawImage(kare, 0, 0);
+            kix.globalCompositeOperation = 'destination-in'; kix.imageSmoothingEnabled = true; kix.imageSmoothingQuality = 'high'; kix.drawImage(mk, 0, 0, G, Y);
+            kix.globalCompositeOperation = 'source-over';
+            sx.drawImage(ki, 0, 0);
+            cik = son;
+          }
+        }
+        if (o.isik) isikVer(cik, G, Y);
+        return cik;
+      }
+    };
+  };
+
   /* ================= kompozitör ================= */
   // o: { bicim, yer, tahta: { tuval, kare(t), kalem() → [x, y] tahta tuvali pikselinde, sil() → true ise sayfa siliniyor },
-  //      yuz: function (t) → { im, g, y } | null, yuzVar, altyazi: function (t) → { metin, p } | null, stil: 'buyuk' | 'klasik' | 'yok', fps }
+  //      yuz: function (t) → { im, g, y } | null, yuzVar, altyazi: function (t) → { metin, p } | null, stil: 'buyuk' | 'klasik' | 'yok', fps,
+  //      gorunum: S.gorunum(...) (yüzün ışığı ve arka planı) }
   S.kompozitor = function (o) {
     var G = o.bicim.G, Y = o.bicim.Y, tuval = document.createElement('canvas'); tuval.width = G; tuval.height = Y;
     var c = tuval.getContext('2d'), L = S.yerlesim(o.yer, G, Y, o.yuzVar), alt = S.altyaziCizici(c, o.stil), kam = null, dt = 1 / (o.fps || 30);
@@ -424,7 +560,8 @@
       if (R.r) { yuvarlak(c, R.x, R.y, R.g, R.h, R.r); c.clip(); } else { c.beginPath(); c.rect(R.x, R.y, R.g, R.h); c.clip(); }
       if (s) {
         var kb = s.foto ? 1 + 0.06 * ((t * 0.02) % 1) : 1; // fotoğrafta yavaş yakınlaşma
-        kapla(c, s.im, s.g, s.y, R, 0.5, R.ay, kb);
+        if (o.gorunum) { var gp = o.gorunum.isle(s.im, s.g, s.y, R.g, R.h, 0.5, R.ay, t, kb); try { c.drawImage(gp, R.x, R.y, R.g, R.h); } catch (e) {} }
+        else kapla(c, s.im, s.g, s.y, R, 0.5, R.ay, kb);
       } else { c.fillStyle = '#20242C'; c.fillRect(R.x, R.y, R.g, R.h); }
       if (R.solma) { var gr = c.createLinearGradient(0, R.y, 0, R.y + R.h * 0.18); gr.addColorStop(0, 'rgba(14,16,21,1)'); gr.addColorStop(1, 'rgba(14,16,21,0)'); c.fillStyle = gr; c.fillRect(R.x, R.y, R.g, R.h * 0.18); }
       c.restore();

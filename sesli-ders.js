@@ -3590,14 +3590,26 @@
   };
   /* ---- ekran kaydından video (GoodNotes): tahta ekran kaydından, yüz aynı anda çekilmiş videodan ---- */
   Oynatici.prototype.ekranModu = function () { return (this.indirBicim || 'mp3') === 'mp4' && this.vidKaynak === 'ekran' && !!window.SesliVideo && !!window.SesliStudyo; };
-  function dosyaSesi(d, ctx) { // içe alınan videonun sesi: AAC örnekleri M4A'ya sarılıp çözülür → { veri: tek kanal, oran, bas: ilk örneğin zamanı }
-    if (!d.ses || !d.ses.asc) return Promise.resolve(null);
-    return window.SesliVideo.sesOrnekleri(d).then(function (o) {
-      return blobTampon(mp4Yap([sesIzi({ ornekler: o, asc: d.ses.asc, kanal: d.ses.kanal, oran: d.ses.oran, bit: 128000, opus: false }, 1)], 'M4A ', 'audio/mp4'));
-    }).then(function (buf) { return sesCoz(ctx, buf); }).then(function (ab) {
-      var n = ab.length, k = ab.numberOfChannels, v = new Float32Array(n);
-      for (var c = 0; c < k; c++) { var dd = ab.getChannelData(c); for (var i = 0; i < n; i++) v[i] += dd[i] / k; }
-      return { veri: v, oran: ab.sampleRate, bas: d.ses.kayma || 0 };
+  function tekKanal(ab) { var n = ab.length, k = ab.numberOfChannels, v = new Float32Array(n); for (var c = 0; c < k; c++) { var dd = ab.getChannelData(c); for (var i = 0; i < n; i++) v[i] += dd[i] / k; } return v; }
+  function dosyaSesi(d, ctx) { // içe alınan videonun sesi → { veri: tek kanal, oran, bas: ilk örneğin zamanı }
+    // AAC izleri M4A'ya sarılıp çözülür; birden çok iz varsa (ekran kaydında uygulama sesi ve mikrofon) karıştırılır
+    var izler = (d.sesler && d.sesler.length ? d.sesler : d.ses ? [d.ses] : []).filter(function (s) { return s && s.asc; });
+    if (!izler.length) { // dosya ayrıştırılamadıysa tamamı çözülür (ekran kayıtları genelde küçüktür)
+      if (!d.dosya || d.dosya.size > 400 * 1048576) return Promise.resolve(null);
+      return blobTampon(d.dosya).then(function (buf) { return sesCoz(ctx, buf); }).then(function (ab) { return { veri: tekKanal(ab), oran: ab.sampleRate, bas: 0 }; }, function () { return null; });
+    }
+    return Promise.all(izler.map(function (s) {
+      return window.SesliVideo.sesOrnekleri(d, s).then(function (o) {
+        return blobTampon(mp4Yap([sesIzi({ ornekler: o, asc: s.asc, kanal: s.kanal, oran: s.oran, bit: 128000, opus: false }, 1)], 'M4A ', 'audio/mp4'));
+      }).then(function (buf) { return sesCoz(ctx, buf); }).then(function (ab) { return { veri: tekKanal(ab), oran: ab.sampleRate, bas: s.kayma || 0 }; }, function (e) { if (window.console) console.warn('Ses izi çözülemedi:', e); return null; });
+    })).then(function (l) {
+      l = l.filter(Boolean); if (!l.length) return null; if (l.length === 1) return l[0];
+      var oran = l[0].oran, bas = Math.min.apply(null, l.map(function (x) { return x.bas; })), son = 0;
+      l = l.filter(function (x) { return x.oran === oran; });
+      l.forEach(function (x) { son = Math.max(son, x.bas - bas + x.veri.length / oran); });
+      var v = new Float32Array(Math.ceil(son * oran));
+      l.forEach(function (x) { var o = Math.round((x.bas - bas) * oran); for (var i = 0; i < x.veri.length && o + i < v.length; i++) v[o + i] += x.veri[i]; });
+      return { veri: v, oran: oran, bas: bas };
     });
   }
   function sesDilimi(s, bas, sure, oran) { // [bas, bas + sure) aralığının sesi; kaydın dışında kalan yerler sessiz
@@ -3611,10 +3623,11 @@
     var self = this, r = this.r, SV = window.SesliVideo, ctx = cozucuYap(), d = null;
     this.ekran = null; this.indirSifirla(); r.ekranAyar.hidden = true; this.indirCiz();
     r.ekranBilgi.textContent = 'Kayıt okunuyor…';
-    SV.dosyaAc(f).then(function (m) { d = m; return SV.Kaynak.uygunMu(d.video); }).then(function (uygun) {
-      if (!uygun) throw kHata(SV.Kaynak.destek() ? 'Bu kaydın biçimi bu tarayıcıda çözülemiyor. iPad’de Safari’yle dene.' : 'Bu tarayıcı videoyu çözemiyor. Safari’nin ya da Chrome’un güncel sürümünü dene.');
+    SV.ac(f).then(function (m) {
+      d = m;
+      if (d.neden && window.console) console.warn('Ekran kaydı cihazın oynatıcısıyla okunuyor:', d.neden);
       r.ekranBilgi.textContent = 'Ses ayrılıyor…';
-      return Promise.all([SV.kare(d, Math.max(0, Math.min(d.sure - 0.3, d.sure * 0.8)), 960), ctx ? dosyaSesi(d, ctx).catch(function (e) { if (window.console) console.warn('Ekran kaydının sesi:', e); return null; }) : null]);
+      return Promise.all([d.onizleme, ctx ? dosyaSesi(d, ctx).catch(function (e) { if (window.console) console.warn('Ekran kaydının sesi:', e); return null; }) : null]);
     }).then(function (x) {
       var ses = x[1], kon = ses ? window.SesliVideo.konusma(ses.veri, ses.oran) : null;
       var bas = kon ? Math.max(0, kon.bas - 0.6) : 0, son = kon ? Math.min(d.sure, kon.son + 1) : d.sure;
@@ -3626,7 +3639,7 @@
       if (self.yuzVid) self.yuzVidEsitle();
       self.indirCiz();
     }).catch(function (e) {
-      r.ekranBilgi.textContent = e && e.kullanici ? e.message : 'Kayıt okunamadı. Fotoğraflar’daki ekran kaydını olduğu gibi seç.';
+      r.ekranBilgi.textContent = e && e.kullanici ? e.message : 'Kayıt okunamadı. Ayrıntı: ' + SV.hataYazi(e);
       if (window.console) console.warn('Ekran kaydı:', e);
     });
   };
@@ -3634,8 +3647,9 @@
     var self = this, r = this.r, SV = window.SesliVideo, ctx = cozucuYap(), d = null;
     this.yuzVid = null; this.indirSifirla(); this.indirCiz();
     r.yuzVidBilgi.textContent = 'Video okunuyor…';
-    SV.dosyaAc(f).then(function (m) { d = m; return SV.Kaynak.uygunMu(d.video); }).then(function (uygun) {
-      if (!uygun) throw kHata('Bu videonun biçimi bu tarayıcıda çözülemiyor.');
+    SV.ac(f).then(function (m) {
+      d = m;
+      if (d.neden && window.console) console.warn('Yüz videosu cihazın oynatıcısıyla okunuyor:', d.neden);
       r.yuzVidBilgi.textContent = 'Ses ayrılıyor…';
       return ctx ? dosyaSesi(d, ctx).catch(function () { return null; }) : null;
     }).then(function (ses) {
@@ -3643,7 +3657,7 @@
       if (ses) self.ekranSes = 'yuz';
       self.yuzVidEsitle(); self.indirCiz();
     }).catch(function (e) {
-      r.yuzVidBilgi.textContent = e && e.kullanici ? e.message : 'Video okunamadı.';
+      r.yuzVidBilgi.textContent = e && e.kullanici ? e.message : 'Video okunamadı. Ayrıntı: ' + SV.hataYazi(e);
       if (window.console) console.warn('Yüz videosu:', e);
     });
   };
@@ -3683,6 +3697,7 @@
     r.indirHazirla.disabled = !!this.indiriliyor || !E;
     var fotoVar = ayar.ogretmen && !ayar.ikili && ayar.gorunum !== 'figur' && !!Foto.url;
     r.ekranNot.textContent = E ? 'Videoya giren kısım: ' + sureYazi(E.son - E.bas) + '.' + (Y ? '' : fotoVar ? ' Yüz videosu yoksa fotoğrafın görünür.' : ' Yüz videosu yoksa yalnız ekran kaydı görünür.') +
+      (E.d.oge || (Y && Y.d.oge) ? ' Bu kayıt cihazın oynatıcısıyla işlenecek; hazırlaması biraz uzun sürer.' : '') +
       (this.indirPlat === 'reels' && E.son - E.bas > 180 ? ' Reels için 3 dakikayı geçmemesi iyi olur.' : '') : '';
     if (!E) r.indirHazirla.textContent = 'Videoyu hazırla';
   };

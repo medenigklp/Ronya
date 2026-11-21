@@ -445,6 +445,7 @@
       });
     };
     // dog: kare oynatıcıdan doğrudan alınır; kapsamAlt: gösterilen karelerin en az bu kadarı yakalanmalı (az ise hız düşer)
+    var durdur = null; // sürmekte olan çevirmeyi keser (kullanıcı Vazgeç'e bastı)
     var yakala = function (cfg, W, H, bas, son, ilerle, dog, kapsamAlt, hiz0) {
       return new Promise(function (ok, red) {
         var tv = null, c = null, tuvalKur = function () { if (!tv) { tv = document.createElement('canvas'); tv.width = W; tv.height = H; c = tv.getContext('2d'); } };
@@ -462,7 +463,7 @@
         });
         try { enc.configure(cfg); } catch (e) { red(e); return; }
         var bitir = function (e) {
-          if (bitti) return; bitti = true; calis = false; clearInterval(bekci); try { v.pause(); } catch (x) {}
+          if (bitti) return; bitti = true; calis = false; durdur = null; clearInterval(bekci); try { v.pause(); } catch (x) {}
           if (e) { try { enc.close(); } catch (x) {} red(e); return; }
           zamanla(enc.flush(), 8000).then(function () {
             try { enc.close(); } catch (x) {}
@@ -524,7 +525,7 @@
             sonCb = performance.now(); var p1 = v.play(); if (p1 && p1.catch) p1.catch(function () {});
           }
         }, 60);
-        calis = true;
+        calis = true; durdur = function () { bitir(new Error('iptal')); };
         git(bas).then(function () {
           if (bitti) return;
           try { v.playbackRate = hiz; } catch (e) {}
@@ -534,7 +535,7 @@
         });
       });
     };
-    return { video: v, cevir: cevir, kapat: kapat };
+    return { video: v, cevir: cevir, kapat: kapat, iptal: function () { if (durdur) durdur(); } };
   };
 
   /* ================= ses: AAC örnekleri ================= */

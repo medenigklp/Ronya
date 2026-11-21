@@ -3794,17 +3794,24 @@
         if (yuzC) cevY = SV.cevirici(Y.d, yer1());
       }
     }
+    // Kayıtlar sırayla çevrilir: iPhone'da ikisi aynı anda çevrilirken biri eski yavaş yola düşmüş, öteki bozuk çıkmış görünüyordu.
+    // Yüz videosu 1280 pikselde ama daha yüksek bit hızıyla: telefonda kare almak ucuzlar, yüz akıcı ve temiz kalır.
     var cevirme = function () {
       if (!cevE && !cevY) return Promise.resolve();
-      var p = [cevE ? 0 : 1, cevY ? 0 : 1], n = (cevE ? 1 : 0) + (cevY ? 1 : 0);
-      var goster = function () { var o = (p[0] + p[1] - (2 - n)) / n; durum('Kayıt hızlı okunacak biçime çevriliyor… %' + Math.round(o * 100), 0.01 + o * 0.1); };
-      goster();
-      var is = function (cv, K, a, enBuyuk, i, ad) {
-        return cv.cevir({ bas: a[0], son: a[1], enBuyuk: enBuyuk, ilerle: function (x) { p[i] = x; goster(); } })
-          .then(function (d2) { K.cev = { d: d2, bas: a[0], son: a[1] }; }, function (e) { if (window.console) console.warn(ad + ' çevrilemedi; atlayarak okunacak:', e); K.cevHata = window.SesliVideo.hataYazi(e); })
-          .then(function () { cv.kapat(); });
+      var sira = [], n = (cevE ? 1 : 0) + (cevY ? 1 : 0), bitenSay = 0;
+      var is = function (cv, K, a, ayar0, ad) {
+        return function () {
+          var goster = function (x, hiz) { durum(ad + ' hızlı okunacak biçime çevriliyor… %' + Math.round(x * 100) + (hiz ? ' (' + String(hiz).replace('.', ',') + ' kat hızda)' : '') + (n > 1 ? ' · ' + (bitenSay + 1) + '/' + n : ''), 0.01 + (bitenSay + x) / n * 0.1); };
+          goster(0, 0);
+          return cv.cevir({ bas: a[0], son: a[1], enBuyuk: ayar0.enBuyuk, bpp: ayar0.bpp, dogrudan: ayar0.dogrudan, kapsam: ayar0.kapsam, ilerle: goster })
+            .then(function (d2) { K.cev = { d: d2, bas: a[0], son: a[1] }; }, function (e) { if (window.console) console.warn(ad + ' çevrilemedi:', e); K.cevHata = window.SesliVideo.hataYazi(e); })
+            .then(function () { cv.kapat(); bitenSay++; });
+        };
       };
-      return Promise.all([cevE ? is(cevE, E, aralikE, 2048, 0, 'Ekran kaydı') : null, cevY ? is(cevY, Y, aralikY, 1920, 1, 'Yüz videosu') : null]).then(function () { r.indirOnizleme.innerHTML = ''; });
+      // ekran kaydı: kare oynatıcıdan doğrudan (tuvalsiz) ve 2 kat hızda; sayfada az şey değiştiğinden karelerin yarısı yeter
+      if (cevE) sira.push(is(cevE, E, aralikE, { enBuyuk: 2048, bpp: 0.06, dogrudan: true, kapsam: 0.5 }, 'Ekran kaydı'));
+      if (cevY) sira.push(is(cevY, Y, aralikY, { enBuyuk: 1280, bpp: 0.12, dogrudan: false, kapsam: 0.8 }, 'Yüz videosu'));
+      return sira.reduce(function (z, f) { return z.then(f); }, Promise.resolve()).then(function () { r.indirOnizleme.innerHTML = ''; });
     };
     var dE = function () { return kapsar(E, aralikE) ? E.cev.d : E.d; }, dY = function () { return Y && kapsar(Y, aralikY) ? Y.cev.d : Y ? Y.d : null; };
     var ib = cevE || cevY ? 0.11 : 0.01;
@@ -3874,11 +3881,13 @@
         var tt = Math.max(0, Math.min(T, ti)), a = tahta.hazirla(tt), b = yuzS ? yuzS.hazirla(tt) : null;
         return a && b ? Promise.all([a, b]) : a || b;
       };
-      var cizBas = 0;
-      return vVideoKodla(kd[0], kareSay, cikti.kare, tuval, function (o) {
+      var cizBas = 0, yolKisa = function (K, d) { return d.cevrildi ? 'çevrildi' : d.oge ? 'oynatıcı' + (K.cevHata ? ', çevrilemedi' : '') : 'hızlı'; };
+      return vVideoKodla(kd[0], kareSay, cikti.kare, tuval, function (o, ol, ks) {
         var an = performance.now(); if (!cizBas) cizBas = an;
         var gecen = (an - cizBas) / 1000, kalan = o > 0.02 && gecen > 6 ? gecen * (1 - o) / o : 0;
-        durum('Video çiziliyor… %' + Math.round(o * 100) + (kalan >= 5 ? ' · yaklaşık ' + kalanYazi(kalan) + ' kaldı' : ''), 0.25 + o * 0.68);
+        // yavaşlarsa hangi adımın yavaşladığı ekran görüntüsünden okunabilsin diye kısa döküm
+        var dokum = ol && ks > 30 ? ' · kare ' + Math.round((ol.bekle + ol.ciz + ol.kare + ol.kodla) / ks) + ' ms (bekleme ' + Math.round(ol.bekle / ks) + ', çizim ' + Math.round(ol.ciz / ks) + ', alma ' + Math.round(ol.kare / ks) + ', kodlama ' + Math.round(ol.kodla / ks) + ') · ekran: ' + yolKisa(E, dE()) + (Y ? ', yüz: ' + yolKisa(Y, dY()) : '') : '';
+        durum('Video çiziliyor… %' + Math.round(o * 100) + (kalan >= 5 ? ' · yaklaşık ' + kalanYazi(kalan) + ' kaldı' : '') + dokum, 0.25 + o * 0.68);
       }, hazirla, P.fps).then(function (v) {
         var okunamadi = [[tahta, 'Ekran kaydı'], [yuzS, 'Yüz videosu']].map(function (x) {
           var s0 = x[0] && x[0].durum ? x[0].durum() : null;
@@ -3888,7 +3897,10 @@
         durum('Ses ekleniyor…', 0.94);
         return vSesKodla(ses, oran, kd[1], function (o) { durum('Ses ekleniyor… %' + Math.round(o * 100), 0.94 + o * 0.05); }).then(function (s) {
           durum('Dosya birleştiriliyor…', 0.995);
-          var ol = v.olcum, ks = Math.max(1, kareSay), yol = function (K, d) { return (d.cevrildi ? 'çevrilerek' : d.oge ? 'oynatıcı' : 'hızlı yol') + (K.cevHata && !d.cevrildi ? ' (çevrilemedi: ' + K.cevHata + ')' : ''); };
+          var ol = v.olcum, ks = Math.max(1, kareSay), yol = function (K, d) {
+            var c = d.cevirme; // çevirme: süresi, son hızı, gösterilen karelerin ne kadarı yakalandı
+            return (d.cevrildi ? 'çevrilerek' + (c ? ' [' + Math.round(c.sn) + ' sn, ' + String(c.hiz).replace('.', ',') + ' kat, %' + Math.round(c.kapsam * 100) + ', ' + c.g + '×' + c.y + (c.dog ? ', doğrudan' : '') + ']' : '') : d.oge ? 'oynatıcı' : 'hızlı yol') + (K.cevHata && !d.cevrildi ? ' (çevrilemedi: ' + K.cevHata + ')' : '');
+          };
           var teknik = 'Hazırlama ' + sureYazi((performance.now() - basAn) / 1000) + ' sürdü (kare başına ' + Math.round(ol.sure / ks) + ' ms: bekleme ' + Math.round(ol.bekle / ks) + ', çizim ' + Math.round(ol.ciz / ks) +
             ', kare alma ' + Math.round(ol.kare / ks) + ', kodlama ' + Math.round(ol.kodla / ks) + ' · ekran kaydı: ' + yol(E, dE()) + (Y ? ', yüz videosu: ' + yol(Y, dY()) : '') + (ol.atla ? ' · ' + ol.atla + ' kez takıldı' : '') + ').';
           return { blob: mp4Yap([videoIzi(v, P.G, P.Y), sesIzi(s, 2)], 'isom', 'video/mp4'), ad: 'video-' + slugla(SA ? SA.baslik : 'ekran-kaydi') + '.mp4', tur: 'MP4 video', sure: sure,
@@ -4956,7 +4968,7 @@
             olc.ciz += t2 - t1; olc.kare += t3 - t2; olc.kodla += performance.now() - t3;
           }
         } catch (e) { red(e); return; }
-        ilerle(i / kareSay);
+        ilerle(i / kareSay, olc, i);
         if (i < kareSay) {
           if (enc.encodeQueueSize >= 6) { // kodlayıcı kare almıyorsa sonsuz döngü yerine hata
             if (!doluAn) doluAn = performance.now();

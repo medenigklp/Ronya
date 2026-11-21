@@ -383,17 +383,15 @@
   // Bunun yerine video sessizce, iki kat hızda oynatılır; her kare cihazın kodlayıcısıyla H.264'e çevrilir.
   // Sonra Kaynak bu çevrilmiş kaydı sırayla ve hızlıca çözer. Olmazsa (ör. oynatma izni yoksa) eski yola dönülür.
   function bayt(x) { return x instanceof ArrayBuffer ? new Uint8Array(x.slice(0)) : new Uint8Array(x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength)); }
-  function kodlayiciBul(W, H) { // çevirme için H.264 kodlayıcısı: önce gecikmesiz (gerçek zamanlı) kip
-    var l = ['avc1.640033', 'avc1.64002a', 'avc1.640028', 'avc1.4d0033', 'avc1.4d0028', 'avc1.42e033', 'avc1.42e01f'], bit = Math.round(Math.min(10e6, Math.max(1.5e6, W * H * 30 * 0.06)));
-    var ara = function (gz) {
-      var i = 0, dene = function () {
-        if (i >= l.length) return null;
-        var c = { codec: l[i++], width: W, height: H, bitrate: bit, framerate: 30, avc: { format: 'avc' } }; if (gz) c.latencyMode = 'realtime';
-        return VideoEncoder.isConfigSupported(c).then(function (s) { return s && s.supported ? c : dene(); }, dene);
-      };
-      return dene();
+  // çevirme için H.264 kodlayıcısı. Gerçek zamanlı kip kullanılmaz: iPhone'da yüz görüntüsünü kare kare bozuyordu.
+  function kodlayiciBul(W, H, bpp) {
+    var l = ['avc1.640033', 'avc1.64002a', 'avc1.640028', 'avc1.4d0033', 'avc1.4d0028', 'avc1.42e033', 'avc1.42e01f'], bit = Math.round(Math.min(12e6, Math.max(2e6, W * H * 30 * (bpp || 0.08)))), i = 0;
+    var dene = function () {
+      if (i >= l.length) return null;
+      var c = { codec: l[i++], width: W, height: H, bitrate: bit, framerate: 30, avc: { format: 'avc' } };
+      return VideoEncoder.isConfigSupported(c).then(function (s) { return s && s.supported ? c : dene(); }, dene);
     };
-    return ara(true).then(function (c) { return c || ara(false); });
+    return Promise.resolve().then(dene);
   }
   S.hevcMi = function (d) { return !!(d && d.video && /^(hvc1|hev1)/.test(d.video.kod || '')); };
   S.cevirebilir = function () { return !!(window.VideoEncoder && window.VideoFrame && window.VideoDecoder && window.HTMLVideoElement && HTMLVideoElement.prototype.requestVideoFrameCallback); };
@@ -429,19 +427,31 @@
       return hazir().then(function () {
         var g0 = v.videoWidth, y0 = v.videoHeight; if (!g0 || !y0) throw new Error('videonun boyutu okunamadı');
         var k = Math.min(1, (o.enBuyuk || 1920) / Math.max(g0, y0)), W = Math.max(2, Math.round(g0 * k / 2) * 2), H = Math.max(2, Math.round(y0 * k / 2) * 2);
-        return kodlayiciBul(W, H).then(function (cfg) {
-          if (!cfg) throw new Error('H.264 kodlayıcısı yok');
-          return yakala(cfg, W, H, bas, son, o.ilerle);
+        // doğrudan kip: kare tuvale çizilmeden oynatıcıdan alınır (telefonda tuvalden kare almak pahalı). Yalnız döndürülmemiş,
+        // çift boyutlu kayıtta (ekran kaydı) ve oynatıcının karesi görüntüyle aynı boydaysa; olmazsa tuval kipi.
+        var dog = false;
+        if (o.dogrudan && g0 % 2 === 0 && y0 % 2 === 0) {
+          try { var f0 = new VideoFrame(v, { timestamp: 0 }); dog = f0.displayWidth === g0 && f0.displayHeight === y0; f0.close(); } catch (e) { dog = false; }
+        }
+        var ilk = dog ? kodlayiciBul(g0, y0, o.bpp).then(function (c) { return c ? { cfg: c, W: g0, H: y0, dog: true } : null; }) : Promise.resolve(null);
+        return ilk.then(function (x) {
+          return x || kodlayiciBul(W, H, o.bpp).then(function (c) { return c ? { cfg: c, W: W, H: H, dog: false } : null; });
+        }).then(function (x) {
+          if (!x) throw new Error('H.264 kodlayıcısı yok');
+          return yakala(x.cfg, x.W, x.H, bas, son, o.ilerle, x.dog, o.kapsam || 0.8);
         });
       }).then(function (d2) {
         return Kaynak.uygunMu(d2.video).then(function (ok) { if (!ok) throw new Error('çevrilen kayıt çözülemiyor'); return d2; });
       });
     };
-    var yakala = function (cfg, W, H, bas, son, ilerle) {
+    // dog: kare oynatıcıdan doğrudan alınır; kapsamAlt: gösterilen karelerin en az bu kadarı yakalanmalı (az ise hız düşer)
+    var yakala = function (cfg, W, H, bas, son, ilerle, dog, kapsamAlt) {
       return new Promise(function (ok, red) {
-        var tv = document.createElement('canvas'); tv.width = W; tv.height = H;
-        var c = tv.getContext('2d'), parcalar = [], ornekler = [], ofs = 0, aciklama = null, hata = null, sonM = -1, sonAnahtar = -9, bitti = false;
-        var hiz = 2, pencere = [], kalite = null, dur = false, sonCb = performance.now(), takilma = 0, bekci = null;
+        var tv = null, c = null, tuvalKur = function () { if (!tv) { tv = document.createElement('canvas'); tv.width = W; tv.height = H; c = tv.getContext('2d'); } };
+        if (!dog) tuvalKur();
+        var parcalar = [], ornekler = [], ofs = 0, aciklama = null, hata = null, sonM = -1, sonAnahtar = -9, bitti = false;
+        var hiz = 2, pencere = [], kalite = null, dur = false, sonCb = performance.now(), takilma = 0, bekci = null, basAn = performance.now();
+        var sonPF = -1, yakalanan = 0, kacan = 0, pfVar = false, topYak = 0, topKac = 0; // oynatıcının gösterdiği karelerden kaçı yakalandı
         var enc = new VideoEncoder({
           output: function (ch, meta) {
             if (meta && meta.decoderConfig && meta.decoderConfig.description && !aciklama) aciklama = bayt(meta.decoderConfig.description);
@@ -462,6 +472,7 @@
             var h2 = function (x) { return ('0' + x.toString(16)).slice(-2); }, son0 = ornekler[ornekler.length - 1];
             son0.sure = Math.round(1e6 / 30);
             ok({ dosya: new Blob(parcalar, { type: 'video/mp4' }), cevrildi: true, yol: 'kod', neden: d.neden, ses: d.ses, sesler: d.sesler, sure: d.sure, aralik: [bas, son],
+              cevirme: { hiz: hiz, kare: ornekler.length, kapsam: topYak + topKac ? topYak / (topYak + topKac) : 1, sn: (performance.now() - basAn) / 1000, g: W, y: H, dog: dog },
               video: { tur: 'avc1', kod: 'avc1.' + h2(aciklama[1]) + h2(aciklama[2]) + h2(aciklama[3]), aciklama: aciklama, g: W, y: H, olcek: 1e6, donus: 0, kayma: 0, ornekler: ornekler, sure: d.sure, fps: 30 } });
           }).catch(red);
         };
@@ -470,23 +481,33 @@
           sonCb = performance.now();
           var mt = md && md.mediaTime != null ? md.mediaTime : v.currentTime;
           if (mt >= son + 0.04) { bitir(); return; }
+          if (md && md.presentedFrames != null) { // arada gösterilip yakalanamayan kareler (ana iş parçacığı yetişemedi)
+            pfVar = true; if (sonPF >= 0 && mt >= bas - 0.04 && !dur) kacan += Math.max(0, md.presentedFrames - sonPF - 1); sonPF = md.presentedFrames;
+          }
           if (mt > sonM + 0.004 && mt >= bas - 0.04) {
             try {
-              c.drawImage(v, 0, 0, W, H);
-              var f = new VideoFrame(tv, { timestamp: Math.round(mt * 1e6) }), an = mt - sonAnahtar >= 1; if (an) sonAnahtar = mt;
+              var f = null, ts = Math.round(mt * 1e6), an = mt - sonAnahtar >= 1;
+              if (dog) { try { f = new VideoFrame(v, { timestamp: ts }); } catch (e1) { dog = false; f = null; } } // olmazsa tuvale geçilir (aynı boy)
+              if (!f) { tuvalKur(); c.drawImage(v, 0, 0, W, H); f = new VideoFrame(tv, { timestamp: ts }); }
+              if (an) sonAnahtar = mt;
               enc.encode(f, { keyFrame: an }); f.close();
             } catch (e) { bitir(e); return; }
             sonM = mt;
-            if (ilerle) ilerle(Math.min(1, Math.max(0, (mt - bas) / Math.max(0.1, son - bas))));
+            if (ilerle) ilerle(Math.min(1, Math.max(0, (mt - bas) / Math.max(0.1, son - bas))), hiz);
+            yakalanan++; topYak++;
             pencere.push(mt); if (pencere.length > 40) pencere.shift();
             if (pencere.length >= 24 && hiz > 1) {
-              // medya zamanında saniyede 22'den az kare yakalanıyor ve oynatıcı kare atlıyorsa yavaşlatılır
-              // (ekran kaydında sayfa durgunken zaten az kare vardır; o durumda kare atlanmaz, hız düşmez)
-              var sk = (pencere.length - 1) / Math.max(0.001, pencere[pencere.length - 1] - pencere[0]), q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
-              var atl = q ? q.droppedVideoFrames - (kalite ? kalite[0] : 0) : 0, top = q ? q.totalVideoFrames - (kalite ? kalite[1] : 0) : 0;
-              if (q) kalite = [q.droppedVideoFrames, q.totalVideoFrames];
-              if (sk < 22 && (!q || (top > 0 && atl / top > 0.15))) { hiz = Math.max(1, hiz - 0.5); try { v.playbackRate = hiz; } catch (e) {} }
-              pencere = [];
+              var yavas = false;
+              if (pfVar) { // gösterilen karelerin beşte birinden fazlası kaçıyorsa yavaşlatılır (sayfa durgunken az kare gösterilir; o zaman kaçan da olmaz)
+                yavas = kacan > (1 - kapsamAlt) * (yakalanan + kacan);
+              } else { // eski tarayıcı: medya zamanında saniyede 22'den az kare yakalanıyor ve oynatıcı kare atlıyorsa
+                var sk = (pencere.length - 1) / Math.max(0.001, pencere[pencere.length - 1] - pencere[0]), q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+                var atl = q ? q.droppedVideoFrames - (kalite ? kalite[0] : 0) : 0, top = q ? q.totalVideoFrames - (kalite ? kalite[1] : 0) : 0;
+                if (q) kalite = [q.droppedVideoFrames, q.totalVideoFrames];
+                yavas = sk < 22 && (!q || (top > 0 && atl / top > 0.15));
+              }
+              if (yavas) { hiz = Math.max(1, hiz - 0.5); try { v.playbackRate = hiz; } catch (e) {} }
+              topKac += kacan; pencere = []; yakalanan = 0; kacan = 0;
             }
             if (enc.encodeQueueSize > 8 && !dur) { dur = true; try { v.pause(); } catch (e) {} } // kodlayıcı geride: oynatma bekler
           }

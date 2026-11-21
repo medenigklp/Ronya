@@ -468,16 +468,27 @@
       mx.putImageData(id, 0, 0);
       return mc;
     };
-    var isikVer = function (c, G, Y) { // ana ışık yüzde, sıcak ton, hafif kontrast ve kenarlarda vinyet
-      var x = c.getContext('2d'), cx = G * 0.5, cy = Y * 0.4, M = Math.max(G, Y);
+    // ana ışık yüzde, sıcak ton ve kenarlarda vinyet. Katmanlar boyuta göre bir kez çizilir; her karede yalnız iki çizim
+    // ('lighter' ve 'source-over'): soft-light/multiply gibi karışımlar telefonda pahalı olabilir.
+    var isikKat = {};
+    var isikVer = function (c, G, Y) {
+      var k = G + 'x' + Y, L = isikKat[k];
+      if (!L) {
+        var M = Math.max(G, Y), cx = G * 0.5, cy = Y * 0.4;
+        var a = document.createElement('canvas'); a.width = G; a.height = Y; var ax = a.getContext('2d');
+        var g = ax.createRadialGradient(cx, cy, 0, cx, cy, M * 0.62);
+        g.addColorStop(0, 'rgba(255,236,214,.045)'); g.addColorStop(0.55, 'rgba(255,236,214,.015)'); g.addColorStop(1, 'rgba(255,236,214,0)');
+        ax.fillStyle = g; ax.fillRect(0, 0, G, Y);
+        var b = document.createElement('canvas'); b.width = G; b.height = Y; var bx = b.getContext('2d');
+        bx.fillStyle = 'rgba(255,170,110,.05)'; bx.fillRect(0, 0, G, Y);
+        var v = bx.createRadialGradient(cx, Y * 0.45, Math.min(G, Y) * 0.34, cx, Y * 0.45, M * 0.8);
+        v.addColorStop(0, 'rgba(12,12,20,0)'); v.addColorStop(1, 'rgba(12,12,20,.34)'); bx.fillStyle = v; bx.fillRect(0, 0, G, Y);
+        L = isikKat[k] = [a, b];
+      }
+      var x = c.getContext('2d');
       x.save();
-      var g = x.createRadialGradient(cx, cy, 0, cx, cy, M * 0.62);
-      g.addColorStop(0, 'rgba(255,248,240,.32)'); g.addColorStop(0.55, 'rgba(255,248,240,.1)'); g.addColorStop(1, 'rgba(255,248,240,0)');
-      x.globalCompositeOperation = 'soft-light'; x.fillStyle = g; x.fillRect(0, 0, G, Y);
-      x.fillStyle = 'rgba(255,170,110,.12)'; x.fillRect(0, 0, G, Y);
-      x.globalCompositeOperation = 'multiply';
-      var v = x.createRadialGradient(cx, Y * 0.45, Math.min(G, Y) * 0.34, cx, Y * 0.45, M * 0.8);
-      v.addColorStop(0, 'rgb(255,255,255)'); v.addColorStop(1, 'rgb(168,168,176)'); x.fillStyle = v; x.fillRect(0, 0, G, Y);
+      x.globalCompositeOperation = 'lighter'; x.drawImage(L[0], 0, 0);
+      x.globalCompositeOperation = 'source-over'; x.drawImage(L[1], 0, 0);
       x.restore();
     };
     return {
@@ -508,7 +519,7 @@
             var pr = tv('parla', Math.max(8, Math.round(G / 8)), Math.max(8, Math.round(Y / 8))), px = pr.getContext('2d'); // arkadan ışık: kenarlarda sıcak parıltı
             px.globalCompositeOperation = 'source-over'; px.clearRect(0, 0, pr.width, pr.height); px.drawImage(mk, 0, 0, pr.width, pr.height);
             px.globalCompositeOperation = 'source-in'; px.fillStyle = o.arka === 'studyo' ? '#FFC48C' : '#FFDCB4'; px.fillRect(0, 0, pr.width, pr.height);
-            sx.save(); sx.globalCompositeOperation = 'screen'; sx.globalAlpha = o.arka === 'studyo' ? 0.6 : 0.3; sx.drawImage(pr, G * 0.012, -Y * 0.012, G, Y); sx.restore();
+            sx.save(); sx.globalCompositeOperation = 'lighter'; sx.globalAlpha = o.arka === 'studyo' ? 0.45 : 0.22; sx.drawImage(pr, G * 0.012, -Y * 0.012, G, Y); sx.restore();
             var ki = tv('kisi', G, Y), kix = ki.getContext('2d');
             kix.globalCompositeOperation = 'source-over'; kix.clearRect(0, 0, G, Y); kix.drawImage(kare, 0, 0);
             kix.globalCompositeOperation = 'destination-in'; kix.imageSmoothingEnabled = true; kix.imageSmoothingQuality = 'high'; kix.drawImage(mk, 0, 0, G, Y);

@@ -3613,10 +3613,13 @@
       return { veri: v, oran: oran, bas: bas };
     });
   }
-  function oynaticiNotu(E, Y) { // hızlı yolla çözülemeyen kayıt: hangisi, neden (ekran görüntüsüyle sorulabilsin diye kısa ayrıntı)
+  function cevrilsin(d) { // önce hızlı okunacak biçime çevrilecek kayıt: cihazın oynatıcısıyla okunan ya da iPhone'un HEVC videosu
+    var SV = window.SesliVideo; return !!(d && SV && SV.cevirebilir && SV.cevirebilir() && (d.oge || SV.hevcMi(d)));
+  }
+  function oynaticiNotu(E, Y) { // hızlı yolla çözülemeyen ya da çevrilecek kayıt: hangisi, neden (ekran görüntüsüyle sorulabilsin diye kısa ayrıntı)
     var l = [], neden = [];
-    if (E && E.d.oge) { l.push('ekran kaydı'); if (E.d.neden) neden.push(E.d.neden); }
-    if (Y && Y.d.oge) { l.push('yüz videosu'); if (Y.d.neden) neden.push(Y.d.neden); }
+    if (E && (E.d.oge || cevrilsin(E.d))) { l.push('ekran kaydı'); if (E.d.neden) neden.push(E.d.neden); }
+    if (Y && (Y.d.oge || cevrilsin(Y.d) || (E && cevrilsin(E.d)))) { l.push('yüz videosu'); if (Y.d.neden) neden.push(Y.d.neden); }
     if (!l.length) return '';
     var m = l.join(' ve '), SV = window.SesliVideo, cev = !!(SV && SV.cevirebilir && SV.cevirebilir()); m = m.charAt(0).toLocaleUpperCase('tr') + m.slice(1);
     return ' ' + m + (cev ? ' önce hızlı okunacak biçime çevrilecek (kaydın süresinin yaklaşık yarısı kadar sürer).' : ' cihazın oynatıcısıyla işlenecek; hazırlaması daha uzun sürer.') +
@@ -3780,13 +3783,15 @@
     var kapsar = function (K, a) { return !!(K && K.cev && K.cev.bas <= a[0] + 0.01 && K.cev.son >= a[1] - 0.01); };
     var cevE = null, cevY = null;
     if (SV.cevirebilir && SV.cevirebilir()) {
-      var gerek = (E.d.oge && !kapsar(E, aralikE) ? 1 : 0) + (Y && Y.d.oge && aralikY[1] > aralikY[0] && !kapsar(Y, aralikY) ? 1 : 0);
+      // ekran kaydı çevrilecekse yüz videosu da çevrilir: ikisi aynı anda çevrildiğinden ek süre tutmaz, çizerken iki hafif H.264 çözülür
+      var yuzC = !!(Y && (cevrilsin(Y.d) || cevrilsin(E.d)) && aralikY[1] > aralikY[0] && !kapsar(Y, aralikY));
+      var gerek = (cevrilsin(E.d) && !kapsar(E, aralikE) ? 1 : 0) + (yuzC ? 1 : 0);
       if (gerek) {
         r.indirOnizleme.innerHTML = ''; r.indirOnizleme.hidden = false;
         var izg = document.createElement('div'); izg.style.cssText = 'display:flex;gap:8px;height:' + (gerek > 1 ? 150 : 190) + 'px'; r.indirOnizleme.appendChild(izg);
         var yer1 = function () { var k = document.createElement('div'); k.style.cssText = 'flex:1;min-width:0;height:100%'; izg.appendChild(k); return k; };
-        if (E.d.oge && !kapsar(E, aralikE)) cevE = SV.cevirici(E.d, yer1());
-        if (Y && Y.d.oge && aralikY[1] > aralikY[0] && !kapsar(Y, aralikY)) cevY = SV.cevirici(Y.d, yer1());
+        if (cevrilsin(E.d) && !kapsar(E, aralikE)) cevE = SV.cevirici(E.d, yer1());
+        if (yuzC) cevY = SV.cevirici(Y.d, yer1());
       }
     }
     var cevirme = function () {
@@ -3799,7 +3804,7 @@
           .then(function (d2) { K.cev = { d: d2, bas: a[0], son: a[1] }; }, function (e) { if (window.console) console.warn(ad + ' çevrilemedi; atlayarak okunacak:', e); K.cevHata = window.SesliVideo.hataYazi(e); })
           .then(function () { cv.kapat(); });
       };
-      return Promise.all([cevE ? is(cevE, E, aralikE, 2048, 0, 'Ekran kaydı') : null, cevY ? is(cevY, Y, aralikY, 1280, 1, 'Yüz videosu') : null]).then(function () { r.indirOnizleme.innerHTML = ''; });
+      return Promise.all([cevE ? is(cevE, E, aralikE, 2048, 0, 'Ekran kaydı') : null, cevY ? is(cevY, Y, aralikY, 1920, 1, 'Yüz videosu') : null]).then(function () { r.indirOnizleme.innerHTML = ''; });
     };
     var dE = function () { return kapsar(E, aralikE) ? E.cev.d : E.d; }, dY = function () { return Y && kapsar(Y, aralikY) ? Y.cev.d : Y ? Y.d : null; };
     var ib = cevE || cevY ? 0.11 : 0.01;
@@ -3875,15 +3880,19 @@
         var gecen = (an - cizBas) / 1000, kalan = o > 0.02 && gecen > 6 ? gecen * (1 - o) / o : 0;
         durum('Video çiziliyor… %' + Math.round(o * 100) + (kalan >= 5 ? ' · yaklaşık ' + kalanYazi(kalan) + ' kaldı' : ''), 0.25 + o * 0.68);
       }, hazirla, P.fps).then(function (v) {
+        var okunamadi = [[tahta, 'Ekran kaydı'], [yuzS, 'Yüz videosu']].map(function (x) {
+          var s0 = x[0] && x[0].durum ? x[0].durum() : null;
+          return s0 ? x[1] + ' ' + sureYazi(Math.max(0, s0.t)) + ' civarından sonra okunamadı (' + s0.neden + '); oradan sonra son karesi görünüyor.' : '';
+        }).filter(Boolean).join(' ');
         bitir();
         durum('Ses ekleniyor…', 0.94);
         return vSesKodla(ses, oran, kd[1], function (o) { durum('Ses ekleniyor… %' + Math.round(o * 100), 0.94 + o * 0.05); }).then(function (s) {
           durum('Dosya birleştiriliyor…', 0.995);
-          var ol = v.olcum, ks = Math.max(1, kareSay), yol = function (K, d) { return d.cevrildi ? 'çevrilerek' : d.oge ? 'oynatıcı' + (K.cevHata ? ' (çevrilemedi: ' + K.cevHata + ')' : '') : 'hızlı yol'; };
+          var ol = v.olcum, ks = Math.max(1, kareSay), yol = function (K, d) { return (d.cevrildi ? 'çevrilerek' : d.oge ? 'oynatıcı' : 'hızlı yol') + (K.cevHata && !d.cevrildi ? ' (çevrilemedi: ' + K.cevHata + ')' : ''); };
           var teknik = 'Hazırlama ' + sureYazi((performance.now() - basAn) / 1000) + ' sürdü (kare başına ' + Math.round(ol.sure / ks) + ' ms: bekleme ' + Math.round(ol.bekle / ks) + ', çizim ' + Math.round(ol.ciz / ks) +
-            ', kodlama ' + Math.round(ol.kodla / ks) + ' · ekran kaydı: ' + yol(E, dE()) + (Y ? ', yüz videosu: ' + yol(Y, dY()) : '') + (ol.atla ? ' · ' + ol.atla + ' kez takıldı' : '') + ').';
+            ', kare alma ' + Math.round(ol.kare / ks) + ', kodlama ' + Math.round(ol.kodla / ks) + ' · ekran kaydı: ' + yol(E, dE()) + (Y ? ', yüz videosu: ' + yol(Y, dY()) : '') + (ol.atla ? ' · ' + ol.atla + ' kez takıldı' : '') + ').';
           return { blob: mp4Yap([videoIzi(v, P.G, P.Y), sesIzi(s, 2)], 'isom', 'video/mp4'), ad: 'video-' + slugla(SA ? SA.baslik : 'ekran-kaydi') + '.mp4', tur: 'MP4 video', sure: sure,
-            not: [gorNot, sesK.ses && !sesK.sessiz ? '' : 'Kayıtta ses olmadığı için konuşma duyulmuyor.', s.sorun, teknik].filter(Boolean).join(' '), zamanlar: { giris: GI, adim: [GI] } };
+            not: [gorNot, sesK.ses && !sesK.sessiz ? '' : 'Kayıtta ses olmadığı için konuşma duyulmuyor.', s.sorun, okunamadi, teknik].filter(Boolean).join(' '), zamanlar: { giris: GI, adim: [GI] } };
         });
       });
     }).then(function (d) {
@@ -4913,7 +4922,7 @@
     fps = fps || VID_FPS;
     return new Promise(function (ok, red) {
       var ornekler = [], tanim = null, hata = null, ANAHTAR = fps * 2, i = 0, sabir = 15000, zorla = false, beklemeYok = false, doluAn = 0;
-      var olc = { bekle: 0, ciz: 0, kodla: 0, atla: 0, bas: performance.now(), sure: 0 };
+      var olc = { bekle: 0, ciz: 0, kare: 0, kodla: 0, atla: 0, bas: performance.now(), sure: 0 };
       var enc = new VideoEncoder({
         output: function (ch, meta) { var v = new Uint8Array(ch.byteLength); ch.copyTo(v); if (meta && meta.decoderConfig && meta.decoderConfig.description && !tanim) tanim = vBayt(meta.decoderConfig.description); ornekler.push({ veri: v, zaman: ch.timestamp, anahtar: ch.type === 'key' }); },
         error: function (e) { hata = e || new Error('görüntü kodlanamadı'); }
@@ -4941,9 +4950,10 @@
             var t1 = performance.now();
             ciz(i / fps);
             var t2 = performance.now();
-            var kare = new VideoFrame(tuval, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+            var kare = new VideoFrame(tuval, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) }); // tuvalin çizimi burada tamamlanıp alınır
+            var t3 = performance.now();
             enc.encode(kare, { keyFrame: i % ANAHTAR === 0 }); kare.close(); i++;
-            olc.ciz += t2 - t1; olc.kodla += performance.now() - t2;
+            olc.ciz += t2 - t1; olc.kare += t3 - t2; olc.kodla += performance.now() - t3;
           }
         } catch (e) { red(e); return; }
         ilerle(i / kareSay);

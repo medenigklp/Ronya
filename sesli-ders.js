@@ -1038,7 +1038,7 @@
         mr.onstart = function () { t0 = performance.now(); };
         mr.start(250);
         return {
-          t0: function () { return t0; },
+          t0: function () { return t0; }, akis: akis,
           durdur: function () {
             return new Promise(function (res) {
               mr.onstop = function () {
@@ -1394,6 +1394,12 @@
     '.kst-kayit{background:#E5322D;border-color:#E5322D;min-width:120px;justify-content:center}',
     '.kst-b.kayitta{background:#fff;color:#C21F1A;border-color:#fff}',
     '.kst-sure{font-variant-numeric:tabular-nums;font-size:14px;color:#C9D1DB;min-width:44px}',
+    '.kst-seviye{width:70px;height:8px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden;flex:none}.kst-seviye i{display:block;height:100%;width:0;background:#3DDC84;border-radius:4px}',
+    '.kst-seviye.yuksek i{background:#FF5A4F}.kst-seviye.dusuk i{background:#C9D1DB}',
+    '.kst-sayac{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:rgba(15,18,22,.4);color:#fff;font-size:clamp(72px,16vw,190px);font-weight:800;text-shadow:0 6px 28px rgba(0,0,0,.45);pointer-events:none}',
+    '.kst-sayac span{display:grid;place-items:center;width:1.5em;height:1.5em;border-radius:50%;background:rgba(229,50,45,.94);box-shadow:0 0 0 .12em rgba(255,255,255,.85);font-size:.7em;animation:sayac .6s ease-out both}@keyframes sayac{from{transform:scale(1.5);opacity:0}to{transform:scale(1);opacity:1}}',
+    '.kst-isik{flex:none;max-width:200px;font-size:12px;font-weight:700;line-height:1.3;color:#1E1A17;background:#FFD27A;border-radius:10px;padding:5px 8px}',
+    '@media (max-width:640px){.kst-isik{display:none!important}}',
     '.kst-bilgi{flex-basis:100%;display:flex;gap:12px;align-items:center;font-size:12.5px;color:#9AA4B2;min-height:18px}',
     '.kst-baglanti{border:0;background:none;color:#FFB385;font-size:12.5px;font-weight:700;padding:0;text-decoration:underline}',
     '@media (max-width:640px){.kst-arac,.kst-b.kare,.kst-d{width:40px;height:40px}.kst-b{height:40px;font-size:14px;padding:0 12px}.kst-kayit{min-width:104px}}',
@@ -1545,7 +1551,7 @@
           '<div class="studyo-kamera"><div class="kamera-kutu" data-r="kameraKutu" hidden><video data-r="kameraVideo" playsinline muted autoplay></video><canvas data-r="kameraDinle" width="384" height="384" hidden></canvas><video class="tekrar" data-r="kameraTekrar" muted playsinline hidden></video></div>' +
             '<div class="kamera-yazi"><label class="anahtar"><input type="checkbox" data-r="kameraAc"> 📷 Kamerayı aç: yüzün de kaydedilsin</label><p class="not">Ön kamera açılır. Böyle kaydettiğin cümlelerde dersin köşesinde senin yüzün görünür (Köşedeki öğretmen: Videom).</p></div></div>' +
           '<div class="kalem-tanit" data-r="kstTanit"><div class="satir"><button type="button" class="dugme" data-r="kstAcDugme">✏️ Tahtada kalemle kaydet</button><button type="button" class="dugme ikincil" data-r="belgeDugme">📄 PDF ya da resim aç</button><input type="file" accept="application/pdf,image/*" multiple data-r="belgeSec" hidden></div>' +
-            '<p class="not">iPad’de Apple Pencil ile tahtaya yaz, işaretle, lazerle göster. Kalem, sesin ve yüzünle aynı anda kaydedilir; indirdiğin videoda da aynen görünür. <b>PDF ya da resim aç</b>: GoodNotes’tan PDF olarak paylaştığın sayfalar ya da çektiğin soru fotoğrafı tahtaya gelir, her sayfa ayrı anlatılır.</p>' +
+            '<p class="not">iPad’de Apple Pencil ile tahtaya yaz, işaretle, lazerle göster. Kalem, sesin ve yüzünle aynı anda kaydedilir; indirdiğin videoda da aynen görünür. Kalemsiz kayıt için de en rahat ekran: büyük yazı, 3-2-1 geri sayım, <b>eller serbest</b> kayıt. <b>PDF ya da resim aç</b>: GoodNotes’tan PDF olarak paylaştığın sayfalar ya da çektiğin soru fotoğrafı tahtaya gelir, her sayfa ayrı anlatılır.</p>' +
             '<p class="uyari" data-r="belgeNot" hidden></p><ul class="belge-liste" data-r="belgeListe"></ul></div>' +
           '<div class="satir" style="margin-bottom:10px"><button type="button" class="dugme" data-r="siraKaydet">● Sırayla kaydet</button><button type="button" class="dugme ikincil" data-r="studyoMp3">⬇ Kendi sesimle dersi indir</button><button type="button" class="dugme ikincil" data-r="paketIndir">Site paketi (JSON)</button></div>' +
           '<p class="uyari" data-r="studyoNot" hidden></p>' +
@@ -1564,16 +1570,17 @@
     return '<div class="kst" data-r="kst" hidden role="dialog" aria-label="Tahtada kalemle kayıt">' +
       '<div class="kst-ust"><button type="button" class="kst-d" data-r="kstKapat" aria-label="Kalem stüdyosunu kapat">' + ikon('kapat') + '</button>' +
         '<div class="kst-metin"><span class="kst-no" data-r="kstNo"></span><b data-r="kstMetin"></b><small data-r="kstSonraki"></small></div>' +
-        '<div class="kst-kamera" data-r="kstKamera"></div>' +
+        '<div class="kst-kamera" data-r="kstKamera"></div><span class="kst-isik" data-r="kstIsik" hidden></span>' +
         '<button type="button" class="kst-d" data-r="kstKameraDugme" aria-pressed="false" aria-label="Kamera" title="Kamera: yüzün de kaydedilsin">' + KST_IKON.kamera + '</button></div>' +
-      '<div class="kst-sahne" data-r="kstSahne"><div class="kst-tahta" data-r="kstTahta"><canvas class="cizim" data-r="kstCizim"></canvas><div class="kst-ipucu" data-r="kstIpucu" hidden></div><div class="kst-yukle" data-r="kstYukle">Tahta hazırlanıyor…</div></div></div>' +
+      '<div class="kst-sahne" data-r="kstSahne"><div class="kst-tahta" data-r="kstTahta"><canvas class="cizim" data-r="kstCizim"></canvas><div class="kst-ipucu" data-r="kstIpucu" hidden></div><div class="kst-sayac" data-r="kstSayac" hidden></div><div class="kst-yukle" data-r="kstYukle">Tahta hazırlanıyor…</div></div></div>' +
       '<div class="kst-alt"><div class="kst-araclar" data-r="kstAraclar"></div>' +
         '<div class="kst-oynat"><button type="button" class="kst-b kare" data-r="kstGeri" aria-label="Önceki cümle">' + ikon('geri') + '</button>' +
           '<button type="button" class="kst-b kst-kayit" data-r="kstKayit">● Kaydet</button>' +
           '<button type="button" class="kst-b kare" data-r="kstIleri" aria-label="Sonraki cümle">' + ikon('ileri') + '</button>' +
           '<button type="button" class="kst-b" data-r="kstDinle">▶ Dinle</button>' +
           '<button type="button" class="kst-b" data-r="kstUstune">✏️ Sesin üstüne çiz</button>' +
-          '<span class="kst-sure" data-r="kstSure"></span></div>' +
+          '<button type="button" class="kst-b" data-r="kstEller" aria-pressed="false" title="Konuşman bitince kayıt kendiliğinden durur, sıradaki cümle başlar">🤚 Eller serbest</button>' +
+          '<span class="kst-seviye" data-r="kstSeviye" title="Mikrofon düzeyi" hidden><i></i></span><span class="kst-sure" data-r="kstSure"></span></div>' +
         '<div class="kst-bilgi"><span data-r="kstDurum"></span><button type="button" class="kst-baglanti" data-r="kstCizimSil" hidden>Bu cümlenin çizimini sil</button></div></div>' +
     '</div>';
   }
@@ -1770,6 +1777,7 @@
       r.kstIleri.addEventListener('click', function () { self.kstGit(1); });
       r.kstKameraDugme.addEventListener('click', function () { self.kstKameraDegis(); });
       r.kstCizimSil.addEventListener('click', function () { self.kstCizimSil(); });
+      r.kstEller.addEventListener('click', function () { self.kstEllerDegis(); });
       r.kstAraclar.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) self.kstAracSec(b); });
       r.belgeDugme.addEventListener('click', function () { r.belgeSec.click(); });
       r.belgeSec.addEventListener('change', function () { var l = r.belgeSec.files ? Array.prototype.slice.call(r.belgeSec.files) : []; r.belgeSec.value = ''; if (l.length) self.belgeSecildi(l); });
@@ -2813,7 +2821,8 @@
     if (this.siraliCalisiyor) this.siraliDur = true;
     var once = this.kayitAktif ? this.kayitBitir() : Promise.resolve();
     if (i == null) { i = 0; for (var j = 0; j < A.length; j++) if (!this.kayitVar[ozet(A[j].s)]) { i = j; break; } }
-    var KS = this.KS = { i: Math.max(0, Math.min(A.length - 1, i)), mod: 'yukleniyor', arac: 'kalem', renk: null };
+    var KS = this.KS = { i: Math.max(0, Math.min(A.length - 1, i)), mod: 'yukleniyor', arac: 'kalem', renk: null, eller: !!depo.al('kstEller', false) };
+    this.kstIsikBak();
     r.kst.hidden = false; r.kstYukle.hidden = false; r.kstYukle.textContent = 'Tahta hazırlanıyor…';
     r.kstNo.textContent = ''; r.kstMetin.textContent = A[KS.i].s; r.kstSonraki.textContent = ''; r.kstSure.textContent = '';
     this.kstKameraYerlestir(true); this.kstArayuz();
@@ -2915,10 +2924,11 @@
   Oynatici.prototype.kstArayuz = function () {
     var KS = this.KS, r = this.r; if (!KS) return;
     var i = KS.i, n = KS.A ? KS.A.length : 0, m = KS.mod, kayitVar = !!(KS.kayit && KS.kayit[i]), izVar = !!(KS.veri && KS.veri[i]), ad = KS.A && KS.A[i] && KS.A[i].gorsel ? 'sayfa' : 'cümle';
-    var mesgul = /^(kayit|ustune|hazirlaniyor|kaydediliyor|yukleniyor|hata)$/.test(m);
-    r.kstKayit.textContent = m === 'kayit' ? '■ Bitir' : '● Kaydet';
+    var mesgul = /^(kayit|ustune|hazirlaniyor|kaydediliyor|yukleniyor|hata|sayiyor)$/.test(m);
+    if (r.kstEller) { r.kstEller.setAttribute('aria-pressed', String(!!KS.eller)); r.kstEller.disabled = m === 'yukleniyor' || m === 'hata'; }
+    r.kstKayit.textContent = m === 'kayit' ? '■ Bitir' : m === 'sayiyor' ? '✕ Vazgeç' : '● Kaydet';
     r.kstKayit.classList.toggle('kayitta', m === 'kayit');
-    r.kstKayit.disabled = mesgul && m !== 'kayit';
+    r.kstKayit.disabled = mesgul && m !== 'kayit' && m !== 'sayiyor';
     r.kstUstune.textContent = m === 'ustune' ? '■ Bitir' : '✏️ Sesin üstüne çiz';
     r.kstUstune.classList.toggle('kayitta', m === 'ustune');
     r.kstUstune.disabled = !kayitVar || (mesgul && m !== 'ustune');
@@ -3001,18 +3011,43 @@
       KS.veri[i] = s[1] && (s[1].izler || s[1].olay) ? s[1] : null;
     });
   };
-  Oynatici.prototype.kstKayit = function () {
+  Oynatici.prototype.kstKayit = function (kisa) {
     var self = this, KS = this.KS; if (!KS || !KS.O) return;
-    if (KS.mod === 'kayit') { this.kstKayitBitir(); return; }
+    if (KS.mod === 'kayit') { KS.ellerDur = KS.eller; this.kstKayitBitir(); return; }
+    if (KS.mod === 'sayiyor') { this.kstSayacDur(); return; } // geri sayımda dokununca vazgeçilir
     if (KS.mod === 'dinle') this.kstSus();
     if (KS.mod !== 'bos') return;
-    var i = KS.i; KS.mod = 'hazirlaniyor'; this.kstArayuz();
+    var i = KS.i; KS.ellerDur = false;
+    if (!kisa) this.kstSesBaglam(); // iPhone'da ses bağlamı yalnız dokunuşla açılır: ilk dokunuşta açılıp kayıtlar boyunca kullanılır
+    this.kstSayac(kisa ? 2 : 3, function () { self.kstKayitBasla(i); });
+  };
+  Oynatici.prototype.kstSayac = function (n, bitince) { // 3-2-1: hazırlanmak için
+    var self = this, KS = this.KS, r = this.r;
+    KS.mod = 'sayiyor'; this.kstArayuz();
+    var adim = function (k) {
+      if (self.KS !== KS || KS.mod !== 'sayiyor') return;
+      if (k <= 0) { r.kstSayac.hidden = true; KS.mod = 'bos'; bitince(); return; }
+      r.kstSayac.innerHTML = '<span>' + k + '</span>'; r.kstSayac.hidden = false;
+      KS.sayacZaman = setTimeout(function () { adim(k - 1); }, 650);
+    };
+    adim(n);
+  };
+  Oynatici.prototype.kstSayacDur = function () {
+    var KS = this.KS; if (!KS) return;
+    clearTimeout(KS.sayacZaman); this.r.kstSayac.hidden = true;
+    if (KS.mod === 'sayiyor') KS.mod = 'bos';
+    this.kstArayuz();
+  };
+  Oynatici.prototype.kstKayitBasla = function (i) {
+    var self = this, KS = this.KS; if (!KS || KS.mod !== 'bos') return;
+    KS.mod = 'hazirlaniyor'; this.kstArayuz();
     this.kayitBaslat(i).then(function (k) {
       if (self.KS !== KS) { self.kayitBitir(); return; }
       KS.mod = 'kayit';
       KS.saat = function () { return (performance.now() - k.t0()) / 1000; };
       KS.yuzey.basla(); self.kstMurekkep(i);
       self.kstGoster(0); self.kstDongu(); self.kstArayuz();
+      self.kstSeviyeBasla(k.akis);
     }).catch(function () {
       if (self.KS !== KS) return;
       KS.mod = 'bos'; self.kstArayuz(); self.kstIpucu('Mikrofon açılamadı. Bu site için mikrofon iznini ver.');
@@ -3020,6 +3055,7 @@
   };
   Oynatici.prototype.kstKayitBitir = function (kapaniyor) {
     var self = this, KS = this.KS; if (!KS || KS.mod !== 'kayit') return Promise.resolve();
+    this.kstSeviyeDur();
     var i = KS.i, B = KS.O.G.tahta, v = KS.yuzey.bitir();
     KS.saat = null; KS.mod = 'kaydediliyor'; cancelAnimationFrame(KS.raf); this.kstArayuz();
     var kayit = v.izler.length || v.olay.length ? { surum: 1, izler: v.izler, olay: v.olay, g: B.g, y: B.h, metin: KS.A[i].s, tarih: Date.now() } : false;
@@ -3030,9 +3066,79 @@
         if (kapaniyor) return;
         if (!ok) { self.kstAdim(i); self.kstIpucu('Kayıt çok kısa ya da sessiz kaldı; yeniden dene.'); return; }
         var ad = KS.A[i].gorsel ? 'sayfa' : 'cümle';
-        if (i < KS.A.length - 1) { self.kstAdim(i + 1); self.kstIpucu('✓ Kaydedildi · sıradaki ' + ad); } else { self.kstAdim(i); self.kstIpucu('✓ Kaydedildi · son ' + ad + 'ydi'); }
+        if (i < KS.A.length - 1) {
+          self.kstAdim(i + 1); self.kstIpucu('✓ Kaydedildi · sıradaki ' + ad);
+          if (KS.eller && !KS.ellerDur) setTimeout(function () { if (self.KS === KS && KS.mod === 'bos' && KS.eller) self.kstKayit(true); }, 700); // eller serbest: sıradaki cümle kendiliğinden başlar
+        } else { self.kstAdim(i); self.kstIpucu('✓ Kaydedildi · son ' + ad + 'ydi'); if (KS.eller) { KS.eller = false; self.kstArayuz(); } }
       });
     }).catch(function () { if (self.KS === KS) { KS.mod = 'bos'; if (!kapaniyor) self.kstAdim(i); } });
+  };
+  // ses düzeyi göstergesi ve eller serbest kayıt: konuşma bitip 1,6 sn sessiz kalınca (kalem de durmuşsa) kayıt kendiliğinden biter
+  Oynatici.prototype.kstSesBaglam = function () {
+    var KS = this.KS; if (!KS) return null;
+    if (!KS.sesAC) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; try { KS.sesAC = new AC(); } catch (e) { return null; } }
+    if (KS.sesAC.state === 'suspended' && KS.sesAC.resume) { try { KS.sesAC.resume(); } catch (e) {} }
+    return KS.sesAC;
+  };
+  Oynatici.prototype.kstSeviyeBasla = function (akis) {
+    var self = this, KS = this.KS, r = this.r;
+    this.kstSeviyeDur();
+    if (!akis || !akis.getAudioTracks || !akis.getAudioTracks().length) return;
+    var ac = this.kstSesBaglam(); if (!ac) return;
+    var kaynak = ac.createMediaStreamSource(akis), an = ac.createAnalyser(); an.fftSize = 1024; kaynak.connect(an);
+    var buf = new Float32Array(an.fftSize), t0 = performance.now(), taban = [], esik = 0.012, konusma = 0, sessiz = 0, son = t0, bar = r.kstSeviye.firstChild;
+    r.kstSeviye.hidden = false;
+    var dongu = function () {
+      if (self.KS !== KS || KS.mod !== 'kayit') return;
+      var simdi = performance.now(), dt = (simdi - son) / 1000; son = simdi;
+      if (an.getFloatTimeDomainData) an.getFloatTimeDomainData(buf); else { var b8 = new Uint8Array(an.fftSize); an.getByteTimeDomainData(b8); for (var j = 0; j < b8.length; j++) buf[j] = (b8[j] - 128) / 128; }
+      var t = 0, tepe = 0; for (var i = 0; i < buf.length; i++) { t += buf[i] * buf[i]; tepe = Math.max(tepe, Math.abs(buf[i])); }
+      var rms = Math.sqrt(t / buf.length), db = 20 * Math.log10(rms + 1e-9);
+      bar.style.width = Math.max(0, Math.min(100, (db + 60) / 54 * 100)) + '%';
+      r.kstSeviye.classList.toggle('yuksek', tepe > 0.97); r.kstSeviye.classList.toggle('dusuk', db < -50);
+      var gecen = (simdi - t0) / 1000;
+      taban.push(rms); if (taban.length > 480) taban.shift(); // gürültü tabanı: son ~8 sn'nin en sessiz %10'u (hemen konuşmaya başlansa da şaşmaz)
+      if (taban.length % 15 === 1) { var sr = taban.slice().sort(function (a, b) { return a - b; }); esik = Math.min(0.035, Math.max(0.008, sr[Math.floor(sr.length * 0.1)] * 3.2)); }
+      if (gecen > 0.3 && KS.eller) {
+        if (rms > esik) { konusma += dt; sessiz = 0; } else sessiz += dt;
+        var kalem = KS.yuzey && (KS.yuzey.yaziyor() || simdi - KS.yuzey.sonHareket() < 1500);
+        if (konusma > 0.35 && sessiz > 1.6 && !kalem) { self.kstKayitBitir(); return; }
+      }
+      KS.seviyeRaf = requestAnimationFrame(dongu);
+    };
+    KS.seviye = { ac: ac, kaynak: kaynak };
+    KS.seviyeRaf = requestAnimationFrame(dongu);
+  };
+  Oynatici.prototype.kstSeviyeDur = function () {
+    var KS = this.KS; if (!KS) return;
+    cancelAnimationFrame(KS.seviyeRaf);
+    if (KS.seviye) { try { KS.seviye.kaynak.disconnect(); } catch (e) {} KS.seviye = null; }
+    if (this.r.kstSeviye) this.r.kstSeviye.hidden = true;
+  };
+  Oynatici.prototype.kstEllerDegis = function () {
+    var KS = this.KS; if (!KS) return;
+    KS.eller = !KS.eller; depo.yaz('kstEller', KS.eller);
+    this.kstIpucu(KS.eller ? 'Eller serbest: konuşman bitince kayıt durur, sıradaki cümle kendiliğinden başlar' : 'Eller serbest kapandı');
+    this.kstArayuz();
+  };
+  Oynatici.prototype.kstIsikBak = function () { // kamera açıkken ışık az ya da arkadan geliyorsa uyarır
+    var self = this, KS = this.KS, r = this.r;
+    clearInterval(this.kstIsikZaman);
+    var tv = document.createElement('canvas'); tv.width = tv.height = 24; var c = tv.getContext('2d');
+    this.kstIsikZaman = setInterval(function () {
+      if (!self.KS || self.r.kst.hidden) { clearInterval(self.kstIsikZaman); return; }
+      var v = r.kameraVideo, yazi = '';
+      if (self.kameraAkis && v && v.readyState >= 2) {
+        try {
+          c.drawImage(v, 0, 0, 24, 24); var d = c.getImageData(0, 0, 24, 24).data, top = 0, orta = 0, kn = 0, on = 0;
+          for (var y = 0; y < 24; y++) for (var x = 0; x < 24; x++) { var i = (y * 24 + x) * 4, l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; top += l; if (x > 7 && x < 16 && y > 5 && y < 16) { orta += l; on++; } else kn++; }
+          var ort = top / 576, ortaL = orta / on, kenarL = (top - orta) / kn;
+          if (ort < 55) yazi = '💡 Işık az: yüzünü pencereye ya da lambaya çevir';
+          else if (kenarL - ortaL > 45) yazi = '💡 Arkandaki ışık güçlü: ışık önünden gelsin';
+        } catch (e) {}
+      }
+      r.kstIsik.textContent = yazi; r.kstIsik.hidden = !yazi;
+    }, 1500);
   };
   Oynatici.prototype.kstSesCal = function (mod) { // 'ustune' ya da 'dinle': adımın kaydı çalar, yüz videosu yuvarlakta
     var self = this, KS = this.KS, i = KS.i, a = KS.A[i];
@@ -3102,6 +3208,8 @@
   };
   Oynatici.prototype.kstKapat = function () {
     var self = this, KS = this.KS, r = this.r; if (!KS) return Promise.resolve();
+    KS.eller = false; this.kstSayacDur(); clearInterval(this.kstIsikZaman);
+    if (KS.sesAC) { var acK = KS.sesAC; setTimeout(function () { try { acK.close(); } catch (e) {} }, 1500); }
     var bitis = KS.mod === 'kayit' ? this.kstKayitBitir(true) : KS.mod === 'ustune' ? this.kstUstuneBitir(true) : null;
     if (KS.mod === 'dinle') this.kstSus();
     var kapat = function () {

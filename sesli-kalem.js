@@ -234,6 +234,7 @@
       S.silgi = null; ciz();
     };
     var asagi = function (e) {
+      S.sonHareket = performance.now();
       if (e.pointerType === 'pen') S.kalem = true;
       else if (e.pointerType === 'touch' && S.kalem && !S.parmak) return; // kalem varken avuç içi çizmez
       if (e.button > 0) return;
@@ -251,6 +252,7 @@
     };
     var hareket = function (e) {
       var ak = S.aktif[e.pointerId]; if (!ak) return;
+      S.sonHareket = performance.now();
       var t = o.saat();
       if (t == null) { bitir(e.pointerId); return; }
       e.preventDefault();
@@ -308,6 +310,8 @@
     self.renk = function (r) { S.renk = r; };
     self.parmak = function (v) { S.parmak = !!v; };
     self.kalemVar = function () { return S.kalem; };
+    self.sonHareket = function () { return S.sonHareket || 0; }; // eller serbest kayıt: kalem yazarken kayıt durmasın
+    self.yaziyor = function () { return Object.keys(S.aktif).length > 0; };
     self.basla = function () { S.izler = []; S.olay = []; S.aktif = {}; S.silinen = {}; S.silgi = null; onbIc = {}; onbSay = 0; if (onbX) { onbX.setTransform(1, 0, 0, 1, 0, 0); onbX.clearRect(0, 0, onb.width, onb.height); } ciz(); };
     self.olaylar = function () { return S.olay; };
     self.bitir = function () { // kayıt biter: izler saklanacak biçimde

@@ -172,7 +172,9 @@
   };
 
   /* ================= görüntü çözücü: dosyadan parça parça okur ================= */
-  function Kaynak(d) { this.d = d; this.m = d.video; this.kuyruk = []; this.i = 0; this.bitti = false; this.hata = null; this.bekleyen = null; this.tampon = null; }
+  function Kaynak(d) { this.d = d; this.m = d.video; this.kuyruk = []; this.i = 0; this.bitti = false; this.hata = null; this.bekleyen = null; this.tampon = null; this.cikan = 0; this.sifir = 0; }
+  var PAY = 1000; // µs: karelerin zamanı mikrosaniyeye yuvarlanır; tam sınırdaki kare bir öncekine düşmesin
+  function zamanla(soz, ms) { return Promise.race([soz, new Promise(function (r) { setTimeout(r, ms); })]); }
   Kaynak.destek = function () { return !!(window.VideoDecoder && window.EncodedVideoChunk && window.VideoFrame); };
   Kaynak.yapilandir = function (m) { return { codec: m.kod, description: m.aciklama, codedWidth: m.g, codedHeight: m.y }; };
   Kaynak.uygunMu = function (m) { // bu tarayıcı bu kaydı çözebilir mi
@@ -189,13 +191,26 @@
       return VideoDecoder.isConfigSupported(cfg).then(function (s) {
         if (!s || !s.supported) throw hata('Bu kaydın biçimi (' + (m.kod.split('.')[0] === 'avc1' ? 'H.264' : 'HEVC') + ') bu tarayıcıda çözülemiyor.');
         var uyan = function () { if (self.bekleyen) { var b = self.bekleyen; self.bekleyen = null; b(); } };
-        self.dec = new VideoDecoder({ output: function (f) { self.kuyruk.push(f); uyan(); }, error: function (e) { self.hata = e || new Error('çözme hatası'); uyan(); } });
+        self.dec = new VideoDecoder({ output: function (f) { self.cikan++; self.kuyruk.push(f); uyan(); }, error: function (e) { self.hata = e || new Error('çözme hatası'); uyan(); } });
         self.dec.configure(cfg);
-        var o = m.ornekler, i = 0; // t0'dan önceki son anahtar kareden başla
-        if (t0 > 0) for (var j = 0; j < o.length; j++) { if (o[j].anahtar && self.zaman(o[j]) <= t0 + 0.001) i = j; if (self.zaman(o[j]) > t0 + 2 && i) break; }
-        self.i = i;
+        self.i = self.anahtarOnce(t0);
       });
     }));
+  };
+  Kaynak.prototype.anahtarOnce = function (t0) { // t0'dan önceki son anahtar karenin sırası
+    var o = this.m.ornekler, i = 0;
+    if (t0 > 0) for (var j = 0; j < o.length; j++) { if (o[j].anahtar && this.zaman(o[j]) <= t0 + 0.001) i = j; if (this.zaman(o[j]) > t0 + 2 && i) break; }
+    return i;
+  };
+  // Çözücü yeni kare vermez olursa (iPhone'da donanım çözücüsü bazen takılır) sonsuza dek beklenmez:
+  // önce çözücü sıfırlanıp t'den önceki anahtar kareden yeniden başlanır; yine olmazsa kayıt orada biter (son kare kalır).
+  Kaynak.prototype.kurtar = function (t) {
+    this.kuyruk.forEach(function (f) { try { f.close(); } catch (e) {} }); this.kuyruk = [];
+    this.tampon = null; this.bosalt = null;
+    if (++this.sifir > 2) { this.bitti = true; if (window.console) console.warn('Video çözücü takıldı; kaydın son karesi kullanılıyor (' + t.toFixed(2) + ' sn).'); return; }
+    try { this.dec.reset(); this.dec.configure(Kaynak.yapilandir(this.m)); } catch (e) { this.bitti = true; return; }
+    this.i = this.anahtarOnce(t); this.bitti = false;
+    if (window.console) console.warn('Video çözücü takıldı; yeniden başlatıldı (' + t.toFixed(2) + ' sn).');
   };
   Kaynak.prototype.parcaOku = function (i) { // i. örnekten başlayıp en çok ~4 MB: aradaki ses verisi de okunur
     var self = this, o = this.m.ornekler, bas = o[i].ofs, son = bas + o[i].boy, j = i + 1;
@@ -207,29 +222,32 @@
     this.dec.decode(new EncodedVideoChunk({ type: o.anahtar ? 'key' : 'delta', timestamp: Math.round(this.zaman(o) * 1e6), duration: Math.round((o.sure || 0) / ol * 1e6), data: new Uint8Array(T.veri, o.ofs - T.bas, o.boy).slice() }));
   };
   Kaynak.prototype.ilerle = function (t) { // t saniyesindeki kare çözülene dek
-    var self = this, us = t * 1e6;
+    var self = this, us = t * 1e6 + PAY, imza = '', an = 0;
     var dongu = function () {
       if (self.hata) throw self.hata;
       while (self.kuyruk.length > 1 && self.kuyruk[1].timestamp <= us) self.kuyruk.shift().close();
       var son = self.kuyruk[self.kuyruk.length - 1];
       if ((son && son.timestamp > us) || self.bitti) return null;
+      var yeni = self.cikan + ':' + self.i + ':' + self.sifir; // 5 sn boyunca ne kare geldi ne besleme ilerledi: takıldı
+      if (yeni !== imza) { imza = yeni; an = Date.now(); }
+      else if (Date.now() - an > 5000) { self.kurtar(t); imza = ''; return dongu(); }
       var o = self.m.ornekler;
       if (self.i < o.length) {
         if (!self.tampon || self.i < self.tampon.ilk || self.i >= self.tampon.son) return self.parcaOku(self.i).then(dongu);
         while (self.i < self.tampon.son && self.dec.decodeQueueSize < 6) self.besle(self.i++);
         return new Promise(function (r) { self.bekleyen = r; setTimeout(r, 25); }).then(dongu);
       }
-      if (!self.bosalt) self.bosalt = self.dec.flush().then(function () { self.bitti = true; }, function () { self.bitti = true; });
+      if (!self.bosalt) self.bosalt = zamanla(self.dec.flush(), 3000).then(function () { self.bitti = true; }, function () { self.bitti = true; }); // Safari'de flush bazen hiç bitmiyor
       return self.bosalt.then(dongu);
     };
     return this.hazirla(t).then(dongu);
   };
   Kaynak.prototype.hazirMi = function (t) {
     if (this.hata) return true; if (!this.dec) return false;
-    var son = this.kuyruk[this.kuyruk.length - 1]; return this.bitti || !!(son && son.timestamp > t * 1e6);
+    var son = this.kuyruk[this.kuyruk.length - 1]; return this.bitti || !!(son && son.timestamp > t * 1e6 + PAY);
   };
   Kaynak.prototype.kare = function (t) {
-    var us = t * 1e6, k = null;
+    var us = t * 1e6 + PAY, k = null;
     for (var i = 0; i < this.kuyruk.length; i++) { if (this.kuyruk[i].timestamp <= us) k = this.kuyruk[i]; else break; }
     return k || this.kuyruk[0] || null;
   };
@@ -242,7 +260,7 @@
   /* ================= yedek yol: cihazın kendi oynatıcısı (<video>) ================= */
   // WebCodecs kaydı çözemezse ya da dosya ayrıştırılamazsa: her kare için videoda o ana gidilir.
   // Daha yavaş ama cihazın oynatabildiği her videoyla çalışır; görüntü zaten doğru yönde gelir.
-  function Oge(d) { this.d = d; this.v = null; this.url = null; this.soz = null; this.son = -1; }
+  function Oge(d) { this.d = d; this.v = null; this.url = null; this.soz = null; this.son = -1; this.rvfcYok = 0; this.asim = 0; }
   Oge.prototype.hazirla = function () {
     var self = this;
     if (this.soz) return this.soz;
@@ -264,24 +282,35 @@
   Oge.prototype.hedef = function (t) { var v = this.v, s = v && isFinite(v.duration) ? v.duration : t + 1; return Math.max(0, Math.min(t, s - 0.002)); };
   Oge.prototype.ilerle = function (t) {
     var self = this;
+    if (this.bozuk) return Promise.resolve(null); // oynatıcı yanıt vermez oldu: son kare kalır
     return this.hazirla().then(function () {
       var v = self.v, h = self.hedef(t);
       if (Math.abs(self.son - h) < 0.004 && !v.seeking) return null;
       return new Promise(function (ok) {
         var bitti = false, zs = null;
-        var tamam = function () {
-          if (bitti) return; bitti = true; clearTimeout(zs); v.removeEventListener('seeked', gitti); self.son = h; ok(null);
+        var tamam = function (asim) {
+          if (bitti) return; bitti = true; clearTimeout(zs); v.removeEventListener('seeked', gitti); self.son = h;
+          self.asim = asim ? (self.asim || 0) + 1 : 0; ok(null);
         };
-        var gitti = function () { // kare ekrana gelince (destekleniyorsa) çizilir
-          if (v.requestVideoFrameCallback) { var zk = setTimeout(tamam, 120); v.requestVideoFrameCallback(function () { clearTimeout(zk); tamam(); }); }
-          else tamam();
+        var gitti = function () { // kare ekrana gelince (destekleniyorsa) çizilir; iPhone'da görünmeyen videoda bu hiç gelmeyebilir
+          if (v.requestVideoFrameCallback && self.rvfc !== false) {
+            var zk = setTimeout(function () { if (!self.rvfcVar && ++self.rvfcYok >= 3) self.rvfc = false; tamam(); }, 120);
+            v.requestVideoFrameCallback(function () { clearTimeout(zk); self.rvfcVar = true; tamam(); });
+          } else tamam();
         };
-        v.addEventListener('seeked', gitti); zs = setTimeout(tamam, 5000);
+        v.addEventListener('seeked', gitti); zs = setTimeout(function () { tamam(true); }, 3000);
         try { v.currentTime = h; } catch (e) { tamam(); }
+      }).then(function () {
+        if (self.asim < 2) return null;
+        // art arda iki atlama yanıtsız kaldı: oynatıcı bir kez baştan açılır, yine olmazsa bırakılır
+        self.asim = 0;
+        if (self.yeniden) { self.bozuk = true; if (window.console) console.warn('Video oynatıcısı yanıt vermiyor; son kare kullanılıyor.'); return null; }
+        self.yeniden = true; self.kapat(); self.soz = null; self.son = -1;
+        return self.ilerle(t);
       });
     });
   };
-  Oge.prototype.hazirMi = function (t) { var v = this.v; return !!v && v.readyState >= 2 && !v.seeking && Math.abs(this.son - this.hedef(t)) < 0.004; };
+  Oge.prototype.hazirMi = function (t) { var v = this.v; return this.bozuk || (!!v && v.readyState >= 2 && !v.seeking && Math.abs(this.son - this.hedef(t)) < 0.004); };
   Oge.prototype.kare = function () { var v = this.v; return v && v.readyState >= 2 ? v : null; };
   Oge.prototype.kapat = function () {
     var v = this.v; this.v = null;
@@ -318,6 +347,143 @@
         return S.kare(d, onizlemeAni(d), 960);
       }).then(function (tv) { d.onizleme = tv; d.yol = 'kod'; return d; }, function (e1) { neden = hataYazi(e1); return ogeyle(d); });
     }, function (e0) { neden = hataYazi(e0); return ogeyle(null); });
+  };
+
+  /* ================= hızlı okuma için çevirme: oynatıcıdan sırayla kare alıp H.264'e ================= */
+  // WebCodecs'in çözemediği kayıt her karede atlanarak okunursa çok yavaş olur (iPhone'da kare başına yüzlerce ms).
+  // Bunun yerine video sessizce, iki kat hızda oynatılır; her kare cihazın kodlayıcısıyla H.264'e çevrilir.
+  // Sonra Kaynak bu çevrilmiş kaydı sırayla ve hızlıca çözer. Olmazsa (ör. oynatma izni yoksa) eski yola dönülür.
+  function bayt(x) { return x instanceof ArrayBuffer ? new Uint8Array(x.slice(0)) : new Uint8Array(x.buffer.slice(x.byteOffset, x.byteOffset + x.byteLength)); }
+  function kodlayiciBul(W, H) { // çevirme için H.264 kodlayıcısı: önce gecikmesiz (gerçek zamanlı) kip
+    var l = ['avc1.640033', 'avc1.64002a', 'avc1.640028', 'avc1.4d0033', 'avc1.4d0028', 'avc1.42e033', 'avc1.42e01f'], bit = Math.round(Math.min(10e6, Math.max(1.5e6, W * H * 30 * 0.08)));
+    var ara = function (gz) {
+      var i = 0, dene = function () {
+        if (i >= l.length) return null;
+        var c = { codec: l[i++], width: W, height: H, bitrate: bit, framerate: 30, avc: { format: 'avc' } }; if (gz) c.latencyMode = 'realtime';
+        return VideoEncoder.isConfigSupported(c).then(function (s) { return s && s.supported ? c : dene(); }, dene);
+      };
+      return dene();
+    };
+    return ara(true).then(function (c) { return c || ara(false); });
+  }
+  S.cevirebilir = function () { return !!(window.VideoEncoder && window.VideoFrame && window.VideoDecoder && window.HTMLVideoElement && HTMLVideoElement.prototype.requestVideoFrameCallback); };
+  // kap: videonun oynarken görüneceği yer (iPhone görünmeyen videoyu oynatmayabilir). Dokunuşun içinde çağrılmalı: oynatma izni o anda alınır.
+  S.cevirici = function (d, kap) {
+    var v = document.createElement('video'), url = URL.createObjectURL(d.dosya), calis = false, kapali = false;
+    v.muted = true; v.defaultMuted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.preload = 'auto';
+    v.style.cssText = 'display:block;width:100%;height:100%;object-fit:contain;background:#000;border-radius:10px';
+    if (kap) kap.appendChild(v);
+    v.src = url;
+    try { var p = v.play(); if (p && p.then) p.then(function () { if (!calis) v.pause(); }, function () {}); } catch (e) {}
+    var hazir = function () {
+      if (v.readyState >= 2) return Promise.resolve();
+      return new Promise(function (ok, red) {
+        var zs = setTimeout(function () { red(new Error('video açılamadı (süre doldu)')); }, 20000);
+        v.addEventListener('loadeddata', function () { clearTimeout(zs); ok(); }, { once: true });
+        v.addEventListener('error', function () { clearTimeout(zs); red(new Error('video açılamadı' + (v.error && v.error.code ? ' (hata ' + v.error.code + ')' : ''))); }, { once: true });
+      });
+    };
+    var git = function (t) { // tek seferlik atlama
+      if (Math.abs(v.currentTime - t) < 0.01) return Promise.resolve();
+      return new Promise(function (ok) { var zs = setTimeout(ok, 5000); v.addEventListener('seeked', function () { clearTimeout(zs); ok(); }, { once: true }); try { v.currentTime = t; } catch (e) { clearTimeout(zs); ok(); } });
+    };
+    var kapat = function () {
+      if (kapali) return; kapali = true;
+      try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {}
+      if (v.parentNode) v.parentNode.removeChild(v);
+      URL.revokeObjectURL(url);
+    };
+    // o: { bas, son, enBuyuk (uzun kenar), ilerle(p) } → çevrilmiş kayıt (d gibi; Kaynak'la okunur)
+    var cevir = function (o) {
+      var bas = Math.max(0, o.bas || 0), son = Math.min(d.sure || 1e9, o.son || d.sure || 1e9);
+      return hazir().then(function () {
+        var g0 = v.videoWidth, y0 = v.videoHeight; if (!g0 || !y0) throw new Error('videonun boyutu okunamadı');
+        var k = Math.min(1, (o.enBuyuk || 1920) / Math.max(g0, y0)), W = Math.max(2, Math.round(g0 * k / 2) * 2), H = Math.max(2, Math.round(y0 * k / 2) * 2);
+        return kodlayiciBul(W, H).then(function (cfg) {
+          if (!cfg) throw new Error('H.264 kodlayıcısı yok');
+          return yakala(cfg, W, H, bas, son, o.ilerle);
+        });
+      }).then(function (d2) {
+        return Kaynak.uygunMu(d2.video).then(function (ok) { if (!ok) throw new Error('çevrilen kayıt çözülemiyor'); return d2; });
+      });
+    };
+    var yakala = function (cfg, W, H, bas, son, ilerle) {
+      return new Promise(function (ok, red) {
+        var tv = document.createElement('canvas'); tv.width = W; tv.height = H;
+        var c = tv.getContext('2d'), parcalar = [], ornekler = [], ofs = 0, aciklama = null, hata = null, sonM = -1, sonAnahtar = -9, bitti = false;
+        var hiz = 2, pencere = [], kalite = null, dur = false, sonCb = performance.now(), takilma = 0, bekci = null;
+        var enc = new VideoEncoder({
+          output: function (ch, meta) {
+            if (meta && meta.decoderConfig && meta.decoderConfig.description && !aciklama) aciklama = bayt(meta.decoderConfig.description);
+            var b = new Uint8Array(ch.byteLength); ch.copyTo(b); parcalar.push(b);
+            ornekler.push({ ofs: ofs, boy: b.length, dts: ch.timestamp, cts: ch.timestamp, sure: 0, anahtar: ch.type === 'key' }); ofs += b.length;
+          },
+          error: function (e) { hata = e || new Error('kodlama hatası'); }
+        });
+        try { enc.configure(cfg); } catch (e) { red(e); return; }
+        var bitir = function (e) {
+          if (bitti) return; bitti = true; calis = false; clearInterval(bekci); try { v.pause(); } catch (x) {}
+          if (e) { try { enc.close(); } catch (x) {} red(e); return; }
+          zamanla(enc.flush(), 8000).then(function () {
+            try { enc.close(); } catch (x) {}
+            if (hata) throw hata;
+            if (!ornekler.length || !aciklama || aciklama.length < 4) throw new Error('çevrilen kare yok');
+            for (var i = 0; i + 1 < ornekler.length; i++) ornekler[i].sure = Math.max(0, ornekler[i + 1].cts - ornekler[i].cts);
+            var h2 = function (x) { return ('0' + x.toString(16)).slice(-2); }, son0 = ornekler[ornekler.length - 1];
+            son0.sure = Math.round(1e6 / 30);
+            ok({ dosya: new Blob(parcalar, { type: 'video/mp4' }), cevrildi: true, yol: 'kod', neden: d.neden, ses: d.ses, sesler: d.sesler, sure: d.sure, aralik: [bas, son],
+              video: { tur: 'avc1', kod: 'avc1.' + h2(aciklama[1]) + h2(aciklama[2]) + h2(aciklama[3]), aciklama: aciklama, g: W, y: H, olcek: 1e6, donus: 0, kayma: 0, ornekler: ornekler, sure: d.sure, fps: 30 } });
+          }).catch(red);
+        };
+        var kare = function (simdi, md) {
+          if (bitti) return;
+          sonCb = performance.now();
+          var mt = md && md.mediaTime != null ? md.mediaTime : v.currentTime;
+          if (mt >= son + 0.04) { bitir(); return; }
+          if (mt > sonM + 0.004 && mt >= bas - 0.04) {
+            try {
+              c.drawImage(v, 0, 0, W, H);
+              var f = new VideoFrame(tv, { timestamp: Math.round(mt * 1e6) }), an = mt - sonAnahtar >= 1; if (an) sonAnahtar = mt;
+              enc.encode(f, { keyFrame: an }); f.close();
+            } catch (e) { bitir(e); return; }
+            sonM = mt;
+            if (ilerle) ilerle(Math.min(1, Math.max(0, (mt - bas) / Math.max(0.1, son - bas))));
+            pencere.push(mt); if (pencere.length > 40) pencere.shift();
+            if (pencere.length >= 24 && hiz > 1) {
+              // medya zamanında saniyede 22'den az kare yakalanıyor ve oynatıcı kare atlıyorsa yavaşlatılır
+              // (ekran kaydında sayfa durgunken zaten az kare vardır; o durumda kare atlanmaz, hız düşmez)
+              var sk = (pencere.length - 1) / Math.max(0.001, pencere[pencere.length - 1] - pencere[0]), q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+              var atl = q ? q.droppedVideoFrames - (kalite ? kalite[0] : 0) : 0, top = q ? q.totalVideoFrames - (kalite ? kalite[1] : 0) : 0;
+              if (q) kalite = [q.droppedVideoFrames, q.totalVideoFrames];
+              if (sk < 22 && (!q || (top > 0 && atl / top > 0.15))) { hiz = Math.max(1, hiz - 0.5); try { v.playbackRate = hiz; } catch (e) {} }
+              pencere = [];
+            }
+            if (enc.encodeQueueSize > 8 && !dur) { dur = true; try { v.pause(); } catch (e) {} } // kodlayıcı geride: oynatma bekler
+          }
+          v.requestVideoFrameCallback(kare);
+        };
+        v.addEventListener('ended', function () { setTimeout(function () { bitir(); }, 50); }, { once: true });
+        v.addEventListener('playing', function () { try { if (v.playbackRate !== hiz) v.playbackRate = hiz; } catch (e) {} });
+        bekci = setInterval(function () {
+          if (bitti) return;
+          if (hata) { bitir(hata); return; }
+          if (dur) { if (enc.encodeQueueSize < 3) { dur = false; sonCb = performance.now(); var p0 = v.play(); if (p0 && p0.catch) p0.catch(function () {}); } return; }
+          if (performance.now() - sonCb > 4000) { // kare gelmiyor: bir kez daha oynat, olmazsa vazgeç
+            if (++takilma > 2) { bitir(new Error('oynatma ilerlemiyor')); return; }
+            sonCb = performance.now(); var p1 = v.play(); if (p1 && p1.catch) p1.catch(function () {});
+          }
+        }, 60);
+        calis = true;
+        git(bas).then(function () {
+          if (bitti) return;
+          try { v.playbackRate = hiz; } catch (e) {}
+          v.requestVideoFrameCallback(kare); sonCb = performance.now();
+          var p = v.play();
+          if (p && p.then) p.then(null, function (e) { bitir(e || new Error('oynatılamadı')); });
+        });
+      });
+    };
+    return { video: v, cevir: cevir, kapat: kapat };
   };
 
   /* ================= ses: AAC örnekleri ================= */
@@ -408,6 +574,10 @@
         t += A;
         if (o.ilerle) o.ilerle(Math.min(1, (t - o.bas) / toplam));
         return adim();
+      }, function (e) { // kayıt yarıda okunamaz olursa elde olanla yetinilir (kamera kalan yerde sabit durur)
+        if (iptal || !kayit.length) throw e;
+        if (window.console) console.warn('Kayıt ' + t.toFixed(1) + ' sn’den sonra incelenemedi:', e);
+        return { adim: A, kayit: kayit, zemin: zemin || '#FFFFFF', g: W, y: H };
       });
     };
     var soz = K.hazirla(o.bas).then(adim).then(function (r) { K.kapat(); return r; }, function (e) { K.kapat(); throw e; });
@@ -463,13 +633,18 @@
     var d = o.d, don = d.video.donus || 0, K = S.kaynak(d), tv = document.createElement('canvas');
     tv.width = Math.max(2, Math.round(o.G)); tv.height = Math.max(2, Math.round(o.Y));
     var c = tv.getContext('2d'), an = o.analiz || { kayit: [], adim: 0.1, zemin: '#FFFFFF' }, kam = S.kamera({ kayit: an.kayit, adim: an.adim, oran: tv.width / tv.height });
+    var cizildi = false, bozuk = false;
     c.fillStyle = an.zemin || '#FFFFFF'; c.fillRect(0, 0, tv.width, tv.height);
     return {
       tuval: tv, kendi: true,
       kalem: function () { return null; }, sil: function () { return false; },
-      hazirla: function (t) { var ts = o.bas + t; if (K.hazirMi(ts)) return null; return K.ilerle(ts); },
+      hazirla: function (t) { // bir kez çizildikten sonra okunamazsa video durmaz: son görüntü kalır
+        var ts = o.bas + t; if (bozuk || K.hazirMi(ts)) return null;
+        return K.ilerle(ts).catch(function (e) { if (!cizildi) throw e; bozuk = true; if (window.console) console.warn('Ekran kaydı ' + ts.toFixed(1) + ' sn’den sonra okunamadı:', e); });
+      },
       kare: function (t) {
         var f = K.kare(o.bas + t); if (!f) return;
+        cizildi = true;
         var b = boyut(f), g = gorunenBoyut(f, don), kx = o.kirp.x * g[0], ky = o.kirp.y * g[1], kw = o.kirp.g * g[0], kh = o.kirp.h * g[1];
         var v = kam(t, kw, kh, tv.width), olc = tv.width / v.g;
         var sx0 = Math.max(0, v.x), sy0 = Math.max(0, v.y), sx1 = Math.min(kw, v.x + v.g), sy1 = Math.min(kh, v.y + v.h);

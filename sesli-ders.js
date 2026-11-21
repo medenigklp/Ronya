@@ -1364,6 +1364,13 @@
     '.belge-liste{list-style:none;margin:0;padding:0;display:grid;gap:6px}.belge-liste:empty{display:none}',
     '.sunum-alan{margin-top:10px;padding-top:10px;border-top:1px solid var(--cizgi)}.sunum-ic{display:grid;gap:8px;padding:2px 0 6px 28px}.sunum-ic .sd-kucuk{justify-self:start}',
     '.sunum-etiket{display:grid;gap:4px;font-size:13px;font-weight:600;color:var(--gri)}.sunum-etiket input,.sunum-etiket select{color:var(--murekkep);font-weight:400}',
+    '.sunum-etiket textarea{color:var(--murekkep);font-weight:400}',
+    '.kapak-alan>.etiket,.paylasim>.etiket{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gri)}',
+    '.kapak-alan{display:grid;gap:6px;margin-top:8px;padding-top:10px;border-top:1px dashed var(--cizgi)}.kapak-alan .sd-kucuk{justify-self:start}',
+    '.kapak-onizleme{justify-self:start;max-width:100%;border:1px solid var(--cizgi);border-radius:10px;overflow:hidden;background:#FBF8F5}.kapak-onizleme img{display:block;max-width:100%;max-height:300px;width:auto;height:auto}',
+    '.kisim-satir{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.kisim-satir select{min-width:0;width:100%}',
+    '.paylasim{display:grid;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--cizgi)}.paylasim textarea{min-height:180px;font-size:14px;line-height:1.45}',
+    '.paylasim-baslik{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}.paylasim-baslik input{min-width:0}',
     '.belge-liste li{display:flex;gap:6px;align-items:center;font-size:14px}.belge-liste li span{flex:1;min-width:0;overflow-wrap:anywhere}',
     /* kalem stüdyosu */
     '.kalem-tanit{display:grid;gap:6px;padding:12px 14px;border-radius:12px;background:var(--turuncu-y);border:1px solid var(--cizgi);margin-bottom:10px}.kalem-tanit .dugme{justify-self:start}',
@@ -1456,7 +1463,7 @@
         return '<button role="tab" data-ders="' + esc(s.id) + '" aria-selected="false">' + esc(s.ad) + '</button>';
       }).join('') + '</div>';
     }
-    return '<div class="sd" data-mod="' + (pencere ? 'pencere' : 'satir') + '"><div class="sd-panel" role="' + (pencere ? 'dialog' : 'region') + '" aria-label="Sesli ders">' +
+    return '<div class="sd" lang="tr" data-mod="' + (pencere ? 'pencere' : 'satir') + '"><div class="sd-panel" role="' + (pencere ? 'dialog' : 'region') + '" aria-label="Sesli ders">' +
       '<div class="sd-ust">' + (pencere ? '<h2 data-r="baslik">Sesli anlatım</h2>' : (o.baslik ? '<h2>' + esc(o.baslik) + '</h2>' : '')) + sekmeler +
         '<button type="button" class="sd-kucuk" data-r="ikiliDugme" aria-pressed="false" title="Kadın ve erkek öğretmen sırayla anlatsın"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="currentColor"/><circle cx="16.5" cy="8" r="3.2" fill="currentColor"/><path d="M2.5 19c.6-3.4 2.8-5.2 5.5-5.2s4.9 1.8 5.5 5.2zM11 19c.5-3.4 2.7-5.2 5.5-5.2S21.4 15.6 22 19z" fill="currentColor"/></svg><span class="etk">Karşılıklı</span></button>' +
         '<button type="button" class="sd-kucuk" data-r="indirDugme" aria-label="Dersi indir" title="Dersi ses ya da video olarak indir"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v11m0 0l-4.6-4.6M12 14.5l4.6-4.6M4.5 16.5v3h15v-3" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="etk">İndir</span></button>' +
@@ -1525,14 +1532,23 @@
               '<label class="anahtar"><input type="checkbox" data-r="filigranAc"> Köşede “Instagram’da @kanal” yazısı</label>' +
               '<div class="sunum-ic"><label class="sunum-etiket">Kanal adı<input type="text" data-r="kanalAd" maxlength="40" placeholder="@kimyamed"></label>' +
                 '<label class="sunum-etiket">Alt bantta adın (isteğe bağlı)<input type="text" data-r="altBantAd" maxlength="40" placeholder="ör. Ad Soyad"></label>' +
-                '<label class="sunum-etiket">Unvanın<input type="text" data-r="altBantUnvan" maxlength="40" placeholder="ör. Kimya öğretmeni"></label></div></div></div>' +
+                '<label class="sunum-etiket">Unvanın<input type="text" data-r="altBantUnvan" maxlength="40" placeholder="ör. Kimya öğretmeni"></label></div>' +
+              '<div class="kapak-alan"><span class="etiket">Kapak görseli</span><p class="not" data-r="kapakNot"></p>' +
+                '<div class="satir"><button type="button" class="sd-kucuk" data-r="kapakDugme">🖼️ Kapak hazırla</button><a class="dugme ikincil" data-r="kapakLink" href="#" download hidden>⬇ Kapağı indir</a><button type="button" class="dugme ikincil" data-r="kapakPaylas" hidden>Paylaş</button></div>' +
+                '<div class="kapak-onizleme" data-r="kapakOnizleme" hidden></div></div></div></div>' +
           '<div class="alan" data-r="sesAlan" hidden><span class="etiket">Ses kalitesi</span><label class="anahtar"><input type="checkbox" data-r="sesIsleAc"> Stüdyo sesi: gürültü azaltma, ses dengesi, netlik</label>' +
             '<span class="etiket" style="margin-top:8px">Fon müziği</span><div class="secim" data-r="muzikler"></div><input type="file" accept="audio/*" data-r="muzikSec" hidden><p class="not" data-r="muzikNot"></p></div>' +
           '<div class="alan"><span class="etiket">Hangi sesle?</span><div class="secim" data-r="indirSesler"><button type="button" data-isec="bulut">Doğal ses</button><button type="button" data-isec="kayit">Kendi sesim</button></div><p class="not" data-r="indirSesNot"></p></div>' +
+          '<div class="alan" data-r="kisimAlan" hidden><span class="etiket">Hangi kısım?</span><div class="secim" data-r="kisimBolumler"></div>' +
+            '<div class="kisim-satir"><label class="sunum-etiket">Başlangıç<select data-r="kisimBas"></select></label><label class="sunum-etiket">Bitiş<select data-r="kisimSon"></select></label></div><p class="not" data-r="kisimNot"></p></div>' +
           '<button type="button" class="dugme" data-r="indirHazirla">Ses dosyasını hazırla</button>' +
           '<div class="indir-onizleme" data-r="indirOnizleme" hidden></div>' +
           '<div class="sd-ilerleme indir-ilerleme" data-r="indirIlerleme" hidden><div class="cubuk"><i data-r="indirCubuk"></i></div><span data-r="indirYazi" aria-live="polite"></span></div>' +
           '<div class="satir" data-r="indirSonuc" hidden><a class="dugme" data-r="indirLink" href="#" download>⬇ İndir</a><button type="button" class="dugme ikincil" data-r="indirPaylas" hidden>Paylaş</button><a class="dugme ikincil" data-r="indirSrt" href="#" download hidden title="YouTube’a yüklerken altyazı dosyası olarak ekleyebilirsin">Altyazı dosyası (.srt)</a></div>' +
+          '<div class="paylasim" data-r="paylasimKutu" hidden><span class="etiket">Paylaşım metni</span>' +
+            '<div class="paylasim-baslik" data-r="paylasimBaslikSatir" hidden><label class="sunum-etiket">YouTube başlığı<input type="text" readonly data-r="paylasimBaslik"></label><button type="button" class="sd-kucuk" data-kopyala="paylasimBaslik">Kopyala</button></div>' +
+            '<label class="sunum-etiket">Açıklama<textarea readonly rows="9" data-r="paylasimMetin"></textarea></label>' +
+            '<div class="satir"><button type="button" class="sd-kucuk" data-kopyala="paylasimMetin">Kopyala</button><span class="not" data-r="paylasimNot" aria-live="polite"></span></div></div>' +
           '<p class="uyari" data-r="indirUyari" hidden></p>' +
         '</section>' +
         '<section class="kart"><h3>Cümle ya da metin ekle</h3>' +
@@ -1673,6 +1689,9 @@
       });
       r.girisBaslik.addEventListener('change', function () { self.sunumBaslik = { id: self.P.id, yazi: r.girisBaslik.value }; sunumDegisti(); });
       r.girisOnizle.addEventListener('click', function () { self.girisOnizle(); });
+      r.kapakDugme.addEventListener('click', function () { self.kapakYap(); });
+      r.kapakLink.addEventListener('click', function (e) { if (r.kapakLink.getAttribute('href') === '#') e.preventDefault(); });
+      r.kapakPaylas.addEventListener('click', function () { var f = self.kapakDosya; if (f && navigator.share) navigator.share({ files: [f] }).catch(function () {}); });
     }
     r.sesIsleAc.addEventListener('change', function () { depo.yaz('sesIsle', !!r.sesIsleAc.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
     r.muzikler.addEventListener('click', function (e) {
@@ -1696,6 +1715,23 @@
     r.indirPaylas.addEventListener('click', function () { self.indirPaylas(); });
     r.indirLink.addEventListener('click', function (e) { if (r.indirLink.getAttribute('href') === '#') e.preventDefault(); });
     r.indirSrt.addEventListener('click', function (e) { if (r.indirSrt.getAttribute('href') === '#') e.preventDefault(); });
+    var kisimDegisti = function () {
+      if (self.indiriliyor) return;
+      var b = +r.kisimBas.value, sn = +r.kisimSon.value;
+      if (sn < b) { if (this === r.kisimBas) sn = b; else b = sn; }
+      self.kisim = { id: self.P.id, bas: b, son: sn }; self.indirSifirla(); self.indirCiz();
+    };
+    r.kisimBas.addEventListener('change', kisimDegisti); r.kisimSon.addEventListener('change', kisimDegisti);
+    r.kisimBolumler.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-kisim]'); if (!b || self.indiriliyor) return;
+      var v = b.getAttribute('data-kisim').split('-'); self.kisim = { id: self.P.id, bas: +v[0], son: +v[1] }; self.indirSifirla(); self.indirCiz();
+    });
+    r.paylasimKutu.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-kopyala]'); if (!b) return;
+      var el = r[b.getAttribute('data-kopyala')], yaz = function (y) { r.paylasimNot.textContent = y; clearTimeout(self.paylasimSaat); self.paylasimSaat = setTimeout(function () { r.paylasimNot.textContent = ''; }, 3500); };
+      var sec = function () { try { el.focus(); el.select(); } catch (x) {} yaz('Seçildi: şimdi kopyalayabilirsin.'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(el.value).then(function () { yaz('✓ Kopyalandı'); }, sec); else sec();
+    });
     r.studyoMp3.addEventListener('click', function () { self.studyoKapat(); self.indirAc('kayit', true); });
     r.ayarDugme.addEventListener('click', function () {
       var acik = !self.kokEl.classList.contains('ayar-acik');
@@ -3318,6 +3354,211 @@
       } catch (e) { red(e); }
     });
   }
+  /* ---- dersin bir kısmı, kapak görseli, paylaşım metni ---- */
+  function htmlYazi(h) { return String(h == null ? '' : h).replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, '\'').replace(/&amp;/g, '&'); }
+  function paylasimYazi(t) { // tahtadaki yazım düz metne: AgNO_3 → AgNO₃, Pb^{2+} → Pb²⁺, **2** → 2, -> → →
+    t = String(t == null ? '' : t).replace(/\*\*/g, '')
+      .replace(/_\{([^}]*)\}|_(\d+)/g, function (m, a, b) { return String(a != null ? a : b).replace(/\d/g, function (r) { return ALT_RAKAM.charAt(+r); }); })
+      .replace(/\^\{([^}]*)\}|\^([0-9+\-−]+)/g, function (m, a, b) { return String(a != null ? a : b).replace(/\d/g, function (r) { return UST_RAKAM.charAt(+r); }).replace(/\+/g, '⁺').replace(/[−-]/g, '⁻'); })
+      .replace(/<=>/g, '⇌').replace(/->/g, '→');
+    return altyaziMetni(t).replace(/\s+/g, ' ').trim();
+  }
+  function kisalt(t, m) { t = String(t || ''); return t.length > m ? t.slice(0, m - 1).replace(/\s+\S*$/, '') + '…' : t; }
+  function adimBasligi(a) { // tahtaya yazılan başlık ya da etiket (YouTube bölüm adı için)
+    var l = (a && (a.w || a.h)) || [];
+    for (var i = 0; i < l.length; i++) {
+      var b = l[i] || {}; if (!/(^|\s)(title|label)(\s|$)/.test(String(b.c || ''))) continue;
+      var t = paylasimYazi(b.t != null ? b.t : htmlYazi(b.html));
+      if (t) return kisalt(t, 60);
+    }
+    return '';
+  }
+  var KONU_ETIKET = { atom: ['#atom', '#atomunyapısı'], asit: ['#asitlervebazlar', '#ph'], beher: ['#çözeltiler', '#karışımlar'], molekul: ['#kimyasalbağlar', '#moleküller'], periyodik: ['#periyodiktablo', '#elementler'],
+    gaz: ['#gazlar', '#gazkanunları'], tepkime: ['#kimyasaltepkimeler', '#mol'], enerji: ['#termokimya', '#enerji'], denge: ['#kimyasaldenge', '#denge'], elektro: ['#elektrokimya', '#piller'], hiz: ['#tepkimehızı', '#katalizör'], cekirdek: ['#çekirdekkimyası', '#radyoaktivite'] };
+  function kareNetlik(tv, olc) { // yüz bölgesinin keskinliği (Laplace varyansı); karanlık kare sıfır alır
+    var w = tv.width, h = tv.height, k = Math.min(w, h) * 0.6, c = olc.getContext('2d', { willReadFrequently: true }), N = olc.width, i, x, y, ort = 0;
+    c.drawImage(tv, (w - k) / 2, Math.max(0, Math.min(h - k, h * 0.42 - k / 2)), k, k, 0, 0, N, N);
+    var d = c.getImageData(0, 0, N, N).data, g = new Float32Array(N * N);
+    for (i = 0; i < g.length; i++) { g[i] = d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114; ort += g[i]; }
+    if (ort / g.length < 35) return 0;
+    var top = 0, top2 = 0, n = 0;
+    for (y = 1; y < N - 1; y++) for (x = 1; x < N - 1; x++) { i = y * N + x; var l = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - N] - g[i + N]; top += l; top2 += l * l; n++; }
+    var m = top / n; return top2 / n - m * m;
+  }
+  function videoNetKare(v) { // yüz videosunda birkaç an dener; yüz bölgesi en net kareyi verir: { tv, n } | null
+    return new Promise(function (res) {
+      var url = URL.createObjectURL(new Blob([v.veri], { type: v.mime || 'video/mp4' })), vd = document.createElement('video');
+      var sure = v.sure > 0.6 ? v.sure : 3, anlar = [0.3, 0.45, 0.6, 0.75].map(function (p) { return Math.max(0.15, sure * p); }), j = 0, enIyi = null, bitti = false, bs = null, basladi = false;
+      var olc = document.createElement('canvas'); olc.width = olc.height = 96;
+      var son = function () { if (bitti) return; bitti = true; clearTimeout(genel); clearTimeout(bs); try { vd.pause(); vd.removeAttribute('src'); vd.load(); } catch (e) {} URL.revokeObjectURL(url); res(enIyi); };
+      var genel = setTimeout(son, 15000);
+      var al = function () {
+        if (bitti) return; if (j >= anlar.length) { son(); return; }
+        var t = anlar[j++], tamam = false;
+        var bak = function () {
+          if (tamam || bitti) return; tamam = true; clearTimeout(bs); vd.removeEventListener('seeked', bak);
+          var w = vd.videoWidth, h = vd.videoHeight;
+          if (w && h) { var tv = document.createElement('canvas'); tv.width = w; tv.height = h; try { tv.getContext('2d').drawImage(vd, 0, 0, w, h); var n = kareNetlik(tv, olc); if (n > 0 && (!enIyi || n > enIyi.n)) enIyi = { n: n, tv: tv }; } catch (e) {} }
+          al();
+        };
+        vd.addEventListener('seeked', bak); bs = setTimeout(bak, 3000);
+        var ds = vd.duration; if (ds && isFinite(ds)) t = Math.min(t, Math.max(0, ds - 0.1));
+        try { vd.currentTime = t; } catch (e) { bak(); }
+      };
+      var basla = function () { if (basladi) return; basladi = true; try { vd.pause(); } catch (e) {} al(); };
+      vd.muted = true; vd.playsInline = true; vd.setAttribute('playsinline', ''); vd.preload = 'auto';
+      vd.addEventListener('loadeddata', basla);
+      vd.addEventListener('error', son);
+      vd.src = url;
+      try { var p = vd.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} // iPhone'da kareler oynatılınca çözülür
+    });
+  }
+  Oynatici.prototype.bolumAraligi = function (j) { // j. bölümün ilk ve son adımı
+    var B = this.P.bolumler || [], n = (this.P.adimlar || []).length, bs = Math.max(0, Math.min(n - 1, B[j].adim));
+    return [bs, j + 1 < B.length ? Math.max(bs, Math.min(n - 1, B[j + 1].adim - 1)) : n - 1];
+  };
+  Oynatici.prototype.kisimAl = function () { // indirilecek kısım: { bas, son, parca: dersin bir kısmı mı, bolum: tam bir bölümse sırası }
+    var n = (this.P.adimlar || []).length, k = this.kisim, B = this.P.bolumler || [], bas = 0, son = Math.max(0, n - 1), bolum = -1;
+    if (k && k.id === this.P.id && n) { bas = Math.max(0, Math.min(n - 1, k.bas | 0)); son = Math.max(bas, Math.min(n - 1, k.son | 0)); }
+    var parca = n > 0 && (bas > 0 || son < n - 1);
+    if (parca && B.length > 1) for (var j = 0; j < B.length; j++) { var a = this.bolumAraligi(j); if (a[0] === bas && a[1] === son) { bolum = j; break; } }
+    return { bas: bas, son: son, parca: parca, bolum: bolum };
+  };
+  Oynatici.prototype.kisimCiz = function () { // bölüm düğmeleri, başlangıç ve bitiş adımı
+    var self = this, r = this.r, A = this.P.adimlar || [], n = A.length;
+    if (!r.kisimAlan) return;
+    r.kisimAlan.hidden = n < 3;
+    if (r.kisimAlan.hidden) return;
+    var KS = this.kisimAl(), B = this.P.bolumler || [];
+    var dug = '<button type="button" data-kisim="0-' + (n - 1) + '" aria-pressed="' + !KS.parca + '">Tüm ders</button>';
+    if (B.length > 1) B.forEach(function (b, j) { var a = self.bolumAraligi(j); dug += '<button type="button" data-kisim="' + a[0] + '-' + a[1] + '" aria-pressed="' + (KS.bolum === j) + '">' + esc((j + 1) + '. ' + kisalt(paylasimYazi(b.ad || 'Bölüm'), 30)) + '</button>'; });
+    r.kisimBolumler.innerHTML = dug;
+    var imza = this.P.id + ':' + n + ':' + ozet(A.map(function (a) { return a.s; }).join('|'));
+    if (this.kisimImza !== imza) {
+      var se = A.map(function (a, i) { return '<option value="' + i + '">' + esc((i + 1) + '. ' + kisalt(paylasimYazi(a.s), 34)) + '</option>'; }).join('');
+      r.kisimBas.innerHTML = se; r.kisimSon.innerHTML = se; this.kisimImza = imza;
+    }
+    r.kisimBas.value = String(KS.bas); r.kisimSon.value = String(KS.son);
+    r.kisimBas.disabled = r.kisimSon.disabled = !!this.indiriliyor;
+    this.kisimNotYaz();
+  };
+  Oynatici.prototype.kisimNotYaz = function () { // seçilen kısmın adım sayısı ve yaklaşık süresi
+    var r = this.r, A = this.P.adimlar || [], KS = this.kisimAl();
+    if (!r.kisimNot || !A.length || r.kisimAlan.hidden) return;
+    var ks = this.kayitSure && this.kayitSure.id === this.P.id && this.indirSecim === 'kayit' ? this.kayitSure.l : null, t = 0.6, i;
+    for (i = KS.bas; i <= KS.son && A[i]; i++) { var k = ks && ks[i]; t += (k > 0 ? k : String(A[i].s || '').length / 14) + (A[i].sil && i > KS.bas ? 1.1 : 0.6); }
+    var video = (this.indirBicim || 'mp3') === 'mp4', SA = video ? this.sunumAyar() : null;
+    if (SA && SA.giris && window.SesliSunum) t += window.SesliSunum.GIRIS_SURE;
+    if (SA && SA.kapanis && window.SesliSunum) t += window.SesliSunum.KAPANIS_SURE;
+    var n = KS.son - KS.bas + 1, yazi = (KS.parca ? (KS.bas + 1) + '–' + (KS.son + 1) + '. adımlar (' + n + ' adım)' : 'Dersin tamamı (' + n + ' adım)') + ' · yaklaşık ' + sureYazi(Math.max(5, Math.round(t / 5) * 5));
+    if (video && (this.indirPlat === 'reels' || this.indirPlat === 'gonderi') && t > 180) yazi += '. Reels ve Shorts için 3 dakikayı geçmemesi iyi olur: daha kısa bir kısım seçebilirsin.';
+    r.kisimNot.textContent = yazi;
+  };
+  Oynatici.prototype.kapakImza = function () { // kapağı değiştiren ayarlar: biri değişince hazırlanmış kapak eskir
+    var A = this.sunumAyar() || {};
+    return JSON.stringify([this.P.id, this.indirPlat, A.baslik, A.alt, A.kanal, A.motif, ayar.ogretmen, ayar.ikili, ayar.gorunum, this.indirArka, !!(this.r.indirIsik && this.r.indirIsik.checked)]);
+  };
+  Oynatici.prototype.kapakSifirla = function () {
+    var r = this.r;
+    if (this.kapakUrl) { URL.revokeObjectURL(this.kapakUrl); this.kapakUrl = null; }
+    this.kapakDosya = null; this.kapakImzasi = null;
+    if (!r.kapakLink) return;
+    r.kapakLink.hidden = true; r.kapakLink.setAttribute('href', '#'); r.kapakPaylas.hidden = true;
+    r.kapakOnizleme.hidden = true; r.kapakOnizleme.innerHTML = '';
+    if (!this.kapakYapiliyor) r.kapakDugme.textContent = '🖼️ Kapak hazırla';
+  };
+  Oynatici.prototype.kapakFoto = function () { // kapaktaki yüz: kayıttaki videodan en net kare, yoksa fotoğrafın; çizgi figürde yüz yok
+    var self = this, ST = window.SesliStudyo, A = this.P.adimlar || [], KS = this.kisimAl();
+    if (!ayar.ogretmen || ayar.ikili || ayar.gorunum === 'figur') return Promise.resolve(null);
+    var foto = function () { return Foto.yukle().then(function () { return Foto.resim || null; }); };
+    var sira = A.slice(KS.bas, KS.son + 1).concat(A.slice(0, KS.bas)).slice(0, 10), bulunan = 0, enIyi = null;
+    var dene = function (i) { // en çok iki videoya bakılır
+      if (i >= sira.length || bulunan >= 2) return enIyi ? Promise.resolve(enIyi.tv) : foto();
+      return Kayitlar.al('v:' + ozet(sira[i].s)).then(function (v) {
+        if (!v || !v.veri) return dene(i + 1);
+        bulunan++;
+        return videoNetKare(v).then(function (k) { if (k && (!enIyi || k.n > enIyi.n)) enIyi = k; return dene(i + 1); });
+      }, function () { return dene(i + 1); });
+    };
+    return (ayar.gorunum === 'video' ? dene(0) : foto()).then(function (im) {
+      if (!im || !ST || !ST.gorunum) return im;
+      var isik = !!(self.r.indirIsik && self.r.indirIsik.checked), arka = self.indirArka || 'bulanik';
+      if (!isik && arka === 'yok') return im;
+      var ay = arka !== 'yok' ? Promise.race([ST.ayiriciYukle(), sleep(20000).then(function () { throw new Error('zaman aşımı'); })]).catch(function () { return null; }) : Promise.resolve(null);
+      return ay.then(function (ayirici) { // videodaki stüdyo görünümü kapağa da uygulanır
+        var w = im.width || im.naturalWidth || im.videoWidth, h = im.height || im.naturalHeight || im.videoHeight, k = Math.min(w, h, 1080);
+        if ((!isik && !ayirici) || !w || !h) return im;
+        var c = ST.gorunum({ isik: isik, arka: ayirici ? arka : 'yok', ayirici: ayirici }).isle(im, w, h, k, k, 0.5, 0.3, 0), tv = document.createElement('canvas');
+        tv.width = tv.height = k; tv.getContext('2d').drawImage(c, 0, 0); return tv;
+      });
+    }).catch(function () { return null; });
+  };
+  Oynatici.prototype.kapakYap = function () { // Reels kapağı ya da YouTube küçük resmi: başlık, konunun çizimi ya da öğretmenin yüzü, kanal adı
+    var self = this, r = this.r, SU = window.SesliSunum, ST = window.SesliStudyo, A = this.sunumAyar();
+    if (!SU || !SU.kapak || !A || this.kapakYapiliyor) return;
+    var plat = ST && ST.BICIMLER[this.indirPlat] ? this.indirPlat : 'yt', boy = plat === 'reels' ? [1080, 1920] : plat === 'gonderi' ? [1080, 1350] : [1280, 720], imza = this.kapakImza();
+    this.kapakYapiliyor = true; r.kapakDugme.disabled = true; r.kapakDugme.textContent = 'Hazırlanıyor…';
+    this.kapakFoto().then(function (foto) {
+      var tv = SU.kapak({ G: boy[0], Y: boy[1], baslik: A.baslik, alt: A.alt, kullanici: A.kanal, motif: A.motif, foto: foto, filigran: A.kanal ? 'Instagram’da ' + A.kanal : '' });
+      return new Promise(function (res, rej) { tv.toBlob(function (b) { if (b) res(b); else rej(new Error('kapak')); }, 'image/jpeg', 0.92); });
+    }).then(function (blob) {
+      self.kapakYapiliyor = false; self.kapakSifirla();
+      var ad = 'kapak-' + slugla(A.baslik + (A.alt ? ' ' + A.alt : '')) + '-' + plat + '.jpg';
+      self.kapakUrl = URL.createObjectURL(blob); self.kapakImzasi = imza;
+      try { self.kapakDosya = new File([blob], ad, { type: 'image/jpeg' }); } catch (e) { self.kapakDosya = null; }
+      r.kapakLink.setAttribute('href', self.kapakUrl); r.kapakLink.setAttribute('download', ad); r.kapakLink.hidden = false;
+      r.kapakLink.textContent = '⬇ Kapağı indir (JPEG, ' + boyutYazi(blob.size) + ')';
+      var paylas = false; try { paylas = !!(self.kapakDosya && navigator.share && navigator.canShare && navigator.canShare({ files: [self.kapakDosya] })); } catch (e) {}
+      r.kapakPaylas.hidden = !paylas;
+      r.kapakOnizleme.innerHTML = '<img alt="Kapak görseli" src="' + self.kapakUrl + '">'; r.kapakOnizleme.hidden = false;
+    }).catch(function (e) {
+      self.kapakYapiliyor = false; r.kapakNot.textContent = 'Kapak hazırlanamadı. Yeniden dene.';
+      if (window.console) console.warn('Kapak görseli:', e);
+    }).then(function () { r.kapakDugme.disabled = false; r.kapakDugme.textContent = self.kapakUrl ? '🖼️ Yeniden hazırla' : '🖼️ Kapak hazırla'; });
+  };
+  Oynatici.prototype.youtubeBolumleri = function (d, KS, A) { // YouTube bölümleri: 0:00'dan başlar, en az üç bölüm, her biri en az 10 sn
+    var z = d && d.zamanlar, B = this.P.bolumler || [], L = [], k;
+    if (!z || !z.adim || !z.adim.length) return [];
+    var dersAd = paylasimYazi((this.P.ders && this.P.ders.baslik) || '').toLocaleLowerCase('tr');
+    var ad = function (t) { return kisalt(paylasimYazi(t), 60); };
+    var ilkAd = function (t) { t = ad(t); return !t || t.toLocaleLowerCase('tr') === dersAd ? 'Giriş' : t; };
+    if (B.length > 1) { // dersin bölümleri; kısım bir bölümün ortasından başlıyorsa ilk bölüm onun adını alır
+      var icinde = null; B.forEach(function (b) { if (b.adim <= KS.bas) icinde = b; });
+      L.push({ t: 0, ad: ilkAd(icinde ? icinde.ad : '') });
+      B.forEach(function (b) { var k2 = b.adim - KS.bas; if (k2 > 0 && k2 < A.length) L.push({ t: z.adim[k2], ad: ad(b.ad) || 'Bölüm' }); });
+    }
+    if (L.length < 3) { // bölüm yoksa tahtanın yeni sayfaları: başlığı ya da etiketi olanlar
+      L = [{ t: 0, ad: ilkAd(adimBasligi(A[0])) }];
+      for (k = 1; k < A.length; k++) { if (!A[k].sil) continue; var a2 = adimBasligi(A[k]); if (a2 && a2 !== L[L.length - 1].ad) L.push({ t: z.adim[k], ad: a2 }); }
+    }
+    var S = [];
+    L.forEach(function (b) { if (!S.length || b.t - S[S.length - 1].t >= 10) S.push(b); });
+    while (S.length > 1 && (d.sure || 0) - S[S.length - 1].t < 10) S.pop();
+    return S.length >= 3 ? S.map(function (b) { return saatYazi(b.t) + ' ' + b.ad; }) : [];
+  };
+  Oynatici.prototype.paylasimMetni = function (d, KS, A) { // açıklamaya yapıştırılacak metin; YouTube için ayrıca başlık ve bölümler
+    var SA = this.sunumAyar() || {}, yt = !window.SesliStudyo || this.indirPlat === 'yt' || this.indirPlat === 'hizli';
+    var baslik = SA.baslik || this.varsayilanBaslik(), alt = SA.alt || '', kanal = SA.kanal || '', acik = '', c = 0, i;
+    for (i = 0; i < A.length && c < 2; i++) { var s = paylasimYazi(A[i].s); if (!s) continue; if (acik && acik.length + s.length > 230) break; acik += (acik ? ' ' : '') + s; c++; }
+    var konu = KONU_ETIKET[SA.motif] || [], sinif = (baslik + ' ' + alt).toLocaleLowerCase('tr').match(/(^|\D)(9|10|11|12)\.\s*sınıf/), gor = {};
+    var etiket = ['#kimya', konu[0], sinif ? '#' + sinif[2] + 'sınıf' : null, '#yks', '#kimyadersi', konu[1], '#tyt', '#ayt', '#kimyaöğretmeni']
+      .filter(function (e) { if (!e || gor[e]) return false; gor[e] = 1; return true; }).slice(0, yt ? 6 : 5);
+    var bas = baslik + (alt ? (yt ? ' | ' : ' · ') + alt : ''), sat = [];
+    if (yt) {
+      if (acik) sat.push(acik, '');
+      var bl = this.youtubeBolumleri(d, KS, A);
+      if (bl.length) sat.push('Bölümler', bl.join('\n'), '');
+      if (kanal) sat.push('Instagram’da ' + kanal, '');
+      sat.push(etiket.join(' '));
+      return { baslik: kisalt(bas, 100), metin: sat.join('\n') };
+    }
+    sat.push(bas + ' ⚗️', '');
+    if (acik) sat.push(acik, '');
+    sat.push('📌 Kaydet, tekrar ederken işine yarasın.');
+    if (kanal) sat.push('Daha fazlası için takip et: ' + kanal);
+    sat.push('', etiket.join(' '));
+    return { baslik: '', metin: sat.join('\n') };
+  };
   /* ---- giriş ve marka ---- */
   Oynatici.prototype.varsayilanBaslik = function () { // videonun girişindeki başlık: dersin adı, kendi metninde ilk satır
     var b = this.P.ders && this.P.ders.baslik;
@@ -3327,8 +3568,12 @@
   Oynatici.prototype.sunumAyar = function () {
     var r = this.r, SU = window.SesliSunum; if (!SU || !r.girisAc) return null;
     var kanal = (r.kanalAd.value || '').trim().replace(/\s+/g, ''); if (kanal && kanal.charAt(0) !== '@') kanal = '@' + kanal;
-    var baslik = (r.girisBaslik.value || '').trim() || this.varsayilanBaslik(), alt = (r.girisAlt.value || '').trim(), motif = r.girisMotif.value || 'otomatik';
-    if (motif === 'otomatik') motif = SU.motifBul(baslik + ' ' + alt) || SU.motifBul((this.P.adimlar || []).slice(0, 4).map(function (a) { return a.s; }).join(' ')) || 'atom';
+    var baslik = (r.girisBaslik.value || '').trim() || this.varsayilanBaslik(), alt = (r.girisAlt.value || '').trim(), motif = r.girisMotif.value || 'otomatik', KS = this.kisimAl();
+    if (!alt && KS.bolum >= 0) { // dersin bir bölümü indiriliyorsa alt başlık bölümün adı olur
+      var bad = paylasimYazi((this.P.bolumler[KS.bolum] || {}).ad || '');
+      if (bad && bad.toLocaleLowerCase('tr') !== baslik.toLocaleLowerCase('tr')) alt = kisalt(bad, 48);
+    }
+    if (motif === 'otomatik') motif = SU.motifBul(baslik + ' ' + alt) || SU.motifBul((this.P.adimlar || []).slice(KS.bas, KS.bas + 4).map(function (a) { return a.s; }).join(' ')) || 'atom';
     var ad = (r.altBantAd.value || '').trim(), fil = !!r.filigranAc.checked && !!kanal;
     return { giris: !!r.girisAc.checked, baslik: baslik, alt: alt, motif: motif, kapanis: !!r.kapanisAc.checked && !!kanal, kanal: kanal,
       filigran: fil ? 'Instagram’da ' + kanal : '', altBant: ad ? { ad: ad, unvan: (r.altBantUnvan.value || '').trim() } : null };
@@ -3347,6 +3592,7 @@
     this.indirDosya = null;
     r.indirSonuc.hidden = true; r.indirLink.setAttribute('href', '#'); r.indirPaylas.hidden = true; r.indirUyari.hidden = true;
     r.indirIlerleme.hidden = true; r.indirCubuk.style.width = '0';
+    if (r.paylasimKutu) r.paylasimKutu.hidden = true;
     if (!this.indiriliyor) { r.indirOnizleme.hidden = true; r.indirOnizleme.innerHTML = ''; }
   };
   Oynatici.prototype.indirHata = function (yazi) { this.r.indirUyari.textContent = yazi; this.r.indirUyari.hidden = false; };
@@ -3359,6 +3605,7 @@
     });
     var bicim = this.indirBicim || 'mp3';
     Array.prototype.forEach.call(r.indirBicimler.querySelectorAll('[data-ibic]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-ibic') === bicim)); });
+    this.kisimCiz();
     if (r.sesAlan && window.SesliSes) {
       r.sesAlan.hidden = false;
       if (this.muzikTur === 'kendi' && !this.kendiMuzik) this.muzikTur = 'yok';
@@ -3374,7 +3621,9 @@
     if (!A.length) { r.indirSesNot.textContent = 'Önce bir ders aç; indirilen dosya o dersin anlatımı olur.'; return; }
     if (this.indirSecim === 'bulut') { r.indirSesNot.textContent = ayar.ikili ? 'Karşılıklı anlatım açık: kadın ve erkek doğal ses sırayla okur.' : 'Ayarlar’da seçili doğal sesle okunur.'; return; }
     r.indirSesNot.textContent = 'Kayıtların sayılıyor…';
-    Promise.all(A.map(function (a) { var h = ozet(a.s); return Kayitlar.al('k:' + h).then(function (v) { return !!(v && v.veri) || !!Yayin.al(h); }); })).then(function (v) {
+    var sureler = [], kimlik = this.P.id;
+    Promise.all(A.map(function (a, i) { var h = ozet(a.s); return Kayitlar.al('k:' + h).then(function (v) { sureler[i] = v && v.veri ? (v.sure || 0) : 0; return !!(v && v.veri) || !!Yayin.al(h); }); })).then(function (v) {
+      if (self.P.id === kimlik) { self.kayitSure = { id: kimlik, l: sureler }; self.kisimNotYaz(); }
       if (self.indirSecim !== 'kayit') return;
       var n = v.filter(Boolean).length;
       r.indirSesNot.textContent = n
@@ -3392,6 +3641,11 @@
         if (!this.sunumBaslik || this.sunumBaslik.id !== this.P.id) { this.sunumBaslik = { id: this.P.id, yazi: this.varsayilanBaslik() }; }
         if (document.activeElement !== r.girisBaslik && this.kok.activeElement !== r.girisBaslik) r.girisBaslik.value = this.sunumBaslik.yazi;
         r.girisAyrinti.hidden = !r.girisAc.checked;
+        if (r.kapakNot) {
+          if (this.kapakUrl && this.kapakImzasi !== this.kapakImza()) this.kapakSifirla();
+          var kp = this.indirPlat, yz = ayar.ogretmen && !ayar.ikili && ayar.gorunum !== 'figur';
+          r.kapakNot.textContent = (kp === 'reels' ? 'Reels kapağı (1080×1920)' : kp === 'gonderi' ? 'Gönderi kapağı (1080×1350)' : 'YouTube küçük resmi (1280×720)') + ': başlık, ' + (yz ? 'yüzün' : 'konunun çizimi') + ' ve kanal adın.';
+        }
       }
     }
     if (!video) return;
@@ -4459,6 +4713,16 @@
   Oynatici.prototype.sesDosyasi = function () {
     var self = this, r = this.r, A = (this.P.adimlar || []).slice(), plan = this.P.plan, secim = this.indirSecim, bicim = this.indirBicim || 'mp3';
     if (this.indiriliyor || !A.length) return;
+    var KS = this.kisimAl();
+    if (KS.parca) { // dersin bir kısmı: ilk adımı temiz tahtada başlar, önceki adımlardan kalan deney sahnesi korunur
+      var tum = A, ilk = {}, j;
+      A = tum.slice(KS.bas, KS.son + 1);
+      for (j in A[0]) if (Object.prototype.hasOwnProperty.call(A[0], j)) ilk[j] = A[0][j];
+      ilk.sil = 1;
+      if (!('sahne' in ilk)) for (j = KS.bas - 1; j >= 0; j--) if ('sahne' in tum[j]) { ilk.sahne = tum[j].sahne; break; }
+      A[0] = ilk;
+      if (plan) plan = plan.slice(KS.bas, KS.son + 1);
+    }
     if (secim === 'bulut' && !Bulut.hazir()) { this.indirHata('Doğal sesler şu an kullanılamıyor.'); return; }
     var ctx = cozucuYap();
     if (!ctx) { this.indirHata('Bu tarayıcı ses dosyası hazırlayamıyor. Safari ya da Chrome’un güncel sürümünü dene.'); return; }
@@ -4466,7 +4730,8 @@
     if (bicim !== 'mp3') { try { var AC = window.AudioContext || window.webkitAudioContext; if (AC) { canli = new AC(); if (canli.resume) canli.resume(); } } catch (e) { canli = null; } }
     this.indirSifirla(); this.indiriliyor = true; this.indirCiz();
     var baslik = (this.P.ders && this.P.ders.baslik) || (this.P.id === 'metin' ? 'kendi metnim' : this.P.id) || 'ders';
-    var ad = 'sesli-' + slugla(baslik) + (secim === 'kayit' ? '-kendi-sesim' : ''), video = bicim === 'mp4', altyazi = !!(r.indirAltyazi && r.indirAltyazi.checked);
+    var kisimEk = KS.parca ? (KS.bolum >= 0 ? '-bolum-' + (KS.bolum + 1) : '-adim-' + (KS.bas + 1) + '-' + (KS.son + 1)) : '';
+    var ad = 'sesli-' + slugla(baslik) + (secim === 'kayit' ? '-kendi-sesim' : '') + kisimEk, video = bicim === 'mp4', altyazi = !!(r.indirAltyazi && r.indirAltyazi.checked);
     var durum = function (yazi, oran) { r.indirYazi.textContent = yazi; if (oran != null) r.indirCubuk.style.width = Math.round(Math.max(0, Math.min(1, oran)) * 100) + '%'; };
     var bosHata = secim === 'kayit' ? 'Bu derste kullanılabilecek ses kaydı bulunamadı. Önce “Kendi sesinle kaydet” ile cümleleri oku.' : 'Doğal ses alınamadı. İnternet bağlantını kontrol edip yeniden dene.';
     var kilit = null, say = null;
@@ -4499,6 +4764,10 @@
       var paylas = false; try { paylas = !!(dosya && navigator.share && navigator.canShare && navigator.canShare({ files: [dosya] })); } catch (e) {}
       r.indirPaylas.hidden = !paylas;
       durum('Hazır: ' + sureYazi(d.sure) + ' · ' + d.ad, 1);
+      if (video && d.zamanlar && r.paylasimKutu) {
+        try { var pm = self.paylasimMetni(d, KS, A); r.paylasimBaslik.value = pm.baslik; r.paylasimBaslikSatir.hidden = !pm.baslik; r.paylasimMetin.value = pm.metin; r.paylasimNot.textContent = ''; r.paylasimKutu.hidden = false; }
+        catch (e) { if (window.console) console.warn('Paylaşım metni:', e); }
+      }
       var not = [];
       if (d.not) not.push(d.not);
       if (secim === 'kayit' && say && say.dogal) not.push(say.kendi + ' cümle senin sesinle, ' + say.dogal + ' cümle doğal sesle.');
@@ -4620,6 +4889,7 @@
           ust: SA.filigran || SA.altBant ? SU.ustKatman({ G: P.G, Y: P.Y, filigran: SA.filigran, altBant: SA.altBant }) : null });
       }
       var tuval = cikti.tuval, sure = GI + Z.toplam + GO, kareSay = Math.ceil(sure * P.fps), bitir = function () { if (sb) sb.kapat(); if (yb) yb.birak(Infinity); };
+      var zamanlar = { giris: GI, adim: Z.adimlar.map(function (z) { return GI + z.bas0; }) }; // YouTube bölümleri için
       cikti.kare(GI ? Math.min(2.6, GI) : 0); self.indirOnizle(tuval);
       if (kd[0] && kd[1]) {
         var hazirla0 = sb && sb.var ? function (t) { return sb.hazirla(t); } : yb && yb.var ? vYuzHazirla(Z.adimlar, yb) : null;
@@ -4629,7 +4899,7 @@
           durum('Ses ekleniyor…', 0.93);
           return vSesKodla(ses, oran, kd[1], function (o) { durum('Ses ekleniyor… %' + Math.round(o * 100), 0.93 + o * 0.05); }).then(function (s) {
             durum('Dosya birleştiriliyor…', 0.99);
-            return { blob: mp4Yap([videoIzi(v, P.G, P.Y), sesIzi(s, 2)], 'isom', 'video/mp4'), ad: ad + '.mp4', tur: 'MP4 video', sure: sure, not: gorNot, srt: srtYap(O, Z, GI) };
+            return { blob: mp4Yap([videoIzi(v, P.G, P.Y), sesIzi(s, 2)], 'isom', 'video/mp4'), ad: ad + '.mp4', tur: 'MP4 video', sure: sure, not: gorNot, srt: srtYap(O, Z, GI), zamanlar: zamanlar };
           });
         }, function (e) { bitir(); throw e; });
       }
@@ -4637,7 +4907,7 @@
       if (!mime || !canli || !tuval.captureStream) { bitir(); throw kHata('Bu tarayıcı video hazırlayamıyor. Safari ya da Chrome’un güncel sürümünü dene.'); }
       var webm = /webm/.test(mime);
       return vCanliKayit({ ctx: canli, tuval: tuval, ciz: cikti.kare, ses: ses, oran: oran, mime: mime, toplam: sure, fps: P.fps, bit: P.bit, ilerle: function (o, t) { durum('Video kaydediliyor… ' + saatYazi(t) + ' / ' + saatYazi(sure) + ' · ekranı açık tut', 0.32 + o * 0.67); } })
-        .then(function (blob) { bitir(); return { blob: blob, ad: ad + (webm ? '.webm' : '.mp4'), tur: webm ? 'WebM video' : 'MP4 video', sure: sure, srt: srtYap(O, Z, GI), not: [webm ? 'Bu tarayıcı MP4 kaydedemediği için video WebM biçiminde hazırlandı.' : '', gorNot].filter(Boolean).join(' ') }; }, function (e) { bitir(); throw e; });
+        .then(function (blob) { bitir(); return { blob: blob, ad: ad + (webm ? '.webm' : '.mp4'), tur: webm ? 'WebM video' : 'MP4 video', sure: sure, zamanlar: zamanlar, srt: srtYap(O, Z, GI), not: [webm ? 'Bu tarayıcı MP4 kaydedemediği için video WebM biçiminde hazırlandı.' : '', gorNot].filter(Boolean).join(' ') }; }, function (e) { bitir(); throw e; });
       });
     });
   };
@@ -4653,6 +4923,8 @@
     var d = this.indirDosya, dosya;
     if (!d || !navigator.share) return;
     try { dosya = new File([d.blob], d.ad, { type: d.blob.type }); } catch (e) { return; }
+    var r = this.r, metin = r.paylasimKutu && !r.paylasimKutu.hidden ? r.paylasimMetin.value : '';
+    if (metin && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(metin).then(function () { r.paylasimNot.textContent = '✓ Açıklama panoya kopyalandı: paylaşırken yapıştırabilirsin.'; }, function () {});
     navigator.share({ files: [dosya], title: d.ad }).catch(function () {});
   };
   Oynatici.prototype.ornekKayit = function () {

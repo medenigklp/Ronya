@@ -230,7 +230,11 @@
     var Z = o.Z, oturum = {}, sozler = {};
     var tut = document.createElement('canvas'), tutC = tut.getContext('2d'), tutDolu = false;
     var adim = function (t) { var k = -1; for (var i = 0; i < Z.length; i++) { if (Z[i].bas <= t) k = i; else break; } return Math.max(0, k); };
-    var anda = function (kk, t) { var z = Z[kk], x = o.sonuc[kk] && o.sonuc[kk].ana; return Math.max(0, Math.min(t, z.bas + z.sure) - z.bas) + (x && x.kirpBas || 0); };
+    var anda = function (kk, t) { // kalemle kaydedilmiş adımda sessiz çizilen anlar da (öncesi, sonrası) videodan gelir
+      var z = Z[kk], x = o.sonuc[kk] && o.sonuc[kk].ana, kb = x && x.kirpBas || 0;
+      if (z.kalemli) return Math.max(0, Math.min(t, z.bas + z.sure + (z.ek || 0)) - z.bas + kb);
+      return Math.max(0, Math.min(t, z.bas + z.sure) - z.bas) + kb;
+    };
     var ac = function (kk) { // adımın oturumu: söz döner, oturum[kk] hazır olunca dolar
       if (oturum[kk] !== undefined) return Promise.resolve(oturum[kk]);
       if (sozler[kk]) return sozler[kk];

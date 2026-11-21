@@ -6,14 +6,14 @@
    verir, yani site yavaşlamaz; değiştiyse yeni hâli anında gelir.
    Çevrimdışı çalışma aynen korunuyor.
    ============================================================ */
-var CACHE = 'ronya-v6';
+var CACHE = 'ronya-v7';
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
       return Promise.all(
-        ['./', 'index.html', 'ronya-eklenti.js', 'ronya-tema.js', 'sesli-studyo.js', 'sesli-ders.js', 'banka.html', 'manifest.json'].map(function (u) {
+        ['./', 'index.html', 'ronya-eklenti.js', 'ronya-tema.js', 'sesli-studyo.js', 'sesli-kalem.js', 'sesli-ders.js', 'banka.html', 'manifest.json'].map(function (u) {
           return c.add(new Request(u, { cache: 'no-cache' })).catch(function () {});
         })
       );

@@ -331,6 +331,51 @@
     return { sure: sure, ciz: ciz };
   };
 
+  /* ---------------- kapak görseli: Reels kapağı ya da YouTube küçük resmi ---------------- */
+  // o: { G, Y, baslik, alt, kullanici, motif, foto (resim | tuval | null), filigran }
+  S.kapak = function (o) {
+    var G = o.G, Y = o.Y, tv = document.createElement('canvas'); tv.width = G; tv.height = Y;
+    var c = tv.getContext('2d'), S0 = Math.min(G, Y), dik = Y > G * 1.1, motif = MOTIF[o.motif] || MOTIF.atom, f = o.foto;
+    zemin(c, G, Y, 2.2);
+    var daire = function (cx, cy, r) { // fotoğraf ya da konunun animasyonu, turuncu halkalı
+      c.save(); c.shadowColor = 'rgba(120,60,20,.22)'; c.shadowBlur = S0 * 0.05; c.shadowOffsetY = S0 * 0.014;
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill(); c.restore();
+      c.save(); c.beginPath(); c.arc(cx, cy, r - S0 * 0.008, 0, Math.PI * 2); c.clip();
+      if (f) { var fw = f.width || f.naturalWidth || f.videoWidth, fh = f.height || f.naturalHeight || f.videoHeight, k = Math.min(fw, fh), d = 2 * r; try { c.drawImage(f, (fw - k) / 2, (fh - k) * 0.3, k, k, cx - r, cy - r, d, d); } catch (e) {} }
+      else { c.translate(cx, cy); motif(c, r * 0.92, 1, 2.2); }
+      c.restore();
+      c.strokeStyle = R.turuncu; c.lineWidth = S0 * 0.012; c.beginPath(); c.arc(cx, cy, r + S0 * 0.012, 0, Math.PI * 2); c.stroke();
+      if (f) { var rb = r * 0.34, bx = cx + r * 0.72, by = cy + r * 0.72; c.save(); c.shadowColor = 'rgba(0,0,0,.18)'; c.shadowBlur = S0 * 0.02; c.fillStyle = '#fff'; c.beginPath(); c.arc(bx, by, rb, 0, Math.PI * 2); c.fill(); c.restore(); c.save(); c.beginPath(); c.arc(bx, by, rb, 0, Math.PI * 2); c.clip(); c.translate(bx, by); motif(c, rb * 0.92, 1, 2.2); c.restore(); c.strokeStyle = R.turuncu; c.lineWidth = S0 * 0.006; c.beginPath(); c.arc(bx, by, rb, 0, Math.PI * 2); c.stroke(); }
+    };
+    var etiket = function (x, y, yazi, fs, orta) {
+      c.font = '800 ' + Math.round(fs) + 'px ' + UI; var w = c.measureText(yazi).width + fs * 1.8, h = fs * 1.9, x0 = orta ? x - w / 2 : x;
+      yuvarlak(c, x0, y - h / 2, w, h, h / 2); c.fillStyle = R.turuncu; c.fill();
+      c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(yazi, x0 + w / 2, y + fs * 0.06);
+    };
+    if (dik) { // Reels: içerik ortadaki 3:4 alanda kalır (profil ızgarası kırpar)
+      var L = bloklar(c, G, Y, o.baslik, o.alt);
+      daire(L.cx, L.cy, L.rb * 1.05);
+      c.font = '800 ' + Math.round(L.fs * 1.08) + 'px ' + UI; c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillStyle = R.murekkep;
+      var y = L.ty + L.fs * 0.95, son = null;
+      L.duzen.forEach(function (st) { var yazi = st.map(function (k) { return k.t; }).join(' '); c.fillText(yazi, L.cx, y); son = { g: c.measureText(yazi).width, y: y }; y += L.fs * 1.2; });
+      if (son) { var cw = Math.min(son.g, S0 * 0.42); yuvarlak(c, L.cx - cw / 2, son.y + L.fs * 0.22, cw, L.fs * 0.12, L.fs * 0.06); c.fillStyle = R.turuncu; c.fill(); }
+      if (o.alt) { c.fillStyle = R.gri; c.font = '600 ' + Math.round(S0 * 0.044) + 'px ' + UI; c.fillText(o.alt, L.cx, L.altY + S0 * 0.01); }
+      if (o.kullanici) etiket(L.cx, L.etiketY, o.filigran || o.kullanici, S0 * 0.034, true);
+    } else { // YouTube: solda büyük başlık, sağda yuvarlak fotoğraf
+      var r = Y * 0.34, cx = G - r - G * 0.07, cy = Y * 0.5;
+      daire(cx, cy, r);
+      var enGen = cx - r - G * 0.1, fs = Y * 0.13, duzen = null;
+      for (var d = 0; d < 14; d++) { c.font = '900 ' + Math.round(fs) + 'px ' + UI; duzen = satirlar(c, o.baslik || 'Kimya', enGen, 3); if (duzen) break; fs *= 0.9; }
+      if (!duzen) duzen = [[{ t: String(o.baslik || '').slice(0, 30), g: 0 }]];
+      var x = G * 0.06, satH = fs * 1.12, toplam = duzen.length * satH + (o.alt ? Y * 0.09 : 0) + Y * 0.12, yy = (Y - toplam) / 2 + fs * 0.9;
+      c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+      duzen.forEach(function (st, i) { var yazi = st.map(function (k) { return k.t; }).join(' '); c.fillStyle = R.murekkep; c.fillText(yazi, x, yy); if (i === duzen.length - 1) { var w2 = Math.min(c.measureText(yazi).width, enGen * 0.6); yuvarlak(c, x, yy + fs * 0.2, w2, fs * 0.12, fs * 0.06); c.fillStyle = R.turuncu; c.fill(); } yy += satH; });
+      if (o.alt) { c.fillStyle = R.gri; c.font = '700 ' + Math.round(Y * 0.055) + 'px ' + UI; c.fillText(o.alt, x, yy + Y * 0.02); yy += Y * 0.09; }
+      if (o.kullanici) etiket(x, yy + Y * 0.04, o.filigran || o.kullanici, Y * 0.036, false);
+    }
+    return tv;
+  };
+
   /* ---------------- içerik üstündeki katman: köşede kanal adı, alt bantta öğretmen ---------------- */
   // o: { G, Y, filigran: yazı | '', altBant: { ad, unvan } | null, yer: yerleşim adı }
   S.ustKatman = function (o) {

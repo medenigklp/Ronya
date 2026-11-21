@@ -1520,6 +1520,8 @@
               '<div class="sunum-ic"><label class="sunum-etiket">Kanal adı<input type="text" data-r="kanalAd" maxlength="40" placeholder="@kimyamed"></label>' +
                 '<label class="sunum-etiket">Alt bantta adın (isteğe bağlı)<input type="text" data-r="altBantAd" maxlength="40" placeholder="ör. Ad Soyad"></label>' +
                 '<label class="sunum-etiket">Unvanın<input type="text" data-r="altBantUnvan" maxlength="40" placeholder="ör. Kimya öğretmeni"></label></div></div></div>' +
+          '<div class="alan" data-r="sesAlan" hidden><span class="etiket">Ses kalitesi</span><label class="anahtar"><input type="checkbox" data-r="sesIsleAc"> Stüdyo sesi: gürültü azaltma, ses dengesi, netlik</label>' +
+            '<span class="etiket" style="margin-top:8px">Fon müziği</span><div class="secim" data-r="muzikler"></div><input type="file" accept="audio/*" data-r="muzikSec" hidden><p class="not" data-r="muzikNot"></p></div>' +
           '<div class="alan"><span class="etiket">Hangi sesle?</span><div class="secim" data-r="indirSesler"><button type="button" data-isec="bulut">Doğal ses</button><button type="button" data-isec="kayit">Kendi sesim</button></div><p class="not" data-r="indirSesNot"></p></div>' +
           '<button type="button" class="dugme" data-r="indirHazirla">Ses dosyasını hazırla</button>' +
           '<div class="indir-onizleme" data-r="indirOnizleme" hidden></div>' +
@@ -1601,6 +1603,8 @@
     this.indirPlat = depo.al('indirPlat', 'reels'); this.indirYer = depo.al('indirYer', 'bolunmus'); this.indirAltStil = depo.al('indirAltStil', 'buyuk');
     this.indirArka = depo.al('indirArka', 'bulanik'); if (!/^(yok|bulanik|studyo)$/.test(this.indirArka)) this.indirArka = 'bulanik';
     this.r.indirIsik.checked = depo.al('indirIsik', true) !== false;
+    this.muzikTur = depo.al('fonMuzik', 'yok'); if (!/^(yok|sakin|enerjik|kendi)$/.test(this.muzikTur)) this.muzikTur = 'yok';
+    this.r.sesIsleAc.checked = depo.al('sesIsle', true) !== false;
     if (window.SesliSunum) {
       var rr = this.r;
       rr.girisMotif.innerHTML = window.SesliSunum.MOTIFLER.map(function (m) { return '<option value="' + m[0] + '">' + m[1] + '</option>'; }).join('');
@@ -1663,6 +1667,20 @@
       r.girisBaslik.addEventListener('change', function () { self.sunumBaslik = { id: self.P.id, yazi: r.girisBaslik.value }; sunumDegisti(); });
       r.girisOnizle.addEventListener('click', function () { self.girisOnizle(); });
     }
+    r.sesIsleAc.addEventListener('change', function () { depo.yaz('sesIsle', !!r.sesIsleAc.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
+    r.muzikler.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-muzik]'); if (!b || self.indiriliyor) return;
+      var tur = b.getAttribute('data-muzik');
+      if (tur === 'kendi' && (!self.kendiMuzik || b.getAttribute('aria-pressed') === 'true')) { r.muzikSec.click(); if (!self.kendiMuzik) return; }
+      self.muzikTur = tur; depo.yaz('fonMuzik', tur); self.indirSifirla(); self.indirCiz();
+    });
+    r.muzikSec.addEventListener('change', function () {
+      var f = r.muzikSec.files && r.muzikSec.files[0]; r.muzikSec.value = ''; if (!f) return;
+      blobTampon(f).then(function (buf) { return Kayitlar.koy('muzik:kendi', { mime: f.type || 'audio/mpeg', veri: buf, ad: f.name, tarih: Date.now() }); }).then(function () {
+        self.kendiMuzik = { ad: f.name }; self.muzikTur = 'kendi'; depo.yaz('fonMuzik', 'kendi'); self.indirSifirla(); self.indirCiz();
+      }).catch(function () { r.muzikNot.textContent = 'Müzik dosyası saklanamadı.'; });
+    });
+    Kayitlar.al('muzik:kendi').then(function (v) { if (v && v.veri) { self.kendiMuzik = { ad: v.ad || 'müzik' }; if (!self.indiriliyor) self.indirCiz(); } });
     r.indirArkalar.addEventListener('click', function (e) { var b = e.target.closest('[data-arka]'); if (!b || self.indiriliyor) return; self.indirArka = b.getAttribute('data-arka'); depo.yaz('indirArka', self.indirArka); self.indirSifirla(); self.indirCiz(); });
     r.indirIsik.addEventListener('change', function () { depo.yaz('indirIsik', !!r.indirIsik.checked); if (!self.indiriliyor) { self.indirSifirla(); self.indirCiz(); } });
     r.indirAltStiller.addEventListener('click', function (e) { var b = e.target.closest('[data-astil]'); if (!b || self.indiriliyor) return; self.indirAltStil = b.getAttribute('data-astil'); depo.yaz('indirAltStil', self.indirAltStil); self.indirSifirla(); self.indirCiz(); });
@@ -3129,7 +3147,7 @@
   function cozucuYap() { // 24 kHz'lik çevrimdışı ses bağlamı: çözülen her ses bu hıza dönüşür
     var O = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     if (!O) return null;
-    var oranlar = [INDIR_ORAN, 44100];
+    var oranlar = [48000, 44100, INDIR_ORAN]; // 48 kHz: sesin "havası" korunur
     for (var i = 0; i < oranlar.length; i++) { try { return new O(1, 1, oranlar[i]); } catch (e) {} }
     return null;
   }
@@ -3139,9 +3157,11 @@
     });
   }
   // tek kanala indir, baştaki ve sondaki sessizliği kırp, ses düzeyini eşitle (yaklaşık −20 dBFS)
+  var SES_ISLE = false; // indirirken "Stüdyo sesi" açıksa kendi kayıtların temizlenir
   function parcaHazirla(ab, kayitMi) {
     var n = ab.length, k = ab.numberOfChannels, v = new Float32Array(n), c, i;
     for (c = 0; c < k; c++) { var d = ab.getChannelData(c); for (i = 0; i < n; i++) v[i] += d[i] / k; }
+    if (kayitMi && SES_ISLE && window.SesliSes) { try { v = window.SesliSes.sesIsle(v, ab.sampleRate); } catch (e) { if (window.console) console.warn('Stüdyo sesi:', e); } }
     var esik = 0.012, bas = 0, son = n - 1, pay = Math.round(ab.sampleRate * 0.08);
     while (bas < n && Math.abs(v[bas]) < esik) bas++;
     while (son > bas && Math.abs(v[son]) < esik) son--;
@@ -3228,6 +3248,12 @@
     });
     var bicim = this.indirBicim || 'mp3';
     Array.prototype.forEach.call(r.indirBicimler.querySelectorAll('[data-ibic]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-ibic') === bicim)); });
+    if (r.sesAlan && window.SesliSes) {
+      r.sesAlan.hidden = false;
+      if (this.muzikTur === 'kendi' && !this.kendiMuzik) this.muzikTur = 'yok';
+      r.muzikler.innerHTML = window.SesliSes.MUZIKLER.map(function (m) { return '<button type="button" data-muzik="' + m[0] + '" aria-pressed="' + (m[0] === self.muzikTur) + '">' + m[1] + '</button>'; }).join('');
+      r.muzikNot.textContent = this.muzikTur === 'kendi' ? '🎵 ' + this.kendiMuzik.ad + ' · değiştirmek için yeniden dokun. Telifli müzik paylaşımda sorun çıkarabilir.' : this.muzikTur !== 'yok' ? 'Müzik bu uygulamada üretilir, telifsizdir; konuşurken kendiliğinden kısılır.' : '';
+    }
     r.indirBicimNot.textContent = bicim === 'mp4' ? 'Tahtaya yazılanlar sesle birlikte video olur. Hazırlanırken bu sayfada kal.' : bicim === 'm4a' ? 'MP4 biçiminde ses dosyası (.m4a); iPhone’da doğrudan açılır.' : 'En küçük dosya; her cihazda açılır.';
     r.indirAltyaziSatir.hidden = bicim !== 'mp4';
     this.indirPlatCiz(bicim);
@@ -4279,11 +4305,14 @@
     if (video && navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(function (k) { kilit = k; }, function () {});
     r.indirIlerleme.hidden = false;
     durum('Sesler hazırlanıyor… 0/' + A.length, 0);
-    this.sesTopla(A, plan, secim, ctx, function (n) { durum('Sesler hazırlanıyor… ' + n + '/' + A.length, n / A.length * (video ? 0.3 : 0.7)); }).then(function (s) {
+    SES_ISLE = !!(r.sesIsleAc && r.sesIsleAc.checked && window.SesliSes && secim === 'kayit');
+    var muzikVeri = null;
+    this.muzikHazirla(ctx).then(function (m) { muzikVeri = m; return self.sesTopla(A, plan, secim, ctx, function (n) { durum((SES_ISLE ? 'Sesler temizleniyor… ' : 'Sesler hazırlanıyor… ') + n + '/' + A.length, n / A.length * (video ? 0.3 : 0.7)); }); }).then(function (s) {
       say = s.say;
       if (!s.sonuc.some(function (x) { return x && x.ana; })) throw kHata(bosHata);
-      if (video) return self.videoUret(A, plan, s.sonuc, ctx.sampleRate, ad, durum, canli, altyazi, baslik);
+      if (video) return self.videoUret(A, plan, s.sonuc, ctx.sampleRate, ad, durum, canli, altyazi, baslik, muzikVeri);
       var oran = ctx.sampleRate, cikis = sesBirlestir(s.sonuc, oran), sure = cikis.length / oran;
+      if (window.SesliSes && (SES_ISLE || muzikVeri)) { durum('Ses düzenleniyor…', 0.71); window.SesliSes.son(cikis, oran, { muzik: muzikVeri }); }
       if (bicim === 'm4a') return self.m4aUret(cikis, oran, ad, durum, canli);
       var i16 = int16Yap(cikis); cikis = null;
       durum('Dosyaya çevriliyor…', 0.72);
@@ -4331,7 +4360,16 @@
         .then(function (blob) { return { blob: blob, ad: ad + '.m4a', tur: 'MP4 ses', sure: sure }; });
     });
   };
-  Oynatici.prototype.videoUret = function (A, plan, sonuc, oran, ad, durum, canli, altyazi, baslik) {
+  Oynatici.prototype.muzikHazirla = function (ctx) { // fon müziği: üretilecek türün adı ya da kendi müziğinin tek kanallı sesi
+    var tur = this.muzikTur || 'yok';
+    if (!window.SesliSes || tur === 'yok') return Promise.resolve(null);
+    if (tur !== 'kendi') return Promise.resolve(tur);
+    return Kayitlar.al('muzik:kendi').then(function (v) {
+      if (!v || !v.veri) return null;
+      return sesCoz(ctx, v.veri.slice(0)).then(function (ab) { var n = ab.length, k = ab.numberOfChannels, m = new Float32Array(n); for (var c = 0; c < k; c++) { var d = ab.getChannelData(c); for (var i = 0; i < n; i++) m[i] += d[i] / k; } return m; });
+    }).catch(function () { return null; });
+  };
+  Oynatici.prototype.videoUret = function (A, plan, sonuc, oran, ad, durum, canli, altyazi, baslik, muzikVeri) {
     var self = this, O, Z, K, ST = window.SesliStudyo, P = ST && this.indirPlat !== 'hizli' ? ST.BICIMLER[this.indirPlat] : null;
     var hizli = !P; if (hizli) P = { G: VID_G, Y: VID_Y, fps: VID_FPS, bit: 1200000 };
     var mod = ayar.ogretmen && !ayar.ikili ? (ayar.gorunum || 'figur') : 'figur';
@@ -4388,7 +4426,8 @@
       Z.adimlar.forEach(function (z, i) { var x = sonuc[i]; if (!x) return; koy(x.on, z.onBas); koy(x.ana, z.bas); });
       if (GI) kat(SU.girisSesi(oran), 0);
       if (GO) kat(SU.kapanisSesi(oran), GI + Z.toplam);
-      vSinirla(ses);
+      if (window.SesliSes && (SES_ISLE || muzikVeri || GI || GO)) window.SesliSes.son(ses, oran, { muzik: muzikVeri, bas: GI, son: GI + Z.toplam });
+      else vSinirla(ses);
       var TB = O.G.tahta, mur = KL && KV.some(Boolean) ? KL.cizici({ RS: RS, g: TB.g, h: TB.h, koyu: !!O.gor.t.koyu, adimlar: O.adimlar.map(function (Ka, i) {
         var v = KV[i], z = Z.adimlar[i];
         return { sayfa: Ka.sayfa, veri: v && z.kalemli ? v : null, olcek: v && v.g ? TB.g / v.g : 1, esle: function (t) { return z.bas + t - (z.kirp || 0); } };

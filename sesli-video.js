@@ -421,35 +421,177 @@
       if (v.parentNode) v.parentNode.removeChild(v);
       URL.revokeObjectURL(url);
     };
-    // o: { bas, son, enBuyuk (uzun kenar), ilerle(p) } → çevrilmiş kayıt (d gibi; Kaynak'la okunur)
+    // Sınama: oynatıcının o anki karesi küçük bir tuvale çizilir (tarayıcı döndürmeyi ve HDR'yi kendisi düzeltir). Başka yoldan
+    // alınan kare de aynı boyda çizilip karşılaştırılır; fark piksel başına ortalama renk farkıdır (0–255).
+    // Sınır resmin kendi çeşitliliğine göre: beyaz sayfada (ekran kaydı) küçük bir kayma da yakalansın. Resim neredeyse düz
+    // renkse (boş sayfa, karanlık kare) karşılaştırma bir şey söylemez: o yol sınanmamış sayılır.
+    var FARK_SINIR = 12;
+    var refAl = function (g0, y0) {
+      var w = 48, h = Math.max(8, Math.round(48 * y0 / g0)), cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      var x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(v, 0, 0, w, h);
+      var veri = x.getImageData(0, 0, w, h).data, n = w * h, o = [0, 0, 0], yay = 0, i, j;
+      for (i = 0; i < veri.length; i += 4) for (j = 0; j < 3; j++) o[j] += veri[i + j] / n;
+      for (i = 0; i < veri.length; i += 4) for (j = 0; j < 3; j++) yay += Math.abs(veri[i + j] - o[j]);
+      return { w: w, h: h, veri: veri, yay: yay / (n * 3) };
+    };
+    var farkBul = function (rf, im, iw, ih, yon) { // im: kodlanacak biçimdeki kare (iw×ih), yon kadar döndürülerek çizilince
+      var cv = document.createElement('canvas'); cv.width = rf.w; cv.height = rf.h;
+      var x = cv.getContext('2d', { willReadFrequently: true }), yan = yon === 90 || yon === 270;
+      yonluCiz(x, im, yon, iw, ih, 0, 0, yan ? ih : iw, yan ? iw : ih, 0, 0, rf.w, rf.h);
+      var a = rf.veri, b = x.getImageData(0, 0, rf.w, rf.h).data, t = 0;
+      for (var i = 0; i < a.length; i += 4) t += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+      return t / (a.length / 4 * 3);
+    };
+    var secYon = function (rf, im, iw, ih, adaylar) { // en iyi tutan döndürme → { yon, fark }; tutmazsa { fark }
+      var l = adaylar.map(function (y) { return { yon: y, fark: farkBul(rf, im, iw, ih, y) }; }).sort(function (a, b) { return a.fark - b.fark; });
+      if (rf.yay < 4) return { fark: l[0].fark, duzRenk: true };
+      var sinir = Math.min(FARK_SINIR, Math.max(2.5, rf.yay * 0.35));
+      return l[0].fark <= sinir && (l.length < 2 || l[0].fark <= l[1].fark * 0.6) ? l[0] : { fark: l[0].fark };
+    };
+    var gidisDonus = function (f, cfg) { // kare bir kez kodlanıp çözülür: çevrilen kaydın sonra nasıl görüneceği → VideoFrame | null
+      return new Promise(function (ok) {
+        var bitti = false, enc = null, dec = null, paket = null, desc = null, cik = null, zs = null;
+        var son = function (x) {
+          if (bitti) { if (x) { try { x.close(); } catch (e) {} } return; }
+          bitti = true; clearTimeout(zs);
+          try { if (enc && enc.state !== 'closed') enc.close(); } catch (e) {}
+          try { if (dec && dec.state !== 'closed') dec.close(); } catch (e) {}
+          ok(x || null);
+        };
+        zs = setTimeout(function () { son(null); }, 5000);
+        try {
+          enc = new VideoEncoder({
+            output: function (ch, meta) {
+              if (meta && meta.decoderConfig && meta.decoderConfig.description && !desc) desc = bayt(meta.decoderConfig.description);
+              if (!paket) { paket = new Uint8Array(ch.byteLength); ch.copyTo(paket); }
+            },
+            error: function () { son(null); }
+          });
+          enc.configure(cfg); enc.encode(f, { keyFrame: true });
+        } catch (e) { son(null); return; }
+        enc.flush().then(function () {
+          if (bitti) return;
+          if (!paket || !desc || desc.length < 4) { son(null); return; }
+          var h2 = function (x) { return ('0' + x.toString(16)).slice(-2); };
+          dec = new VideoDecoder({ output: function (fr) { if (cik || bitti) fr.close(); else cik = fr; }, error: function () { son(null); } });
+          dec.configure({ codec: 'avc1.' + h2(desc[1]) + h2(desc[2]) + h2(desc[3]), description: desc, codedWidth: cfg.width, codedHeight: cfg.height });
+          dec.decode(new EncodedVideoChunk({ type: 'key', timestamp: 0, data: paket }));
+          return dec.flush().then(function () { var x = cik; cik = null; son(x); });
+        }).catch(function () { son(null); });
+      });
+    };
+    // o: { bas, son, enBuyuk (uzun kenar), bpp, dogrudan, dogOlcek, resim, kapsam, hiz, hizAlt, ilerle(p) } → çevrilmiş kayıt
+    // (d gibi; Kaynak'la okunur). Kare alma yolu sırayla denenir: doğrudan → resim → tuval.
     var cevir = function (o) {
-      var bas = Math.max(0, o.bas || 0), son = Math.min(d.sure || 1e9, o.son || d.sure || 1e9);
+      var bas = Math.max(0, o.bas || 0), son = Math.min(d.sure || 1e9, o.son || d.sure || 1e9), notlar = [];
       return hazir().then(function () {
         var g0 = v.videoWidth, y0 = v.videoHeight; if (!g0 || !y0) throw new Error('videonun boyutu okunamadı');
         var k = Math.min(1, (o.enBuyuk || 1920) / Math.max(g0, y0)), W = Math.max(2, Math.round(g0 * k / 2) * 2), H = Math.max(2, Math.round(y0 * k / 2) * 2);
-        // doğrudan kip: kare tuvale çizilmeden oynatıcıdan alınır (telefonda tuvalden kare almak pahalı). Yalnız döndürülmemiş,
-        // çift boyutlu kayıtta (ekran kaydı) ve oynatıcının karesi görüntüyle aynı boydaysa; olmazsa tuval kipi.
-        var dog = false;
-        if (o.dogrudan && g0 % 2 === 0 && y0 % 2 === 0) {
-          try { var f0 = new VideoFrame(v, { timestamp: 0 }); dog = f0.displayWidth === g0 && f0.displayHeight === y0; f0.close(); } catch (e) { dog = false; }
-        }
-        var ilk = dog ? kodlayiciBul(g0, y0, o.bpp).then(function (c) { return c ? { cfg: c, W: g0, H: y0, dog: true } : null; }) : Promise.resolve(null);
-        return ilk.then(function (x) {
-          return x || kodlayiciBul(W, H, o.bpp).then(function (c) { return c ? { cfg: c, W: W, H: H, dog: false } : null; });
-        }).then(function (x) {
-          if (!x) throw new Error('H.264 kodlayıcısı yok');
-          return yakala(x.cfg, x.W, x.H, bas, son, o.ilerle, x.dog, o.kapsam || 0.8, o.hiz || 2);
+        var r0 = (d.video && d.video.donus) || 0; // dosyadaki döndürme bilgisi (iPhone dik tutulunca 90)
+        if (!calis) { try { v.pause(); } catch (e) {} }
+        // sınama karesi aralığın sonuna yakın alınır: ilk kare karanlık olabilir; ekran kaydında sayfa sonda en dolu hâlindedir
+        return git(Math.max(bas, son - Math.min(0.5, (son - bas) / 2))).then(function () {
+          var rf = null; try { rf = refAl(g0, y0); } catch (e) { rf = null; notlar.push('sınama resmi yok'); }
+          // 1) doğrudan: oynatıcının karesi tuvale çizilmeden kodlanır (telefonda tuvalden kare almak pahalı). Döndürülmüş (dikey
+          //    telefon videosu), HDR ya da küçültülerek kodlanacak karede önce bir kare kodlanıp çözülür ve oynatıcının görüntüsüyle
+          //    karşılaştırılır: yan yatmış, ezilmiş ya da soluk çıkıyorsa bu yol kullanılmaz.
+          var dogDene = function () {
+            if (!o.dogrudan) return Promise.resolve(null);
+            var f0 = null, p = null;
+            try {
+              f0 = new VideoFrame(v, { timestamp: 0 });
+              var cs = f0.colorSpace || {}, rot = f0.rotation || 0, dw = f0.displayWidth, dh = f0.displayHeight;
+              // kodlanan içerik karenin görünen alanıdır (döndürülmeden); görüntü boyu döndürülmüş ya da döndürülmemiş olabilir
+              var vr = f0.visibleRect || { width: f0.codedWidth, height: f0.codedHeight }, fw = vr.width, fh = vr.height;
+              var hdr = cs.transfer === 'pq' || cs.transfer === 'hlg' || cs.primaries === 'bt2020' || /^(I01|I21|I41|P01)/.test(f0.format || '');
+              var ayni = fw === g0 && fh === y0, yan = !ayni && fw === y0 && fh === g0, gor = (dw === g0 && dh === y0) || (dw === y0 && dh === g0);
+              if (f0.flip) notlar.push('doğrudan: aynalı');
+              else if (!(ayni || yan) || !gor || fw % 2 || fh % 2) notlar.push('doğrudan: boy ' + fw + '×' + fh + '/' + dw + '×' + dh);
+              else {
+                var ad = yan ? (rot === 90 || rot === 270 ? [rot, 360 - rot] : r0 === 90 || r0 === 270 ? [r0, 360 - r0] : [90, 270])
+                  : rot === 90 || rot === 270 ? null : rot === 180 || r0 === 180 ? [180, 0] : [0];
+                if (!ad) notlar.push('doğrudan: döndürme ' + rot);
+                else {
+                  // önce küçültülerek (dogOlcek: kare kendi boyunda verilir, kodlayıcı küçültür), tutmazsa kendi boyunda
+                  var l = [], kW = yan ? H : W, kH = yan ? W : H, duzMu = function (q) { return !hdr && ayni && !rot && !r0 && dw === g0 && dh === y0 && q.W === fw && q.H === fh; };
+                  if (o.dogOlcek && (kW !== fw || kH !== fh)) l.push({ W: kW, H: kH });
+                  var kendi = { W: fw, H: fh }; if (!o.dogOlcek || duzMu(kendi) || Math.max(fw, fh) <= 1920) l.push(kendi);
+                  l.forEach(function (q) { q.duz = duzMu(q); });
+                  p = { ad: ad, l: l, hdr: hdr };
+                }
+              }
+            } catch (e) { notlar.push('doğrudan: ' + hataYazi(e)); }
+            var kapat0 = function () { try { if (f0) f0.close(); } catch (e) {} };
+            if (!p || !p.l.length) { kapat0(); return Promise.resolve(null); }
+            var dene = function (i) {
+              if (i >= p.l.length) return null;
+              var q = p.l[i], ad0 = 'doğrudan ' + q.W + '×' + q.H;
+              return kodlayiciBul(q.W, q.H, o.bpp).then(function (c) {
+                if (!c) { notlar.push(ad0 + ': kodlayıcı yok'); return dene(i + 1); }
+                if (q.duz) return { cfg: c, W: q.W, H: q.H, yontem: 'dog', yon: 0 }; // döndürmesiz, küçültmesiz: sınanmış yol (ekran kaydı)
+                if (!rf) return dene(i + 1);
+                return gidisDonus(f0, c).then(function (fr) {
+                  if (!fr) { notlar.push(ad0 + ': sınama karesi çözülemedi'); return dene(i + 1); }
+                  var s = secYon(rf, fr, q.W, q.H, p.ad); try { fr.close(); } catch (e) {}
+                  if (s.yon == null) { notlar.push(ad0 + (p.hdr ? ' (HDR)' : '') + (s.duzRenk ? ': resim düz renk' : ': fark ' + Math.round(s.fark))); return dene(i + 1); }
+                  return { cfg: c, W: q.W, H: q.H, yontem: 'dog', yon: s.yon, fark: s.fark };
+                });
+              });
+            };
+            return Promise.resolve().then(function () { return dene(0); }).then(function (x) { kapat0(); return x; }, function (e) { kapat0(); notlar.push('doğrudan: ' + hataYazi(e)); return null; });
+          };
+          // 2) resim yolu (createImageBitmap): ana iş parçacığını bekletmez. Resim tuvale dik çizilse de ondan yapılan kare bazı
+          //    tarayıcılarda yan yatmış ve ezilmiş kodlanıyor (Chromium); o yüzden bir resim kareye çevrilip kodlanır, çözülür ve
+          //    oynatıcının görüntüsüyle karşılaştırılır. Döndürülmeden geliyorsa kareler öyle kodlanır, döndürme kayda yazılır.
+          var bmpDene = function () {
+            if (o.resim === false || typeof window.createImageBitmap !== 'function' || !rf) return Promise.resolve(null);
+            return zamanla(createImageBitmap(v), 3000).then(function (bm) {
+              if (!bm) { notlar.push('resim: gelmedi'); return null; }
+              var bw = bm.width, bh = bm.height; try { bm.close(); } catch (e) {}
+              var p = bw === g0 && bh === y0 ? { W: W, H: H, ad: r0 === 180 ? [0, 180] : [0] }
+                : bw === y0 && bh === g0 ? { W: H, H: W, ad: r0 === 90 || r0 === 270 ? [r0, 360 - r0] : [90, 270] } : null;
+              if (!p) { notlar.push('resim: boy ' + bw + '×' + bh); return null; }
+              return zamanla(createImageBitmap(v, { resizeWidth: p.W, resizeHeight: p.H, resizeQuality: 'medium' }), 3000).then(function (b2) {
+                if (!b2) { notlar.push('resim: gelmedi'); return null; }
+                if (b2.width !== p.W || b2.height !== p.H) { notlar.push('resim: boy ' + b2.width + '×' + b2.height); try { b2.close(); } catch (e) {} return null; }
+                return kodlayiciBul(p.W, p.H, o.bpp).then(function (c) {
+                  if (!c) { try { b2.close(); } catch (e) {} return null; }
+                  var fb = null; try { fb = new VideoFrame(b2, { timestamp: 0 }); } catch (e) { fb = null; } try { b2.close(); } catch (e) {}
+                  if (!fb) { notlar.push('resim: kare yapılamadı'); return null; }
+                  return gidisDonus(fb, c).then(function (fr) {
+                    try { fb.close(); } catch (e) {}
+                    if (!fr) { notlar.push('resim: sınama karesi çözülemedi'); return null; }
+                    var s = secYon(rf, fr, p.W, p.H, p.ad); try { fr.close(); } catch (e) {}
+                    if (s.yon == null) { notlar.push(s.duzRenk ? 'resim: resim düz renk' : 'resim: fark ' + Math.round(s.fark)); return null; }
+                    return { cfg: c, W: p.W, H: p.H, yontem: 'bmp', yon: s.yon, fark: s.fark };
+                  });
+                });
+              });
+            }, function (e) { notlar.push('resim: ' + hataYazi(e)); return null; });
+          };
+          return dogDene().then(function (x) { return x || bmpDene(); }).then(function (x) {
+            return x || kodlayiciBul(W, H, o.bpp).then(function (c) { return c ? { cfg: c, W: W, H: H, yontem: 'tuval', yon: 0 } : null; }); // 3) çiz ve oku
+          }).then(function (x) {
+            if (!x) throw new Error('H.264 kodlayıcısı yok');
+            return yakala(x.cfg, x.W, x.H, bas, son, o.ilerle, x.yontem, o.kapsam || 0.8, o.hiz || 2, x.yon, o.hizAlt || 1, { fark: x.fark, notlar: notlar });
+          });
         });
       }).then(function (d2) {
         return Kaynak.uygunMu(d2.video).then(function (ok) { if (!ok) throw new Error('çevrilen kayıt çözülemiyor'); return d2; });
       });
     };
-    // dog: kare oynatıcıdan doğrudan alınır; kapsamAlt: gösterilen karelerin en az bu kadarı yakalanmalı (az ise hız düşer)
+    // kapsamAlt: gösterilen karelerin en az bu kadarı yakalanmalı; az ise oynatma yavaşlar (hizAlt'a kadar; yüzde 1'in altına
+    // inebilir: biraz uzun sürer ama her kare yakalanır, yüz akıcı oynar). ek: { fark, notlar } nota yazılır
     var durdur = null; // sürmekte olan çevirmeyi keser (kullanıcı Vazgeç'e bastı)
-    var yakala = function (cfg, W, H, bas, son, ilerle, dog, kapsamAlt, hiz0) {
+    var yakala = function (cfg, W, H, bas, son, ilerle, yontem0, kapsamAlt, hiz0, yon, hizAlt, ek) {
       return new Promise(function (ok, red) {
         var tv = null, c = null, tuvalKur = function () { if (!tv) { tv = document.createElement('canvas'); tv.width = W; tv.height = H; c = tv.getContext('2d'); } };
-        if (!dog) tuvalKur();
+        // kare alma yolu: 'dog' oynatıcının karesi doğrudan; 'bmp' createImageBitmap ile (ana iş parçacığını bekletmez, telefonda
+        // tuvalden okumaktan hızlı olabilir); 'tuval' çiz ve oku. Biri olmazsa sonrakine geçilir.
+        // yon: kareler döndürülmeden kodlanıyorsa döndürme açısı; o zaman tuvale geçilemez (tuval dik çizer), çevirme baştan denenir
+        var yontem = yontem0, zincir = Promise.resolve(), ucusta = 0, yedekYol = function (neden) {
+          if (yon) { bitir(new Error('kare alınamadı: ' + neden)); return false; } yontem = 'tuval'; return true;
+        };
         var parcalar = [], ornekler = [], ofs = 0, aciklama = null, hata = null, sonM = -1, sonAnahtar = -9, bitti = false;
         var hiz = hiz0, pencere = [], kalite = null, dur = false, sonCb = performance.now(), takilma = 0, bekci = null, basAn = performance.now();
         var sonPF = -1, yakalanan = 0, kacan = 0, pfVar = false, topYak = 0, topKac = 0; // oynatıcının gösterdiği karelerden kaçı yakalandı
@@ -465,16 +607,17 @@
         var bitir = function (e) {
           if (bitti) return; bitti = true; calis = false; durdur = null; clearInterval(bekci); try { v.pause(); } catch (x) {}
           if (e) { try { enc.close(); } catch (x) {} red(e); return; }
-          zamanla(enc.flush(), 8000).then(function () {
+          zamanla(zincir, 5000).then(function () { return zamanla(enc.flush(), 8000); }).then(function () {
             try { enc.close(); } catch (x) {}
             if (hata) throw hata;
             if (!ornekler.length || !aciklama || aciklama.length < 4) throw new Error('çevrilen kare yok');
             for (var i = 0; i + 1 < ornekler.length; i++) ornekler[i].sure = Math.max(0, ornekler[i + 1].cts - ornekler[i].cts);
-            var h2 = function (x) { return ('0' + x.toString(16)).slice(-2); }, son0 = ornekler[ornekler.length - 1];
-            son0.sure = Math.round(1e6 / 30);
+            var h2 = function (x) { return ('0' + x.toString(16)).slice(-2); }, son0 = ornekler[ornekler.length - 1], kacT = topKac + kacan;
+            son0.sure = Math.round(1e6 / 30); ek = ek || {};
             ok({ dosya: new Blob(parcalar, { type: 'video/mp4' }), cevrildi: true, yol: 'kod', neden: d.neden, ses: d.ses, sesler: d.sesler, sure: d.sure, aralik: [bas, son],
-              cevirme: { hiz: hiz, kare: ornekler.length, kapsam: topYak + topKac ? topYak / (topYak + topKac) : 1, sn: (performance.now() - basAn) / 1000, g: W, y: H, dog: dog },
-              video: { tur: 'avc1', kod: 'avc1.' + h2(aciklama[1]) + h2(aciklama[2]) + h2(aciklama[3]), aciklama: aciklama, g: W, y: H, olcek: 1e6, donus: 0, kayma: 0, ornekler: ornekler, sure: d.sure, fps: 30 } });
+              cevirme: { hiz: hiz, kare: ornekler.length, kapsam: topYak + kacT ? topYak / (topYak + kacT) : 1, sn: (performance.now() - basAn) / 1000, g: W, y: H, dog: yontem === 'dog', yontem: yontem, yon: yon || 0,
+                fark: ek.fark, deneme: (ek.notlar || []).join('; ') },
+              video: { tur: 'avc1', kod: 'avc1.' + h2(aciklama[1]) + h2(aciklama[2]) + h2(aciklama[3]), aciklama: aciklama, g: W, y: H, olcek: 1e6, donus: yon || 0, kayma: 0, ornekler: ornekler, sure: d.sure, fps: 30 } });
           }).catch(red);
         };
         var kare = function (simdi, md) {
@@ -486,29 +629,45 @@
             pfVar = true; if (sonPF >= 0 && mt >= bas - 0.04 && !dur) kacan += Math.max(0, md.presentedFrames - sonPF - 1); sonPF = md.presentedFrames;
           }
           if (mt > sonM + 0.004 && mt >= bas - 0.04) {
+            var ts = Math.round(mt * 1e6), an = mt - sonAnahtar >= 1, alindi = true;
             try {
-              var f = null, ts = Math.round(mt * 1e6), an = mt - sonAnahtar >= 1;
-              if (dog) { try { f = new VideoFrame(v, { timestamp: ts }); } catch (e1) { dog = false; f = null; } } // olmazsa tuvale geçilir (aynı boy)
-              if (!f) { tuvalKur(); c.drawImage(v, 0, 0, W, H); f = new VideoFrame(tv, { timestamp: ts }); }
-              if (an) sonAnahtar = mt;
-              enc.encode(f, { keyFrame: an }); f.close();
+              var f = null;
+              if (yontem === 'dog') { try { f = new VideoFrame(v, { timestamp: ts }); } catch (e1) { f = null; if (!yedekYol('doğrudan kare alınamadı')) return; } } // aynı boyda tuvale
+              if (!f && yontem === 'bmp') {
+                if (ucusta >= 3) alindi = false; // önceki resimler daha hazır değil: bu kare atlanır (hız ayarı bunu görür)
+                else {
+                  ucusta++;
+                  var pb = createImageBitmap(v, { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' }), an0 = an;
+                  zincir = zincir.then(function () { return pb; }).then(function (bm) { // sıra korunur: kareler zaman sırasıyla kodlanır
+                    ucusta--;
+                    if (bitti) { bm.close(); return; }
+                    if (bm.width !== W || bm.height !== H) { bm.close(); yedekYol('boy tutmadı'); return; }
+                    var fb = new VideoFrame(bm, { timestamp: ts }); bm.close(); enc.encode(fb, { keyFrame: an0 }); fb.close();
+                  }).catch(function (e2) { ucusta = Math.max(0, ucusta - 1); if (yontem === 'bmp') yedekYol(hataYazi(e2)); if (window.console) console.warn('Resim yoluyla kare alınamadı:', e2); });
+                }
+              } else if (!f) { tuvalKur(); c.drawImage(v, 0, 0, W, H); f = new VideoFrame(tv, { timestamp: ts }); }
+              if (f) { enc.encode(f, { keyFrame: an }); f.close(); }
             } catch (e) { bitir(e); return; }
+            if (!alindi) { kacan++; v.requestVideoFrameCallback(kare); return; }
+            if (an) sonAnahtar = mt;
             sonM = mt;
             if (ilerle) ilerle(Math.min(1, Math.max(0, (mt - bas) / Math.max(0.1, son - bas))), hiz);
             yakalanan++; topYak++;
             pencere.push(mt); if (pencere.length > 40) pencere.shift();
-            if (pencere.length >= 24 && hiz > 1) {
-              var yavas = false;
-              if (pfVar) { // gösterilen karelerin beşte birinden fazlası kaçıyorsa yavaşlatılır (sayfa durgunken az kare gösterilir; o zaman kaçan da olmaz)
-                yavas = kacan > (1 - kapsamAlt) * (yakalanan + kacan);
-              } else { // eski tarayıcı: medya zamanında saniyede 22'den az kare yakalanıyor ve oynatıcı kare atlıyorsa
-                var sk = (pencere.length - 1) / Math.max(0.001, pencere[pencere.length - 1] - pencere[0]), q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
-                var atl = q ? q.droppedVideoFrames - (kalite ? kalite[0] : 0) : 0, top = q ? q.totalVideoFrames - (kalite ? kalite[1] : 0) : 0;
-                if (q) kalite = [q.droppedVideoFrames, q.totalVideoFrames];
-                yavas = sk < 22 && (!q || (top > 0 && atl / top > 0.15));
+            if (pencere.length >= 24) {
+              if (hiz > (hizAlt || 1)) {
+                var yavas = false;
+                if (pfVar) { // gösterilen karelerin izin verilenden fazlası kaçıyorsa yavaşlatılır (sayfa durgunken az kare gösterilir; o zaman kaçan da olmaz)
+                  yavas = kacan > (1 - kapsamAlt) * (yakalanan + kacan);
+                } else { // eski tarayıcı: medya zamanında saniyede 22'den az kare yakalanıyor ve oynatıcı kare atlıyorsa
+                  var sk = (pencere.length - 1) / Math.max(0.001, pencere[pencere.length - 1] - pencere[0]), q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+                  var atl = q ? q.droppedVideoFrames - (kalite ? kalite[0] : 0) : 0, top = q ? q.totalVideoFrames - (kalite ? kalite[1] : 0) : 0;
+                  if (q) kalite = [q.droppedVideoFrames, q.totalVideoFrames];
+                  yavas = sk < 22 && (!q || (top > 0 && atl / top > 0.15));
+                }
+                if (yavas) { hiz = Math.max(hizAlt || 1, hiz > 1 ? hiz - 0.5 : hiz - 0.25); try { v.playbackRate = hiz; } catch (e) {} }
               }
-              if (yavas) { hiz = Math.max(1, hiz - 0.5); try { v.playbackRate = hiz; } catch (e) {} }
-              topKac += kacan; pencere = []; yakalanan = 0; kacan = 0;
+              topKac += kacan; pencere = []; yakalanan = 0; kacan = 0; // kapsam her pencerede sayılır (hız en alttayken de)
             }
             if (enc.encodeQueueSize > 8 && !dur) { dur = true; try { v.pause(); } catch (e) {} } // kodlayıcı geride: oynatma bekler
           }

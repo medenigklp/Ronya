@@ -3813,7 +3813,7 @@
         return function () {
           var goster = function (x, hiz) { durum(ad + ' hızlı okunacak biçime çevriliyor… %' + Math.round(x * 100) + (hiz ? ' (' + String(hiz).replace('.', ',') + ' kat hızda)' : '') + (n > 1 ? ' · ' + (bitenSay + 1) + '/' + n : ''), 0.01 + (bitenSay + x) / n * 0.1); };
           goster(0, 0);
-          var dene = function (ay) { iptalBak(); return cv.cevir({ bas: a[0], son: a[1], enBuyuk: ay.enBuyuk, bpp: ay.bpp, dogrudan: ay.dogrudan, kapsam: ay.kapsam, hiz: ay.hiz, ilerle: goster }); };
+          var dene = function (ay) { iptalBak(); return cv.cevir({ bas: a[0], son: a[1], enBuyuk: ay.enBuyuk, bpp: ay.bpp, dogrudan: ay.dogrudan, dogOlcek: ay.dogOlcek, resim: ay.resim, kapsam: ay.kapsam, hiz: ay.hiz, hizAlt: ay.hizAlt, ilerle: goster }); };
           return dene(ayar0).catch(function (e) {
             if (self.iptalIstek || !ayar0.yedek) throw e;
             if (window.console) console.warn(ad + ' ilk yolla çevrilemedi, yedek yolla deneniyor:', e);
@@ -3822,11 +3822,13 @@
             .then(function () { cv.kapat(); bitenSay++; iptalBak(); });
         };
       };
-      // ekran kaydı: kare oynatıcıdan doğrudan (tuvalsiz) ve 2 kat hızda; sayfada az şey değiştiğinden karelerin yarısı yeter
+      // ekran kaydı: kare oynatıcıdan doğrudan (tuvalsiz) ve 2 kat hızda; sayfada az şey değiştiğinden karelerin yarısı yeter.
+      // Kodlayıcı 2048 piksele küçültür (sınanır; olmazsa kaydın kendi boyunda): çevirme ve videonun her karesi daha az iş
       // olmazsa yedek: tuval kipi, 2048 piksel (bu telefonda çalıştığı görülen yol)
-      if (cevE) sira.push(is(cevE, E, aralikE, { enBuyuk: 2048, bpp: 0.06, dogrudan: true, kapsam: 0.5, yedek: { enBuyuk: 2048, bpp: 0.08, dogrudan: false, kapsam: 0.5, hiz: 2 } }, 'Ekran kaydı'));
-      // yüz: kare zamanları tam olsun diye gösterilen karelerin %90'ı yakalanmalı (yetişemezse 1 kat hıza iner): yüz akıcı oynar
-      if (cevY) sira.push(is(cevY, Y, aralikY, { enBuyuk: 1280, bpp: 0.12, dogrudan: false, kapsam: 0.9, hiz: 1.5 }, 'Yüz videosu'));
+      if (cevE) sira.push(is(cevE, E, aralikE, { enBuyuk: 2048, bpp: 0.06, dogrudan: true, dogOlcek: true, kapsam: 0.5, yedek: { enBuyuk: 2048, bpp: 0.08, dogrudan: false, resim: false, kapsam: 0.5, hiz: 2 } }, 'Ekran kaydı'));
+      // yüz: gösterilen karelerin %90'ı yakalanmalı; yetişemezse oynatma yarım hıza kadar yavaşlar (biraz uzun sürer, yüz akıcı oynar).
+      // Önce kare doğrudan (kodlayıcı küçültür; bir kare sınanır), olmazsa resim yoluyla: iPhone'da tuvalden okumak saniyede ~12 kareye düşürüyordu
+      if (cevY) sira.push(is(cevY, Y, aralikY, { enBuyuk: 1280, bpp: 0.12, dogrudan: true, dogOlcek: true, kapsam: 0.9, hiz: 1.5, hizAlt: 0.5, yedek: { enBuyuk: 1280, bpp: 0.12, dogrudan: false, resim: false, kapsam: 0.9, hiz: 1, hizAlt: 0.5 } }, 'Yüz videosu'));
       self.aktifIsler = [cevE, cevY].filter(Boolean);
       return sira.reduce(function (z, f) { return z.then(f); }, Promise.resolve()).then(function () { r.indirOnizleme.innerHTML = ''; self.aktifIsler = []; });
     };
@@ -3860,14 +3862,18 @@
       GR = gr;
       var yuzVar = !!Y || !!foto;
       if (!yuzVar && P.Y > P.G) yer = 'uzun'; // yüz yoksa dikey videoda sayfa büyük görünür
-      var L = ST.yerlesim(yer, P.G, P.Y, yuzVar), R = L.tahta;
+      // yüz videosunun en/boy oranı: yatay çekilmişse bölünmüş yerleşimde yüz alanı bu orana uyar (yüz kırpılmaz)
+      var yuzOran = 0, yv = Y && dY() && dY().video;
+      if (yv && yv.g && yv.y) yuzOran = yv.donus === 90 || yv.donus === 270 ? yv.y / yv.g : yv.g / yv.y;
+      var L = ST.yerlesim(yer, P.G, P.Y, yuzVar, yuzOran), R = L.tahta;
+      var cerceveK = L.yuzUyum ? (ST.CERCEVE_UYUM || {})[self.indirCerceve] || 1 : (ST.CERCEVE || {})[self.indirCerceve] || 1;
       tahta = SV.tahta({ d: dE(), bas: bas, kirp: E.kirp, analiz: an, G: R.g, Y: R.h });
       if (Y) yuzS = SV.yuz({ d: dY(), bas: bas, ofs: Y.ofs });
       var yuzAl = function (t) {
         if (yuzS) { var s0 = yuzS.kaynak(t); if (s0) return s0; }
         return foto ? { im: foto, g: foto.width || foto.naturalWidth, y: foto.height || foto.naturalHeight, foto: true } : null;
       };
-      var ciz = ST.kompozitor({ bicim: P, yer: yer, fps: P.fps, tahta: tahta, stil: 'yok', gorunum: GR, yuzVar: yuzVar, yuz: yuzAl, cerceve: (ST.CERCEVE || {})[self.indirCerceve] || 1, altyazi: function () { return null; } });
+      var ciz = ST.kompozitor({ bicim: P, yer: yer, fps: P.fps, tahta: tahta, stil: 'yok', gorunum: GR, yuzVar: yuzVar, yuz: yuzAl, yuzOran: yuzOran, cerceve: cerceveK, altyazi: function () { return null; } });
       if (yer === 'kose' && yuzVar) { // köşede yuvarlak yüz: kompozitör çizmez, burada eklenir
         var ciz0 = ciz, kc = ciz0.tuval.getContext('2d');
         ciz = { tuval: ciz0.tuval, yerlesim: ciz0.yerlesim, kare: function (t) {
@@ -3887,7 +3893,8 @@
         cikti = SU.sunum({ G: P.G, Y: P.Y, icerik: ciz, icerikSure: T,
           giris: GI ? SU.giris({ G: P.G, Y: P.Y, baslik: SA.baslik, alt: SA.alt, kullanici: SA.kanal, motif: SA.motif }) : null,
           kapanis: GO ? SU.kapanis({ G: P.G, Y: P.Y, kullanici: SA.kanal, foto: foto || null, motif: SA.motif }) : null,
-          ust: SA.filigran || SA.altBant ? SU.ustKatman({ G: P.G, Y: P.Y, filigran: SA.filigran, altBant: SA.altBant }) : null });
+          // bölünmüş yerleşimde kanal adı yüz alanının köşesine: tahtadaki yazının üstüne binmesin
+          ust: SA.filigran || SA.altBant ? SU.ustKatman({ G: P.G, Y: P.Y, filigran: SA.filigran, altBant: SA.altBant, filigranY: L.yuz && L.ad === 'bolunmus' ? L.yuz.y : null }) : null });
       }
       var tuval = cikti.tuval, sure = GI + T + GO, kareSay = Math.ceil(sure * P.fps);
       var n = Math.ceil(sure * oran), ses = new Float32Array(n), b0 = Math.round(GI * oran);
@@ -3921,7 +3928,7 @@
           durum('Dosya birleştiriliyor…', 0.995);
           var ol = v.olcum, ks = Math.max(1, kareSay), yol = function (K, d) {
             var c = d.cevirme; // çevirme: süresi, son hızı, gösterilen karelerin ne kadarı yakalandı
-            return (d.cevrildi ? 'çevrilerek' + (c ? ' [' + Math.round(c.sn) + ' sn, ' + String(c.hiz).replace('.', ',') + ' kat, %' + Math.round(c.kapsam * 100) + ', ' + c.g + '×' + c.y + (c.dog ? ', doğrudan' : '') + (K.cevHata1 ? ', ilk deneme olmadı: ' + K.cevHata1 : '') + ']' : '') : d.oge ? 'oynatıcı' : 'hızlı yol') + (K.cevHata && !d.cevrildi ? ' (çevrilemedi: ' + K.cevHata + ')' : '');
+            return (d.cevrildi ? 'çevrilerek' + (c ? ' [' + Math.round(c.sn) + ' sn, ' + String(c.hiz).replace('.', ',') + ' kat, %' + Math.round(c.kapsam * 100) + ', ' + c.g + '×' + c.y + ', ' + ({ dog: 'doğrudan', bmp: 'resim', tuval: 'tuval' }[c.yontem] || c.yontem) + (c.yon ? ' ' + c.yon + '°' : '') + (c.fark != null ? ' (fark ' + Math.round(c.fark) + ')' : '') + (c.deneme ? '; ' + c.deneme : '') + (K.cevHata1 ? ', ilk deneme olmadı: ' + K.cevHata1 : '') + ']' : '') : d.oge ? 'oynatıcı' : 'hızlı yol') + (K.cevHata && !d.cevrildi ? ' (çevrilemedi: ' + K.cevHata + ')' : '');
           };
           var teknik = 'Hazırlama ' + sureYazi((performance.now() - basAn) / 1000) + ' sürdü (kare başına ' + Math.round(ol.sure / ks) + ' ms: bekleme ' + Math.round(ol.bekle / ks) + ', çizim ' + Math.round(ol.ciz / ks) +
             ', kare alma ' + Math.round(ol.kare / ks) + ', kodlama ' + Math.round(ol.kodla / ks) + ' · ekran kaydı: ' + yol(E, dE()) + (Y ? ', yüz videosu: ' + yol(Y, dY()) : '') + (ol.atla ? ' · ' + ol.atla + ' kez takıldı' : '') + ').';

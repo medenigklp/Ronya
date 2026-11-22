@@ -298,7 +298,7 @@
   };
   S.YERLESIM_ADI = { bolunmus: 'Üstte tahta, altta yüz', kart: 'Tahta kartı, büyük yüz', kose: 'Köşede yuvarlak', yan: 'Yan yana', pencere: 'Büyük pencere' };
   // kutu: { x, y, g, h }; tahta kutusunda takip: yazılan yeri izleyen yakın çekim
-  S.yerlesim = function (ad, G, Y, yuzVar) {
+  S.yerlesim = function (ad, G, Y, yuzVar, yuzOran) { // yuzOran: yüz videosunun en/boy oranı (biliniyorsa)
     var L = { ad: ad, arka: '#14110F' };
     if (!yuzVar && ad !== 'kose' && ad !== 'uzun') ad = G > Y ? 'tam' : 'tahta';
     if (ad === 'kose' || ad === 'tam') { L.tahta = { x: 0, y: 0, g: G, h: Y, tam: true }; L.alt = { cx: G / 2, y: Y - Math.round(Y * 0.13), fs: Math.round(Y * (G > Y ? 0.046 : 0.034)), g: G * 0.8, serit: true }; }
@@ -313,9 +313,15 @@
       L.yuz = { x: G - pw - Math.round(G * 0.02), y: Y - ph - Math.round(Y * 0.04), g: pw, h: ph, r: Math.round(pw * 0.08), kenar: true, ay: 0.38 }; L.yuzSonra = true;
       L.alt = { cx: (G - pw) / 2, y: Y - Math.round(Y * 0.11), fs: Math.round(Y * 0.046), g: (G - pw) * 0.82, serit: true };
     } else if (ad === 'bolunmus') {
-      var th = Math.round(Y * (G / Y < 0.7 ? 0.56 : 0.6));
+      var th = Math.round(Y * (G / Y < 0.7 ? 0.56 : 0.6)), goz = null;
+      if (yuzOran && yuzOran >= 1.25) { // yatay çekilmiş yüz: alan videonun oranında, yüz hiç kırpılmaz; artan yer tahtaya
+        var yh = Math.round(Math.max(Y * 0.28, Math.min(Y * 0.44, G / yuzOran))); th = Y - yh; L.yuzUyum = true;
+      } else if (yuzOran && yuzOran < 0.8) { // dikey telefon videosu: yüz alanı yarıya büyür (yüz daha az kırpılır)
+        if (G / Y < 0.7) th = Math.round(Y * 0.5);
+        goz = 0.37; // gözler videonun yukarıdan yaklaşık %37'sinde: kırpma buna göre yerleşir, başın üstü kesilmez
+      }
       L.tahta = { x: 0, y: 0, g: G, h: th, takip: true, yak: 1 };
-      L.yuz = { x: 0, y: th, g: G, h: Y - th, ay: 0.36 };
+      L.yuz = { x: 0, y: th, g: G, h: Y - th, ay: 0.36, goz: goz };
       L.alt = { cx: G / 2, y: th, fs: Math.round(G * 0.064), g: G * 0.9, serit: true };
     } else if (ad === 'kart') {
       var m = Math.round(G * 0.04), kh = Math.round((G - 2 * m) * 0.64), ky = Math.round(Y * 0.07);
@@ -344,12 +350,13 @@
   // Kırpma: kaynağı G×Y kutusunu dolduracak biçimde keser; ax, ay: kırpmanın kayacağı yön (0..1), olcek > 1 yakınlaştırır.
   // genis > 1: yüz için uzaklaştırır (baş ve omuzlar sığsın, küçük kıpırtılar büyümesin). Kırpma kaynağı yalnız yanlardan
   // aşabilir (dikey telefon videosu geniş kutuda); taşan yanlar aynı karenin bulanık hâliyle dolar, alt-üst boşluk bırakılmaz.
+  // genis < 1 yakınlaştırır. Kırpma kaynağı her yönden aşabilir; taşan yerler bulanık dolguyla kapanır.
   function cerceveKirp(sg, sy, G, Y, ax, ay, olcek, genis) {
     var rs = G / Y, w, h;
     if (sg / sy > rs) { h = sy; w = h * rs; } else { w = sg; h = w / rs; }
     if (olcek && olcek > 1) { w /= olcek; h /= olcek; }
-    if (genis && genis > 1) { h = Math.min(sy, h * genis); w = h * rs; }
-    return { x: (sg - w) * (ax == null ? 0.5 : ax), y: (sy - h) * (ay == null ? 0.5 : ay), w: w, h: h, tasar: w > sg + 0.5 };
+    if (genis && genis !== 1) { w *= genis; h *= genis; }
+    return { x: (sg - w) * (ax == null ? 0.5 : ax), y: (sy - h) * (ay == null ? 0.5 : ay), w: w, h: h, tasar: w > sg + 0.5 || h > sy + 0.5 };
   }
   function kirpCiz(c, im, sg, sy, k, dx, dy, dG, dY) { // kırpmanın kaynakta kalan kısmını hedefte doğru yere çizer (kaynak dışı alan çizilmez)
     var sx0 = Math.max(0, k.x), sy0 = Math.max(0, k.y), sx1 = Math.min(sg, k.x + k.w), sy1 = Math.min(sy, k.y + k.h);
@@ -368,27 +375,41 @@
     c.fillStyle = 'rgba(10,10,14,.28)'; c.fillRect(dx, dy, dG, dY); c.restore();
   }
   var yumTuval = null;
-  function yumusakCiz(c, im, sg, sy, k, dx, dy, dG, dY) { // taşan kırpmada görüntünün yan kenarları bulanık dolguya yumuşakça karışır
+  function yumusakCiz(c, im, sg, sy, k, dx, dy, dG, dY) { // taşan kırpmada görüntünün taşan kenarları bulanık dolguya yumuşakça karışır
     dG = Math.max(2, Math.round(dG)); dY = Math.max(2, Math.round(dY));
-    var ox = dG / k.w, x0 = Math.max(0, -k.x) * ox, x1 = dG - Math.max(0, k.x + k.w - sg) * ox;
+    var ox = dG / k.w, oy = dY / k.h, x0 = Math.max(0, -k.x) * ox, x1 = dG - Math.max(0, k.x + k.w - sg) * ox, y0 = Math.max(0, -k.y) * oy, y1 = dY - Math.max(0, k.y + k.h - sy) * oy;
     if (!yumTuval) yumTuval = document.createElement('canvas');
     if (yumTuval.width !== dG || yumTuval.height !== dY) { yumTuval.width = dG; yumTuval.height = dY; }
     var x = yumTuval.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, dG, dY);
     kirpCiz(x, im, sg, sy, k, 0, 0, dG, dY);
-    var a = Math.min(0.45, Math.max(8, (x1 - x0) * 0.07) / Math.max(1, x1 - x0)), g = x.createLinearGradient(x0, 0, x1, 0);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(a, 'rgba(0,0,0,1)'); g.addColorStop(1 - a, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    x.globalCompositeOperation = 'destination-in'; x.fillStyle = g; x.fillRect(0, 0, dG, dY); x.globalCompositeOperation = 'source-over';
+    var maske = function (b0, b1, yatay, bas0, son0) { // yalnız taşan tarafta kenar silinir
+      var L0 = b1 - b0, a = Math.min(0.45, Math.max(8, L0 * 0.07) / Math.max(1, L0)), g = yatay ? x.createLinearGradient(b0, 0, b1, 0) : x.createLinearGradient(0, b0, 0, b1);
+      g.addColorStop(0, bas0 ? 'rgba(0,0,0,0)' : '#000'); g.addColorStop(a, '#000'); g.addColorStop(1 - a, '#000'); g.addColorStop(1, son0 ? 'rgba(0,0,0,0)' : '#000');
+      x.globalCompositeOperation = 'destination-in'; x.fillStyle = g; x.fillRect(0, 0, dG, dY); x.globalCompositeOperation = 'source-over';
+    };
+    if (x0 > 0.5 || x1 < dG - 0.5) maske(x0, x1, true, x0 > 0.5, x1 < dG - 0.5);
+    if (y0 > 0.5 || y1 < dY - 0.5) maske(y0, y1, false, y0 > 0.5, y1 < dY - 0.5);
     c.drawImage(yumTuval, dx, dy, dG, dY);
   }
   function cerceveCiz(c, im, sg, sy, k, dx, dy, dG, dY) { // kırpmayı çizer; kaynak taşıyorsa önce bulanık dolgu, sonra yumuşak kenarlı görüntü
     if (k.tasar) { bulanikDolgu(c, im, sg, sy, dx, dy, dG, dY); yumusakCiz(c, im, sg, sy, k, dx, dy, dG, dY); }
     else kirpCiz(c, im, sg, sy, k, dx, dy, dG, dY);
   }
+  // dikey yüz videosunda kırpmanın dikey yeri: gözler kırpılan alanın %47'sinde dursun (baş ve çene sığsın), kırpma
+  // videodan büyükse ortada. goz: gözlerin videodaki yeri (0–1, yukarıdan)
+  function gozAy(sg, sy, G, Y, olcek, genis, goz, ay0) {
+    if (goz == null) return ay0;
+    var k = cerceveKirp(sg, sy, G, Y, 0.5, 0, olcek, genis), f = k.h / sy;
+    if (f >= 0.999) return 0.5;
+    return Math.max(0, Math.min(1, (goz - 0.47 * f) / (1 - f)));
+  }
+  S.gozAy = gozAy;
   function kapla(c, im, sg, sy, R, ax, ay, olcek, genis) {
     try { cerceveCiz(c, im, sg, sy, cerceveKirp(sg, sy, R.g, R.h, ax, ay, olcek, genis), R.x, R.y, R.g, R.h); } catch (e) {}
   }
   S.kapla = kapla; S.yuvarlak = yuvarlak; S.cerceveKirp = cerceveKirp;
   S.CERCEVE = { yakin: 1, orta: 1.3, genis: 1.6 }; // yüz çerçevesi: kırpmanın kaç kat genişleyeceği
+  S.CERCEVE_UYUM = { yakin: 0.82, orta: 1, genis: 1.18 }; // yüz alanı videonun oranındayken (yatay yüz videosu)
 
   /* ================= altyazı ================= */
   // Kelimeler konuşma süresine harf sayısıyla dağıtılır; ekranda aynı anda 2-4 kelimelik bir grup görünür.
@@ -577,7 +598,7 @@
   //      gorunum: S.gorunum(...) (yüzün ışığı ve arka planı) }
   S.kompozitor = function (o) {
     var G = o.bicim.G, Y = o.bicim.Y, tuval = document.createElement('canvas'); tuval.width = G; tuval.height = Y;
-    var c = tuval.getContext('2d'), L = S.yerlesim(o.yer, G, Y, o.yuzVar), alt = S.altyaziCizici(c, o.stil), kam = null, dt = 1 / (o.fps || 30);
+    var c = tuval.getContext('2d'), L = S.yerlesim(o.yer, G, Y, o.yuzVar, o.yuzOran), alt = S.altyaziCizici(c, o.stil), kam = null, dt = 1 / (o.fps || 30);
     var BT = o.tahta.tuval, BW = BT.width, BH = BT.height, B = o.tahta.alan; // B: tahtanın yazı alanı (tahta tuvali pikselinde)
     var arka = (function () { // koyu, hafif ışıklı stüdyo zemini
       var a = document.createElement('canvas'); a.width = G; a.height = Y; var x = a.getContext('2d');
@@ -622,8 +643,9 @@
       if (s) {
         var kb = s.foto ? 1 + 0.06 * ((t * 0.02) % 1) : 1; // fotoğrafta yavaş yakınlaşma
         var gn = s.foto ? 1 : o.cerceve || 1; // fotoğraf olduğu gibi; videoda seçilen yüz çerçevesi (sabit, kaymaz)
-        if (o.gorunum) { var gp = o.gorunum.isle(s.im, s.g, s.y, R.g, R.h, 0.5, R.ay, t, kb, gn); try { c.drawImage(gp, R.x, R.y, R.g, R.h); } catch (e) {} }
-        else kapla(c, s.im, s.g, s.y, R, 0.5, R.ay, kb, gn);
+        var ay = s.foto ? R.ay : gozAy(s.g, s.y, R.g, R.h, kb, gn, R.goz, R.ay);
+        if (o.gorunum) { var gp = o.gorunum.isle(s.im, s.g, s.y, R.g, R.h, 0.5, ay, t, kb, gn); try { c.drawImage(gp, R.x, R.y, R.g, R.h); } catch (e) {} }
+        else kapla(c, s.im, s.g, s.y, R, 0.5, ay, kb, gn);
       } else { c.fillStyle = '#20242C'; c.fillRect(R.x, R.y, R.g, R.h); }
       if (R.solma) { var gr = c.createLinearGradient(0, R.y, 0, R.y + R.h * 0.18); gr.addColorStop(0, 'rgba(14,16,21,1)'); gr.addColorStop(1, 'rgba(14,16,21,0)'); c.fillStyle = gr; c.fillRect(R.x, R.y, R.g, R.h * 0.18); }
       c.restore();

@@ -377,13 +377,13 @@
   };
 
   /* ---------------- içerik üstündeki katman: köşede kanal adı, alt bantta öğretmen ---------------- */
-  // o: { G, Y, filigran: yazı | '', altBant: { ad, unvan } | null, yer: yerleşim adı }
+  // o: { G, Y, filigran: yazı | '', filigranY: kanal adının yerleşeceği alanın üstü (yoksa en üst), altBant: { ad, unvan } | null }
   S.ustKatman = function (o) {
     var G = o.G, Y = o.Y, S0 = Math.min(G, Y), dik = Y > G * 1.1;
     return function (c, t) {
       if (o.filigran) {
         c.save(); c.font = '700 ' + Math.round(S0 * 0.026) + 'px ' + UI;
-        var w = c.measureText(o.filigran).width + S0 * 0.044, h = S0 * 0.05, x = G - w - S0 * 0.03, y = S0 * 0.03;
+        var w = c.measureText(o.filigran).width + S0 * 0.044, h = S0 * 0.05, x = G - w - S0 * 0.03, y = (o.filigranY || 0) + S0 * 0.03; // filigranY: verilen alanın üstünden
         c.globalAlpha = 0.92; yuvarlak(c, x, y, w, h, h / 2); c.fillStyle = R.turuncu; c.fill();
         c.globalAlpha = 1; c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(o.filigran, x + w / 2, y + h * 0.53); c.restore();
       }

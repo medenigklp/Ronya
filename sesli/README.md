@@ -42,6 +42,25 @@ Karşılıklı anlatımda Elif Hoca bir kadın sesiyle, Kerem Hoca bir erkek ses
 
 **Öğrenci seslerini değiştirmek:** öğretmen modunda Ayarlar → **Öğrenci sesleri** → kadın ve erkek sesini seç → **Kaydet**. Seçim ses servisinde saklanır ve bütün öğrencilere hemen geçer. Bunun için ses servisinin 3. sürümü gerekir (`/ayar` adresi): Cloudflare → Workers & Pages → sesli-ders → Edit code → `ses-servisi.js`'in yeni hâlini yapıştır → Deploy. Yeni gizli değişken gerekmez. Servis güncellenmeden önce öğrenciler `bulut.json`'daki `ogrenci` seslerini duyar.
 
+# Kendi sesin (öğretmenin kopya sesi)
+
+Öğretmen kendi sesinin kopyasını oluşturabilir; sonra konu anlatımları ve soru çözümleri, metinleri tek tek okumadan onun sesiyle anlatılır. Kopya ses Google'ın Gemini TTS ses kopyalama özelliğiyle yapılır (`gemini-3.8-flash-tts`).
+
+**Kurulum (bir kez):**
+
+1. Ses servisini 4. sürüme güncelle: Cloudflare → Workers & Pages → sesli-ders → Edit code → `ses-servisi.js`'in yeni hâlini yapıştır → Deploy.
+2. Google AI Studio'da (aistudio.google.com) ücretli seviyeyi aç ve bir API anahtarı oluştur. Ücret önce Google AI Pro/Ultra aboneliğinin aylık Google Cloud kredisinden düşer (developers.google.com/program/my-benefits → kredi → ödeme hesabı → Apply).
+3. Worker → Settings → Variables and Secrets → Add → Type: **Secret**, Name: `GEMINI_KEY`, Value: AI Studio'daki API anahtarı → Deploy. Anahtar yalnız burada durur, sitelerin kodunda görünmez.
+4. Worker adresini tarayıcıda aç: "sürüm 4" ve "Kendi ses: GEMINI_KEY var" yazmalı.
+
+**Sesi kaydetmek:** öğretmen modunda Ayarlar → **Kendi sesin** → **Sesimi kaydet**. 10–30 saniyelik doğal bir konuşma ve Google'ın Türkçe onay cümlesi kaydedilir ("Bu sesin sahibi benim ve Google'ın bu sesi kullanarak sentetik bir ses modeli oluşturmasına izin veriyorum."). Kayıtlar 24 kHz, tek kanal WAV'a çevrilip ses servisi üzerinden Google'a gönderilir; Google onayı okuyanla konuşanın aynı kişi olduğunu doğrular. Kayıtlar sitede ya da serviste saklanmaz; Google sesi bir yıl saklar, sonra yeniden kaydetmek gerekir.
+
+**Kullanmak:** ses listesinde **Benim sesim** çıkar; öğretmen bunu kendisi için seçebilir ya da Öğrenci sesleri kartında kadın ya da erkek sesi yerine öğrencilere verebilir.
+
+**Güvenlik:** bir cümle kopya sesle yalnız öğretmen anahtarıyla üretilir (Ayarlar'daki **Bu dersi sesimle hazırla** düğmesi ya da öğretmenin dersi dinlemesi). Üretilen cümle serviste saklanır ve herkes dinler. Öğrenci hazırlanmamış bir cümleye gelirse o cümle öğrenci sesiyle (doğal ses) okunur. Böylece kimse öğretmenin sesine istediği bir cümleyi söyletemez.
+
+**Ücret ve sınırlar:** üretilen ses süresine göre ödenir (2026 sonuna kadar dakikası yaklaşık 1,4 sent, 1 Ocak 2027'den sonra iki katı); aynı cümle bir kez üretilir. Servis kopya seste günde en çok 150.000 karakter üretir (`GUNLUK_BENIM` ile değiştirilir). Sesler 16 kHz, 8 bit μ-law olarak saklanır (dakikası yaklaşık 1 MB). Cloudflare'in ücretsiz planında KV deposuna günde 1000 yazma yapılabilir; sınır dolunca "Bu dersi sesimle hazırla" durur ve ertesi gün devam edilir. İsteğe bağlı ayarlar (Type: Text): `BENIM_MODEL`, `BENIM_STIL` (konuşma tarzı; varsayılan "sakin, net ve doğal bir öğretmen anlatımı").
+
 # Cümle başlarının kesilmemesi
 
 Telefon, Bluetooth hoparlör ya da akıllı tahta hoparlörü her cümleden sonra sesi kapatıp yeniden açtığı için cümlelerin ilk kelimeleri duyulmuyordu. Artık doğal sesin her cümlesinin başına 0,4 saniyelik sessizlik eklenir ve ders oynarken cümle aralarında duyulmayacak kadar kısık bir ses döngüsü çalar; ses yolu kapanmaz. Aradaki bekleme süresi bu sessizlik kadar kısaltılır, anlatımın hızı değişmez.

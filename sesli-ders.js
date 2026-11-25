@@ -75,8 +75,26 @@
     'Achernar Aoede Autonoe Callirrhoe Despina Erinome Gacrux Kore Laomedeia Leda Pulcherrima Sulafat Vindemiatrix Zephyr'.split(' ').forEach(function (a) { l.push({ id: 'tr-TR-Chirp3-HD-' + a, ad: a, cins: 'k', grup: 'dogal' }); });
     'Achird Algenib Algieba Alnilam Charon Enceladus Fenrir Iapetus Orus Puck Rasalgethi Sadachbia Sadaltager Schedar Umbriel Zubenelgenubi'.split(' ').forEach(function (a) { l.push({ id: 'tr-TR-Chirp3-HD-' + a, ad: a, cins: 'e', grup: 'dogal' }); });
     [['A', 'k'], ['B', 'e'], ['C', 'k'], ['D', 'k'], ['E', 'e']].forEach(function (x) { l.push({ id: 'tr-TR-Wavenet-' + x[0], ad: 'WaveNet ' + x[0], cins: x[1], grup: 'sade' }); });
+    l.push({ id: 'benim', ad: 'Benim sesim', cins: 'e', grup: 'benim' }); // öğretmenin kopya sesi (ses servisinde kayıtlıysa)
     return l;
   })();
+  // Kopya ses servisten 16 kHz μ-law gelir (dakikası ~1 MB); çalmadan önce 16 bit WAV'a açılır
+  function benimWav(ab, bicim) {
+    var u = new Uint8Array(ab);
+    if (u.length > 4 && u[0] === 82 && u[1] === 73 && u[2] === 70 && u[3] === 70) return new Blob([ab], { type: 'audio/wav' });
+    var oran = parseInt((/rate=(\d+)/.exec(bicim || '') || [])[1], 10) || 16000, i16, i;
+    if (/l16|pcm/i.test(bicim || '')) i16 = new Int16Array(ab.slice(0, ab.byteLength - ab.byteLength % 2));
+    else {
+      i16 = new Int16Array(u.length);
+      for (i = 0; i < u.length; i++) { var x = ~u[i] & 255, s = ((((x & 15) << 3) + 132) << ((x >> 4) & 7)) - 132; i16[i] = x & 128 ? -s : s; }
+    }
+    var b = new ArrayBuffer(44 + i16.length * 2), d = new DataView(b), yaz = function (o, t) { for (var j = 0; j < t.length; j++) d.setUint8(o + j, t.charCodeAt(j)); };
+    yaz(0, 'RIFF'); d.setUint32(4, 36 + i16.length * 2, true); yaz(8, 'WAVE'); yaz(12, 'fmt ');
+    d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, oran, true);
+    d.setUint32(28, oran * 2, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); yaz(36, 'data'); d.setUint32(40, i16.length * 2, true);
+    new Int16Array(b, 44).set(i16);
+    return new Blob([b], { type: 'audio/wav' });
+  }
   var Bulut = {
     adres: null, bellek: {}, sira: [],
     hazir: function () { return !!this.adres; },
@@ -87,8 +105,9 @@
     al: function (metin, sesId) {
       metin = String(metin || '').replace(/\s+/g, ' ').trim();
       if (!this.adres) return Promise.reject(new Error('ses servisi yok'));
-      if (this.mola && Date.now() < this.mola) return Promise.reject(new Error('ses servisi molada'));
       if (!metin || metin.length > 1400) return Promise.reject(new Error('metin uygun değil'));
+      if ((sesId || this.ses().id) === 'benim') return this.benimAl(metin);
+      if (this.mola && Date.now() < this.mola) return Promise.reject(new Error('ses servisi molada'));
       var self = this, u = this.adres.replace(/\/+$/, '') + '/ses?ses=' + encodeURIComponent(sesId || this.ses().id) + '&m=' + encodeURIComponent(metin);
       if (this.bellek[u]) return this.bellek[u];
       var p = fetch(u, { mode: 'cors', credentials: 'omit' })
@@ -101,6 +120,45 @@
         if (ep) ep.then(function (k) { setTimeout(function () { URL.revokeObjectURL(k.url); }, 60000); }, function () {});
       }
       return p;
+    },
+    /* Öğretmenin kopya sesi: cümle serviste hazırsa herkes dinler. Hazır değilse yalnız öğretmen üretir (anahtarıyla);
+       öğrencide o cümle öğrenci sesiyle okunur. Böylece kimse öğretmenin sesine istediği cümleyi söyletemez. */
+    benim: { var: false, cins: 'e', hazir: false },
+    benimYukle: function () {
+      var self = this;
+      if (!this.adres || !window.fetch) return Promise.resolve(false);
+      return fetch(this.adres.replace(/\/+$/, '') + '/benim', { mode: 'cors', credentials: 'omit', cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : null; }, function () { return null; })
+        .then(function (j) {
+          self.benim = { var: !!(j && j.var), cins: j && j.cins === 'k' ? 'k' : 'e', hazir: !!(j && j.hazir) };
+          BULUT_SESLER.forEach(function (v) { if (v.id === 'benim') v.cins = self.benim.cins; });
+          Oynatici.hepsi.forEach(function (o) { o.benimGuncelle(); });
+          return self.benim.var;
+        });
+    },
+    benimYedek: function () { return this.benim.cins === 'k' ? Izin.ogrenciVarsayilan('k') : Izin.ogrenciVarsayilan('e'); },
+    benimAl: function (metin, sadece) { // sadece: yalnız kopya ses (dersi hazırlarken); yedeğe geçmez, hatayı bildirir
+      var self = this, k = 'benim|' + metin;
+      if (!sadece && this.bellek[k]) return this.bellek[k];
+      if (!this.benim.var || (this.benimMola && Date.now() < this.benimMola)) {
+        if (sadece) { var e0 = new Error(this.benim.var ? 'sınır' : 'kopya ses yok'); e0.durum = this.benim.var ? 429 : 404; return Promise.reject(e0); }
+        return this.al(metin, this.benimYedek());
+      }
+      var h = Izin.ogretmen() ? { 'X-Ogretmen': Izin.anahtar() } : {};
+      var p = fetch(this.adres.replace(/\/+$/, '') + '/benim/ses?m=' + encodeURIComponent(metin), { mode: 'cors', credentials: 'omit', headers: h })
+        .then(function (r) {
+          if (r.status === 429) self.benimMola = Date.now() + 10 * 60 * 1000;
+          if (!r.ok) { var e = new Error('kopya ses ' + r.status); e.durum = r.status; return r.text().then(function (t) { e.metin = t; throw e; }, function () { throw e; }); }
+          var bicim = r.headers.get('X-Bicim') || 'mulaw;rate=16000', saklandi = r.headers.get('X-Saklandi') !== '0';
+          return r.arrayBuffer().then(function (ab) {
+            if (!ab.byteLength) throw new Error('boş ses');
+            return { url: URL.createObjectURL(benimWav(ab, bicim)), bulut: true, benim: true, saklandi: saklandi };
+          });
+        });
+      if (sadece) return p;
+      var s = p.catch(function () { delete self.bellek[k]; return self.al(metin, self.benimYedek()); });
+      this.bellek[k] = s; this.sira.push(k);
+      return s;
     }
   };
   function kaynakNe() {
@@ -119,6 +177,7 @@
   var Izin = {
     ogrenci: { k: 'tr-TR-Chirp3-HD-Kore', e: 'tr-TR-Chirp3-HD-Charon' },
     anahtar: function () { return depo.al('ogrAnahtar', '') || ''; },
+    ogrenciVarsayilan: function (c) { var id = this.ogrenci[c === 'k' ? 'k' : 'e']; return id && id !== 'benim' ? id : (c === 'k' ? 'tr-TR-Chirp3-HD-Kore' : 'tr-TR-Chirp3-HD-Charon'); },
     ogretmen: function () { return !!this.anahtar(); },
     sesi: function (c) {
       var id = this.ogrenci[c === 'e' ? 'e' : 'k'];
@@ -126,7 +185,7 @@
     },
     koy: function (o, sakla) {
       if (!o) return false;
-      var gecerli = function (id, c) { return BULUT_SESLER.some(function (v) { return v.id === id && v.cins === c; }); }, deg = false;
+      var gecerli = function (id, c) { return id === 'benim' || BULUT_SESLER.some(function (v) { return v.id === id && v.cins === c; }); }, deg = false;
       if (gecerli(o.k, 'k') && o.k !== this.ogrenci.k) { this.ogrenci.k = o.k; deg = true; }
       if (gecerli(o.e, 'e') && o.e !== this.ogrenci.e) { this.ogrenci.e = o.e; deg = true; }
       if (sakla) depo.yaz('ogrSesler', { k: this.ogrenci.k, e: this.ogrenci.e });
@@ -184,7 +243,7 @@
   var TEPKILER = ['Evet, aynen öyle.', 'Çok önemli bir nokta.', 'Bunu biraz açalım.', 'Güzel, devam edelim.', 'Şöyle düşünelim.', 'Bunu not almakta fayda var.', 'Bir de şuna bakalım.'];
   function konusmaciSesi(kim) {
     var og = Izin.ogretmen();
-    if (!ayar.ikili || !kim) return { bulut: Bulut.ses().id, cins: ayar.cins, ad: og ? ayar.sesAdi : '' };
+    if (!ayar.ikili || !kim) { var bs = Bulut.ses().id; return { bulut: bs, cins: bs === 'benim' ? Bulut.benim.cins : ayar.cins, ad: og ? ayar.sesAdi : '' }; }
     var c = KONUSMACI[kim].cins;
     return { bulut: (og && (c === 'e' ? ayar.bulutSesE : ayar.bulutSesK)) || Izin.sesi(c), cins: c, ad: og ? (c === 'e' ? ayar.sesAdiE : ayar.sesAdiK) : '' };
   }
@@ -263,7 +322,7 @@
         })
         .then(function (paketler) { (paketler || []).forEach(function (p) { if (p && p.kayitlar) Object.keys(p.kayitlar).forEach(function (h) { self.harita[h] = p.kayitlar[h]; }); }); })
         .catch(function () {});
-      this.soz = Promise.all([listeSoz, bulutSoz.then(function () { return Izin.yukle(); })]);
+      this.soz = Promise.all([listeSoz, bulutSoz.then(function () { return Promise.all([Izin.yukle(), Bulut.benimYukle()]); })]);
       return this.soz;
     },
     al: function (h) { return this.harita[h] || null; },
@@ -1268,6 +1327,14 @@
   var pdfSoz = null;
   function betikYukle(src) {
     return new Promise(function (ok, red) { var s = document.createElement('script'); s.src = src; s.async = true; s.onload = function () { ok(); }; s.onerror = function () { red(new Error(src)); }; document.head.appendChild(s); });
+  }
+  var benimSoz = null;
+  function benimModulu() {
+    if (window.SesliBenim) return Promise.resolve();
+    if (benimSoz) return benimSoz;
+    var k = window.SESLI_DERS_KAYIT_KLASORU || (BETIK_DIZIN ? BETIK_DIZIN + 'sesli/' : 'sesli/');
+    benimSoz = betikYukle(k + 'benim-ses.js').catch(function (e) { benimSoz = null; throw e; });
+    return benimSoz;
   }
   function pdfHazirla() {
     if (pdfSoz) return pdfSoz;
@@ -2353,6 +2420,11 @@
           '<div class="satir"><button type="button" class="dugme" data-r="ogrKaydet">Kaydet</button><button type="button" class="dugme ikincil" data-r="ogretmenCik">Öğretmen modundan çık</button></div>' +
           '<p class="not" data-r="ogrKartNot" aria-live="polite"></p>' +
         '</section>' +
+        '<section class="kart" data-r="benimKart" hidden><h3>Kendi sesin <span class="rozet-ogr">Öğretmen</span></h3>' +
+          '<p class="not" data-r="benimDurum"></p>' +
+          '<div class="satir"><button type="button" class="dugme" data-r="benimKur">Sesimi kaydet</button><button type="button" class="dugme ikincil" data-r="benimHazirla" hidden>Bu dersi sesimle hazırla</button></div>' +
+          '<p class="not" data-r="benimNot" aria-live="polite"></p>' +
+        '</section>' +
         '<div class="ogr-giris" data-r="ogrGiris"><button type="button" class="baglanti" data-r="ogrGirisAc">Öğretmen girişi</button>' +
           '<div class="satir" data-r="ogrGirisForm" hidden><input type="password" autocomplete="off" autocapitalize="off" spellcheck="false" data-r="ogrAnahtar" placeholder="Öğretmen anahtarı" aria-label="Öğretmen anahtarı"><button type="button" class="dugme" data-r="ogrGirisDugme">Giriş</button></div>' +
           '<p class="not" data-r="ogrGirisNot" aria-live="polite" hidden></p></div>' +
@@ -2701,6 +2773,8 @@
     r.ogrAnahtar.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); girisYap(); } });
     r.ogretmenCik.addEventListener('click', function () { Izin.cik(); });
     r.ogrKaydet.addEventListener('click', function () { self.ogrKaydet(); });
+    r.benimKur.addEventListener('click', function () { self.benimKur(); });
+    r.benimHazirla.addEventListener('click', function () { self.benimHazirla(); });
     r.ogrSesK.addEventListener('change', function () { self.ogrDegisti = true; r.ogrKartNot.textContent = ''; });
     r.ogrSesE.addEventListener('change', function () { self.ogrDegisti = true; r.ogrKartNot.textContent = ''; });
     r.ogrDinleK.addEventListener('click', function () { self.ogrDinle(r.ogrSesK.value); });
@@ -2853,9 +2927,9 @@
     if (kaynak === 'bulut') {
       var sv = Bulut.ses(), bop = function (v) { return '<option value="' + v.id + '">' + esc(v.ad) + '</option>'; };
       r.sesEtiket.textContent = 'Doğal sesler (Google)';
-      r.sesSec.innerHTML = '<optgroup label="Kadın sesleri">' + BULUT_SESLER.filter(function (v) { return v.cins === 'k' && v.grup === 'dogal'; }).map(bop).join('') + '</optgroup>' +
+      r.sesSec.innerHTML = (Bulut.benim.var ? '<optgroup label="Kendi sesin"><option value="benim">Benim sesim</option></optgroup>' : '') + '<optgroup label="Kadın sesleri">' + BULUT_SESLER.filter(function (v) { return v.cins === 'k' && v.grup === 'dogal'; }).map(bop).join('') + '</optgroup>' +
         '<optgroup label="Erkek sesleri">' + BULUT_SESLER.filter(function (v) { return v.cins === 'e' && v.grup === 'dogal'; }).map(bop).join('') + '</optgroup>' +
-        '<optgroup label="Sade sesler">' + BULUT_SESLER.filter(function (v) { return v.grup !== 'dogal'; }).map(function (v) { return '<option value="' + v.id + '">' + esc(v.ad + (v.cins === 'k' ? ' · kadın' : ' · erkek')) + '</option>'; }).join('') + '</optgroup>';
+        '<optgroup label="Sade sesler">' + BULUT_SESLER.filter(function (v) { return v.grup === 'sade'; }).map(function (v) { return '<option value="' + v.id + '">' + esc(v.ad + (v.cins === 'k' ? ' · kadın' : ' · erkek')) + '</option>'; }).join('') + '</optgroup>';
       r.sesSec.value = sv.id; r.sesSec.disabled = false;
       r.sesNot.hidden = !this.bulutUyari; r.sesNot.textContent = this.bulutUyari || '';
       return;
@@ -2889,9 +2963,70 @@
     if (og) this.ogrKartDoldur();
     else if (Izin.girisSonuc === 'yanlis') { r.ogrGirisForm.hidden = false; r.ogrGirisNot.hidden = false; r.ogrGirisNot.textContent = 'Öğretmen bağlantısındaki anahtar geçersiz.'; }
     var ogt = og; r.tekSes.hidden = ayar.ikili || !ogt; r.ikiliSes.hidden = !ayar.ikili || !ogt;
+    this.benimGuncelle();
+  };
+  // Kendi sesin kartı: kopya sesi kaydetme ve açık dersi bu sesle önceden hazırlama (yalnız öğretmen)
+  Oynatici.prototype.benimGuncelle = function () {
+    var r = this.r; if (!r || !r.benimKart) return;
+    var og = Izin.ogretmen(), b = Bulut.benim;
+    if (this.benimListe !== b.var) { // seçenek listeleri kopya sesin durumuna göre yeniden kurulur
+      this.benimListe = b.var;
+      if (!this.ogrDegisti) { r.ogrSesK.innerHTML = ''; r.ogrSesE.innerHTML = ''; if (og) this.ogrKartDoldur(); }
+      if (og && this.sesListesi) this.sesListesi();
+    }
+    r.benimKart.hidden = !og || !Bulut.hazir();
+    if (r.benimKart.hidden) return;
+    r.benimDurum.textContent = !b.hazir && !b.var ? 'Bunun için ses servisinin güncellenmesi ve GEMINI_KEY eklenmesi gerekiyor (sesli/README.md).'
+      : b.var ? 'Kopya sesin hazır. Ses listesinden "Benim sesim"i seçebilir ya da öğrenci seslerinden birine verebilirsin. Senin sesinle hazırlanan cümleleri öğrenciler senin sesinle duyar; hazırlanmamış cümleler öğrenci sesiyle okunur.'
+      : '30 saniyelik bir konuşma ve kısa bir onay cümlesi kaydederek sesinin kopyasını oluştur. Google, ikisini aynı kişinin okuduğunu kontrol eder.';
+    r.benimKur.textContent = b.var ? 'Sesimi yeniden kaydet' : 'Sesimi kaydet';
+    r.benimKur.disabled = !b.hazir;
+    r.benimHazirla.hidden = !b.var;
+  };
+  Oynatici.prototype.benimKur = function () {
+    var r = this.r;
+    r.benimNot.textContent = 'Kayıt ekranı açılıyor…';
+    benimModulu().then(function () {
+      r.benimNot.textContent = '';
+      window.SesliBenim.ac({ adres: Bulut.adres, anahtar: Izin.anahtar(), cins: Bulut.benim.cins, bitti: function (ok) {
+        if (ok) Bulut.benimYukle().then(function () { r.benimNot.textContent = 'Kopya sesin oluşturuldu. Ses listesinden "Benim sesim"i seç.'; });
+      } });
+    }, function () { r.benimNot.textContent = 'Kayıt ekranı yüklenemedi; bağlantını kontrol edip yeniden dene.'; });
+  };
+  Oynatici.prototype.benimHazirla = function () {
+    var self = this, r = this.r;
+    if (this.benimIs) { this.benimIs.dur = true; return; }
+    var hepsi = (this.P.adimlar || []).map(function (a) { return String(a.s || '').replace(/\s+/g, ' ').trim(); });
+    if (this.P.plan) this.P.plan.forEach(function (p) { if (p && p.on) hepsi.push(String(p.on).replace(/\s+/g, ' ').trim()); });
+    var tek = hepsi.filter(function (m, i) { return m && m.length <= 1400 && hepsi.indexOf(m) === i; });
+    if (!tek.length) { r.benimNot.textContent = 'Önce hazırlamak istediğin dersi aç.'; return; }
+    var is = this.benimIs = { dur: false, neden: null }, i = 0, tamam = 0, hata = 0, n = tek.length;
+    r.benimHazirla.textContent = 'Durdur';
+    var yaz = function () { r.benimNot.textContent = 'Hazırlanıyor: ' + (tamam + hata) + ' / ' + n + ' cümle'; };
+    var calis = function () {
+      if (is.dur || i >= n) return Promise.resolve();
+      var m = tek[i++];
+      return Bulut.benimAl(m, true).then(function (k) {
+        tamam++; setTimeout(function () { URL.revokeObjectURL(k.url); }, 500);
+        if (k.saklandi === false) { is.dur = true; is.neden = { durum: 507 }; }
+      }, function (e) {
+        hata++;
+        if (e && (e.durum === 429 || e.durum === 403 || e.durum === 500 || e.durum === 404)) { is.dur = true; is.neden = e; }
+      }).then(function () { yaz(); return calis(); });
+    };
+    yaz();
+    Promise.all([calis(), calis()]).then(function () {
+      self.benimIs = null; r.benimHazirla.textContent = 'Bu dersi sesimle hazırla';
+      var ne = is.neden, ozet = ' Hazırlanan: ' + tamam + ' / ' + n + ' cümle.';
+      if (ne && ne.durum === 429) r.benimNot.textContent = 'Kendi sesinde bugünkü sınır doldu; kalanını yarın hazırlayabilirsin.' + ozet;
+      else if (ne && ne.durum === 507) r.benimNot.textContent = 'Ses deposunun bugünkü kayıt hakkı doldu (Cloudflare ücretsiz planı günde 1000 kayıt). Yarın devam edebilirsin.' + ozet;
+      else if (ne) r.benimNot.textContent = 'Durdu: ' + (ne.metin || 'ses servisi hata verdi.') + ozet;
+      else if (is.dur) r.benimNot.textContent = 'Durduruldu.' + ozet;
+      else r.benimNot.textContent = hata ? 'Bitti: ' + tamam + ' cümle hazır, ' + hata + ' cümle hazırlanamadı.' : 'Bitti: ' + n + ' cümlenin hepsi senin sesinle hazır. Öğrenciler bu dersi senin sesinle dinleyebilir.';
+    });
   };
   Oynatici.prototype.ogrKartDoldur = function () {
-    var r = this.r, op = function (c) { return BULUT_SESLER.filter(function (v) { return v.cins === c; }).map(function (v) { return '<option value="' + v.id + '">' + esc(v.ad + (v.grup === 'dogal' ? '' : ' (sade)')) + '</option>'; }).join(''); };
+    var r = this.r, op = function (c) { return (Bulut.benim.var ? '<option value="benim">Benim sesim (kendi sesin)</option>' : '') + BULUT_SESLER.filter(function (v) { return v.cins === c && v.grup !== 'benim'; }).map(function (v) { return '<option value="' + v.id + '">' + esc(v.ad + (v.grup === 'dogal' ? '' : ' (sade)')) + '</option>'; }).join(''); };
     if (!r.ogrSesK.options.length) { r.ogrSesK.innerHTML = op('k'); r.ogrSesE.innerHTML = op('e'); }
     if (!this.ogrDegisti) { r.ogrSesK.value = Izin.ogrenci.k; r.ogrSesE.value = Izin.ogrenci.e; }
   };

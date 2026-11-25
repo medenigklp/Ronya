@@ -19,6 +19,12 @@
      GUNLUK_SADE     sade seslerde günlük karakter sınırı (varsayılan 120000)
      IZINLI_SITELER  virgülle ayrılmış site adresleri (varsayılan https://medenigklp.github.io)
 
+   Öğrenci sesleri (sürüm 3): öğrenciler yalnız öğretmenin seçtiği iki doğal sesi (bir kadın, bir erkek) kullanır.
+     GET  /ayar  → {"ogrenci": {"k": "...", "e": "..."}}  (herkese açık)
+     POST /ayar  → {"anahtar": "...", "ogrenci": {...}}  yalnız öğretmen anahtarıyla; seçim depoya (KV) yazılır.
+   Anahtarın kendisi burada yok, yalnız SHA-256 özeti var (OGRETMEN_OZET). Anahtarı değiştirmek için
+   Variables and Secrets'e OGRETMEN_OZET adında yeni özet yazılabilir (Type: Text).
+
    Koruma: yalnız izinli sitelerden gelen istekler, yalnız listedeki Türkçe sesler,
    istek başına en çok 1400 karakter. Aynı cümle aynı sesle bir kez üretilir, sonra depodan gelir.
    Günlük sınır: Google'a gönderilen karakter günde sınırı geçmez. Varsayılan değerler Google'ın
@@ -26,11 +32,13 @@
    sınır dolunca siteler o gün cihaz sesine döner.
    ============================================================ */
 
-const SURUM = '2';
+const SURUM = '3';
 const VARSAYILAN_SITELER = ['https://medenigklp.github.io'];
 const VARSAYILAN_SINIR = { dogal: 30000, sade: 120000 };
 const AZAMI_KARAKTER = 1400;
 const DAKIKADA_ISTEK = 120; // aynı adresten dakikada en çok yeni ses (okul ağlarında birçok öğrenci tek adresten gelir)
+const OGRETMEN_OZET = 'eeb6c158a4aba2056a2d4768c8d5e11a326cd6cc2631b0a14d5d90d08eb1435c';
+const VARSAYILAN_OGRENCI = { k: 'tr-TR-Chirp3-HD-Kore', e: 'tr-TR-Chirp3-HD-Charon' };
 
 const KADIN = 'Achernar Aoede Autonoe Callirrhoe Despina Erinome Gacrux Kore Laomedeia Leda Pulcherrima Sulafat Vindemiatrix Zephyr';
 const ERKEK = 'Achird Algenib Algieba Alnilam Charon Enceladus Fenrir Iapetus Orus Puck Rasalgethi Sadachbia Sadaltager Schedar Umbriel Zubenelgenubi';
@@ -56,8 +64,9 @@ export default {
 async function isle(istek, env, ctx, A, koken, cors) {
   const url = new URL(istek.url);
   if (istek.method === 'OPTIONS') {
-    return new Response(null, { headers: { ...cors, 'Access-Control-Allow-Methods': 'GET', 'Access-Control-Max-Age': '86400' } });
+    return new Response(null, { headers: { ...cors, 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' } });
   }
+  if (url.pathname === '/ayar') return ayarIsle(istek, env, A, koken, cors);
   if (url.pathname === '/' || url.pathname === '') {
     const eksik = [!env.GOOGLE_TTS_KEY && 'GOOGLE_TTS_KEY', !env.SESLER_KV && 'SESLER_KV'].filter(Boolean);
     if (eksik.length) return yazi('Sesli ders ses servisi çalışıyor (sürüm ' + SURUM + '), ama ayar eksik: ' + eksik.join(', ') + '.', 200, cors);
@@ -121,6 +130,39 @@ async function isle(istek, env, ctx, A, koken, cors) {
   const basliklar = new Headers(yanit.headers);
   Object.entries(cors).forEach(([k, v]) => basliklar.set(k, v));
   return new Response(yanit.body, { status: 200, headers: basliklar });
+}
+
+// Öğrenci sesleri: herkes okur, yalnız öğretmen anahtarıyla değişir
+async function ayarIsle(istek, env, A, koken, cors) {
+  const json = (veri, durum) => new Response(JSON.stringify(veri), { status: durum || 200, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache' } });
+  const oku = async () => {
+    let o = null;
+    try { o = env.SESLER_KV ? JSON.parse((await env.SESLER_KV.get('ayar:ogrenci')) || 'null') : null; } catch (e) { o = null; }
+    return o && SESLER.has(o.k) && SESLER.has(o.e) ? o : VARSAYILAN_OGRENCI;
+  };
+  if (istek.method === 'GET') return json({ ogrenci: await oku(), surum: SURUM });
+  if (istek.method !== 'POST') return yazi('Bulunamadı', 404, cors);
+  if (!A.siteler.includes(koken)) return json({ tamam: false, hata: 'Bu servis yalnızca izinli sitelerden kullanılabilir.' }, 403);
+  const ip = istek.headers.get('CF-Connecting-IP') || 'bilinmiyor';
+  if (yanlisCok(ip)) return json({ tamam: false, hata: 'Çok fazla deneme; biraz sonra yeniden dene.' }, 429);
+  let g = null;
+  try { g = JSON.parse(await istek.text()); } catch (e) { g = null; }
+  const beklenen = String(env.OGRETMEN_OZET || OGRETMEN_OZET).trim().toLowerCase();
+  if (!g || typeof g.anahtar !== 'string' || (await ozet(g.anahtar.trim())) !== beklenen) { yanlisSay(ip); return json({ tamam: false, hata: 'Öğretmen anahtarı geçersiz.' }, 403); }
+  const o = g.ogrenci || {};
+  const kadin = KADIN.split(' ').map((a) => 'tr-TR-Chirp3-HD-' + a).concat(['A', 'C', 'D'].map((h) => 'tr-TR-Wavenet-' + h));
+  const erkek = ERKEK.split(' ').map((a) => 'tr-TR-Chirp3-HD-' + a).concat(['B', 'E'].map((h) => 'tr-TR-Wavenet-' + h));
+  if (!kadin.includes(o.k) || !erkek.includes(o.e)) return json({ tamam: false, hata: 'Geçersiz ses.' }, 400);
+  if (!env.SESLER_KV) return json({ tamam: false, hata: 'Servis ayarı eksik: SESLER_KV.' }, 500);
+  await env.SESLER_KV.put('ayar:ogrenci', JSON.stringify({ k: o.k, e: o.e }));
+  return json({ tamam: true, ogrenci: { k: o.k, e: o.e } });
+}
+const yanlislar = new Map();
+function yanlisCok(ip) { const k = yanlislar.get(ip); return !!k && Date.now() - k.t < 15 * 60000 && k.n >= 10; }
+function yanlisSay(ip) {
+  const simdi = Date.now(), k = yanlislar.get(ip);
+  if (!k || simdi - k.t > 15 * 60000) yanlislar.set(ip, { t: simdi, n: 1 }); else k.n++;
+  if (yanlislar.size > 5000) yanlislar.clear();
 }
 
 function ayarlar(env) {

@@ -6,7 +6,7 @@
    verir, yani site yavaşlamaz; değiştiyse yeni hâli anında gelir.
    Çevrimdışı çalışma aynen korunuyor.
    ============================================================ */
-var CACHE = 'ronya-v19';
+var CACHE = 'ronya-v20';
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();

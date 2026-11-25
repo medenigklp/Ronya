@@ -48,7 +48,7 @@ Karşılıklı anlatımda Elif Hoca bir kadın sesiyle, Kerem Hoca bir erkek ses
 
 **Kurulum (bir kez):**
 
-1. Ses servisini 4. sürüme güncelle: Cloudflare → Workers & Pages → sesli-ders → Edit code → `ses-servisi.js`'in yeni hâlini yapıştır → Deploy.
+1. Ses servisini 4. sürüme güncelle: kodun tamamını https://raw.githubusercontent.com/medenigklp/Ronya/main/sesli/ses-servisi.js adresinden kopyala, Cloudflare → Workers & Pages → sesli-ders → Edit code → eski kodun yerine yapıştır → Deploy.
 2. Google AI Studio'da (aistudio.google.com) ücretli seviyeyi aç ve bir API anahtarı oluştur. Ücret önce Google AI Pro/Ultra aboneliğinin aylık Google Cloud kredisinden düşer (developers.google.com/program/my-benefits → kredi → ödeme hesabı → Apply).
 3. Worker → Settings → Variables and Secrets → Add → Type: **Secret**, Name: `GEMINI_KEY`, Value: AI Studio'daki API anahtarı → Deploy. Anahtar yalnız burada durur, sitelerin kodunda görünmez.
 4. Worker adresini tarayıcıda aç: "sürüm 4" ve "Kendi ses: GEMINI_KEY var" yazmalı.

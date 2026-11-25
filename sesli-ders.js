@@ -665,11 +665,13 @@
     (o.soru || []).forEach(function (h) { ekle(h, 'q'); });
     (o.siklar || []).forEach(function (h) { ekle(h, 'q'); });
     notIcinde = false;
+    var cozumBas = adimlar.length;
     if ((o.cozum || []).length || o.cevap) {
       adimlar.push({ w: [{ c: 'label', t: 'Çözüm' }], s: 'Şimdi çözüme geçelim.' });
       (o.cozum || []).forEach(function (h) { ekle(h, 'c'); });
       if (o.cevap) ekle('<b>Cevap:</b> ' + o.cevap, 'ok');
     }
+    grupla(adimlar, 0, cozumBas, adimlar.length);
     return { id: o.id || ('d' + ozet(baslik + (o.soru || []).join(''))), baslik: baslik, adimlar: adimlar };
   }
   // kimyamed .soru kartı
@@ -1314,6 +1316,17 @@
       .then(function (bayt) { var blob = new Blob([bayt], { type: 'application/pdf' }); indir(blob, pdfAdi(notu.baslik)); return blob; });
   }
 
+  /* ---- soru ve çözüm grupları ----
+     Bir sorunun kendisi bir tahtaya, çözümünün tamamı bir tahtaya yazılır: grup başlarken bütün grup ölçülür,
+     sığmıyorsa tahta silinir (çözümde soru yeniden yazılır) ve yazı gerektiği kadar küçülür; grup yarıda silinmez. */
+  var grupSayac = 0;
+  function grupla(adimlar, sBas, cBas, son) {
+    var id = 'gr' + (++grupSayac);
+    for (var k = sBas; k < son; k++) { adimlar[k].grup = id; adimlar[k].grupTur = k < cBas ? 's' : 'c'; delete adimlar[k].grupBas; }
+    if (cBas > sBas) adimlar[sBas].grupBas = true;
+    if (son > cBas) adimlar[cBas].grupBas = true;
+  }
+
   /* ================= konu anlatımından ders ================= */
   // Sayfadaki konu anlatımı (başlık, paragraf, liste, not kutusu, tablo, şekil, çözümlü örnek) tahta adımlarına çevrilir.
   var ATLA_ETIKET = /^(SCRIPT|STYLE|BUTTON|NAV|DETAILS|SUMMARY|INPUT|SELECT|TEXTAREA|FORM|AUDIO|VIDEO|IFRAME|OBJECT|NOSCRIPT|TEMPLATE|LINK|META|HR)$/;
@@ -1462,10 +1475,12 @@
     this.not = false; this.notIlk = false;
   };
   IcerikYapici.prototype.ornek = function (n) {
-    var self = this, et = n.querySelector('.etiket'), metin = n.querySelector('.metin'), coz = n.querySelector('.cozum'), ilk = true;
+    var self = this, et = n.querySelector('.etiket'), metin = n.querySelector('.metin'), coz = n.querySelector('.cozum'), ilk = true, sb = this.adimlar.length, cb;
     this.ekle(esc(et ? yaziMetni(et) : 'Örnek'), 'label');
     if (metin) satirlaraBol(metin).forEach(function (h) { self.ekle(h, ilk ? 'q' : 'qd'); ilk = false; });
+    cb = this.adimlar.length;
     if (coz) { this.ekle('Çözüm', 'label', 'Çözüme bakalım.'); satirlaraBol(coz).forEach(function (h) { self.paragraf(h); }); }
+    if (this.adimlar.length > sb) grupla(this.adimlar, sb, cb, this.adimlar.length);
   };
   // bolumler: [{ ad, dugumler: [düğüm...] }] → bölümlü ders
   function icerikDers(o) {
@@ -1971,7 +1986,9 @@
     '.sd-yazi{position:relative;height:100%;overflow:hidden;font-family:var(--aile),"Segoe Print","Bradley Hand","Comic Sans MS",cursive;font-size:21px;font-size:calc(5.8cqw * var(--olcek,1) * var(--sig,1) * var(--buyuk,1));line-height:1.22;color:var(--k-yazi)}',
     '@container (min-width:640px){.sd-yazi{font-size:calc(3.65cqw * var(--olcek,1) * var(--sig,1) * var(--buyuk,1))}}',
     '.sahneli .sd-yazi{height:38%}@container (min-width:640px){.sahneli .sd-yazi{height:100%;width:45%}}',
-    '.sd-tahta[data-kalem="tebesir"] .blok:not(.b-q):not(.b-qd) .w:not(.w-blok){display:inline-block;-webkit-mask-image:var(--maske);mask-image:var(--maske);-webkit-mask-size:120px 120px;mask-size:120px 120px;text-shadow:0 0 1px rgba(255,255,255,.35),0 0 3px rgba(255,255,255,.12)}',
+    '.sd-tahta[data-kalem="tebesir"] .blok .w:not(.w-blok){display:inline-block;-webkit-mask-image:var(--maske);mask-image:var(--maske);-webkit-mask-size:120px 120px;mask-size:120px 120px;text-shadow:0 0 1px rgba(255,255,255,.35),0 0 3px rgba(255,255,255,.12);padding:.2em .05em .3em;margin:-.2em -.05em -.3em}',
+    '.sd-tahta[data-kalem="tebesir"] .blok sub .w:not(.w-blok),.sd-tahta[data-kalem="tebesir"] .blok sup .w:not(.w-blok){line-height:1;vertical-align:baseline}',
+    /* tebeşir dokusu kelimenin kutusuna uygulanır: alt ve üst simgeler (CO₂, Kc) kutunun dışına taşıp silinmesin diye kutu dolgu ile genişletildi */
     '.sd-tahta[data-kalem="dijital"] .sd-yazi{text-shadow:0 0 .05em currentColor}',
     '.blok{margin:0 0 .26em;overflow-wrap:anywhere}.blok sub,.blok sup{font-size:.64em;line-height:0}',
     '.w{opacity:0;position:relative}.w.on{opacity:1;animation:yaz .3s ease-out both}',
@@ -1996,6 +2013,12 @@
     '.b-q:has(+ .b-qd),.b-qd:has(+ .b-qd){border-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;padding-bottom:.15em;box-shadow:none}',
     '.sd-yer2 + .b-qd{border-top:1px solid #EADFB6;border-top-left-radius:6px;border-top-right-radius:6px;margin-top:0;padding-top:.55em}',
     '@container (max-width:639px){.b-q,.b-qd{font-size:.68em}}',
+    /* tebeşir: soru kökü ve not kutuları da tebeşirle yazılır (basılı kâğıt görünümü yerine tebeşirle çizilmiş çerçeve) */
+    '.sd-tahta[data-kalem="tebesir"] .b-q,.sd-tahta[data-kalem="tebesir"] .b-qd{font-family:var(--aile),"Segoe Print","Bradley Hand","Comic Sans MS",cursive;font-size:.8em;line-height:1.24;color:inherit;background:transparent;box-shadow:none;border-color:rgba(255,255,255,.4);border-color:color-mix(in srgb,currentColor 45%,transparent);border-width:.07em}',
+    '.sd-tahta[data-kalem="tebesir"] .b-q::before{background:currentColor;box-shadow:none;opacity:.8}',
+    '.sd-tahta[data-kalem="tebesir"] .b-q b,.sd-tahta[data-kalem="tebesir"] .b-qd b{font-weight:700}',
+    '.sd-tahta[data-kalem="tebesir"].koyu .b-q .w-blok,.sd-tahta[data-kalem="tebesir"].koyu .b-qd .w-blok{background:#fff;border-radius:8px;padding:4px;color:#1F2733}',
+    '@container (max-width:639px){.sd-tahta[data-kalem="tebesir"] .b-q,.sd-tahta[data-kalem="tebesir"] .b-qd{font-size:.92em}}',
     '.b-q b,.b-qd b{font-weight:700}.b-q sub,.b-q sup,.b-qd sub,.b-qd sup{font-size:.72em}',
     '.vurgu{color:var(--k-kirmizi)}',
     '.b-alt{font-weight:700;color:var(--k-mavi);margin-top:.28em}',
@@ -2004,7 +2027,7 @@
     '.b-q.b-li,.b-qd.b-li,.b-q.b-lid,.b-qd.b-lid{padding-left:2.5em}.b-q.b-li2,.b-qd.b-li2{padding-left:3.3em}',
     '.b-q.b-li::before,.b-qd.b-li::before{left:1.55em;color:#E04E00}.b-q.b-li2::before,.b-qd.b-li2::before{left:2.4em;color:#E04E00}',
     /* grafik köşedeki öğretmenin yanına sığar (altına itilmez) */
-    '.blok.b-grafik{margin:.12em 0 .3em}.blok.b-grafik svg{display:block;width:100%;height:auto;max-height:40cqw;max-width:calc(100% - 16.5cqw);margin:0}',
+    '.blok.b-grafik{margin:.12em 0 .3em}.blok.b-grafik svg{display:block;width:100%;height:auto;max-height:calc(40cqw * var(--sig,1));max-width:calc(100% - 16.5cqw);margin:0}',
     '@container (min-width:640px){.blok.b-grafik svg{max-width:calc(100% - 12.5cqw)}}',
     '.sahneli .blok.b-grafik svg,.ogretmensiz .blok.b-grafik svg{max-width:100%}',
     '.sd-yazi svg .ga-vurgu{filter:drop-shadow(0 0 2.5px rgba(248,83,0,.95)) drop-shadow(0 0 1px rgba(248,83,0,.9))}',
@@ -2918,7 +2941,42 @@
   // Tek başına tahtaya sığmayan uzun soru ya da şekil: yazıyı küçült
   Oynatici.prototype.sigdir = function () {
     var y = this.r.yazi, olcek = parseFloat(y.style.getPropertyValue('--sig')) || 1;
-    while (this.tasiyor() && olcek > 0.5) { olcek = Math.round((olcek - 0.08) * 100) / 100; y.style.setProperty('--sig', String(olcek)); }
+    var enAz = this.grupKilit ? 0.36 : 0.5, adim = this.grupKilit ? 0.04 : 0.08;
+    while (this.tasiyor() && olcek > enAz) { olcek = Math.round((olcek - adim) * 100) / 100; y.style.setProperty('--sig', String(olcek)); }
+  };
+  // Henüz yazılmamış bloklar tahtaya (üstteki yazılarla birlikte) sığıyor mu? Görünmez eklenip ölçülür;
+  // sığana kadar yazı küçültülür (en çok enAz'a kadar). Sığarsa ölçek kalır.
+  Oynatici.prototype.olcekKoy = function (bloklar, enAz) {
+    var y = this.r.yazi, eski = y.style.getPropertyValue('--sig'), o = 1;
+    bloklar.forEach(function (el) { el.style.visibility = 'hidden'; y.appendChild(el); });
+    y.style.setProperty('--sig', '1');
+    while (this.tasiyor() && o > enAz) { o = Math.round((o - 0.04) * 100) / 100; y.style.setProperty('--sig', String(o)); }
+    var ok = !this.tasiyor();
+    bloklar.forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
+    if (!ok) { if (eski) y.style.setProperty('--sig', eski); else y.style.removeProperty('--sig'); }
+    return ok;
+  };
+  // Grup başı: soru tek tahtada; çözüm tek tahtada (sığmazsa tahta silinir, soru yeniden yazılır, gerekirse yalnız çözüm)
+  Oynatici.prototype.grupHazirla = function (i, anlik) {
+    var self = this, A = this.P.adimlar, a = A[i], g = a.grup, tur = a.grupTur, parca = [], soru = [], j;
+    for (j = i; j < A.length && A[j].grup === g && A[j].grupTur === tur; j++) parca.push(A[j]);
+    if (tur === 'c') for (j = i - 1; j >= 0 && A[j].grup === g && A[j].grupTur === 's'; j--) soru.unshift(A[j]);
+    var yap = function (l) { var els = []; l.forEach(function (s) { (s.w || s.h || []).forEach(function (b) { els.push(self.blok(b, s.oto)); }); }); return els; };
+    if (!this.r.yazi.querySelector('.blok')) { this.olcekKoy(yap(parca), 0.36); return Promise.resolve(); }
+    if (this.olcekKoy(yap(parca), 0.66)) return Promise.resolve(); // yazı çok küçülmeden soru ile çözüm birlikte
+    return this.sil(anlik).then(function () {
+      if (soru.length) { // soru yeniden (bir anda) yazılır, çözüm altına sığıyorsa öyle kalır
+        var sEl = yap(soru);
+        sEl.forEach(function (el) { self.r.yazi.appendChild(el); });
+        sEl.forEach(function (el) {
+          var kel = el.querySelectorAll('.w'); self.goster(kel, kel.length, true);
+          Array.prototype.forEach.call(el.querySelectorAll('svg[data-grafik]'), function (svg) { grafikHazirla(svg); grafikTamamla(svg, 1e9); });
+        });
+        if (self.olcekKoy(yap(parca), 0.66)) return;
+        self.temizle();
+      }
+      self.olcekKoy(yap(parca), 0.36);
+    });
   };
   Oynatici.prototype.sil = function (anlik) {
     var self = this, r = this.r;
@@ -2984,7 +3042,7 @@
   Oynatici.prototype.ekle = function (bloklar, oto, anlik) {
     var self = this, y = this.r.yazi, els = (bloklar || []).map(function (b) { return self.blok(b, oto); });
     els.forEach(function (el) { y.appendChild(el); });
-    if (els.length && this.tasiyor() && y.querySelectorAll('.blok').length > els.length) {
+    if (els.length && this.tasiyor() && y.querySelectorAll('.blok').length > els.length && !this.grupKilit) {
       els.forEach(function (el) { el.remove(); });
       return this.sil(anlik).then(function () { els.forEach(function (el) { y.appendChild(el); }); self.sigdir(); return els; });
     }
@@ -3275,11 +3333,20 @@
     for (var j = n - 1; j > 0; j--) if (A[j].sil) { bas = j; break; }
     this.temizle(); this.sahneGizle();
     if (bas > 0 && !('sahne' in A[bas])) for (var sj = bas - 1; sj >= 0; sj--) if ('sahne' in A[sj]) { this.sahneGoster(A[sj].sahne); break; }
-    for (var k = bas; k < n; k++) (function (a) {
+    var kj = this.kurJeton = (this.kurJeton || 0) + 1;
+    for (var k = bas; k < n; k++) (function (a, k) {
       zincir = zincir.then(function () {
-        if (a.sil) self.temizle();
+        if (kj !== self.kurJeton) return;
+        var onc = A[k - 1];
+        if (a.sil || (k > bas && onc && onc.grup && onc.grup !== a.grup)) self.temizle();
         if ('sahne' in a) self.sahneGoster(a.sahne);
-        return self.ekle(a.w || a.h || [], a.oto, true).then(function (els) {
+        return (a.grupBas ? self.grupHazirla(k, true) : Promise.resolve()).then(function () {
+          if (kj !== self.kurJeton) return [];
+          self.grupKilit = !!a.grup;
+          return self.ekle(a.w || a.h || [], a.oto, true);
+        }).then(function (els) {
+          self.grupKilit = false;
+          if (kj !== self.kurJeton) return;
           var kel = []; els.forEach(function (el) { kel.push.apply(kel, el.querySelectorAll('.w')); });
           self.goster(kel, kel.length, true);
           var gb = self.grafikBul(a, els); if (gb) grafikTamamla(gb.svg, gb.asama);
@@ -3288,7 +3355,7 @@
           if (a.halka) self.isaretle([a.halka], 'halka', true);
         });
       });
-    })(this.P.adimlar[k]);
+    })(this.P.adimlar[k], k);
     return zincir;
   };
   Oynatici.prototype.seslendir = function (a, els, jeton, kayit, sesi, kim, yuz) {
@@ -3346,16 +3413,19 @@
     var yuzSoz = kaynak === 'kayit' && this.yuzModu() === 'video' ? yuzOynatimAl(a.s) : Promise.resolve(null);
     var onSoz = pl && pl.on ? (bulutVar ? bulutAl(pl.on).catch(function () { return null; }) : Promise.resolve(null)) : null;
     if (kim) { this.ogretmenCins(sesi.cins); this.konusmaciGoster(kim); }
-    var hazir = a.sil ? this.sil(false) : Promise.resolve();
+    var onc = i > 0 ? this.P.adimlar[i - 1] : null, grupBitti = !!(onc && onc.grup && onc.grup !== a.grup);
+    var hazir = (a.sil || grupBitti ? this.sil(false) : Promise.resolve()).then(function () { if (a.grupBas && jeton === self.P.jeton) return self.grupHazirla(i, false); });
     var once = onSoz ? Promise.all([hazir, onSoz]).then(function (r) { if (jeton !== self.P.jeton) return; return self.araSoz(pl.on, r[1], sesi, kim, jeton); }) : hazir;
     return Promise.all([once, kayitSoz, yuzSoz]).then(function (sonuc) {
       var yuz = sonuc[1] && sonuc[1].url && !sonuc[1].bulut ? sonuc[2] : null;
       if (!yuz) yuzSal(sonuc[2]);
       if (jeton !== self.P.jeton) { yuzSal(yuz); return; }
       if ('sahne' in a) self.sahneGoster(a.sahne);
+      self.grupKilit = !!a.grup;
       return self.ekle(a.w || a.h || [], a.oto, false).then(function (els) {
         if (jeton !== self.P.jeton) return;
         self.grafikSu = self.grafikBul(a, els);
+        self.grupKilit = false;
         var eylem = a.yap ? self.sahneYap(a.yap, false) : Promise.resolve();
         return Promise.all([self.seslendir(a, els, jeton, sonuc[1], sesi, kim, yuz), eylem]);
       });
@@ -5400,7 +5470,7 @@
       }
       o.golge = vGolge(st.textShadow);
       o.cizgi = !!w.closest('.b-title');
-      o.tebesir = tebesir && !w.closest('.b-q,.b-qd');
+      o.tebesir = tebesir;
       o.runs = []; metinler(w, R0, o.runs, w);
       return o;
     };
